@@ -1,0 +1,9 @@
+{
+  "course_id": "cocina",
+  "message": "Quiero aprender a cocinar arroz blanco",
+  "profile": {
+    "preferred_name": "Gustavo",
+    "learning_objective": "Cocinar en casa",
+    "level": "basico"
+  }
+}
