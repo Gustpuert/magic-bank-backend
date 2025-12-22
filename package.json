@@ -1,0 +1,14 @@
+{
+  "name": "magic-bank-backend",
+  "version": "1.0.0",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5",
+    "openai": "^4.52.0"
+  }
+}
