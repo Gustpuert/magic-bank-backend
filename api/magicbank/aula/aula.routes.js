@@ -1,8 +1,23 @@
 const express = require("express");
 const router = express.Router();
 
-const { handleAulaMessage } = require("./aula.controller");
+const { enviarMensajeAula } = require("./aula.controller");
 
-router.post("/message", handleAulaMessage);
+/**
+ * Rutas del Aula MagicBank
+ * Todas las interacciones del alumno pasan por aquí
+ */
+
+// Enviar mensaje al aula (tutor gobernado)
+router.post("/", enviarMensajeAula);
+
+// Ruta de prueba / salud del aula
+router.get("/status", (req, res) => {
+  res.json({
+    ok: true,
+    aula: "MagicBank Aula activa",
+    timestamp: new Date().toISOString()
+  });
+});
 
 module.exports = router;
