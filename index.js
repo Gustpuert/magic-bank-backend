@@ -7,16 +7,16 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Ruta base de prueba
+// RUTA CORRECTA (nota el /aula/aula.routes)
+const aulaRoutes = require("./api/magicbank/aula/aula.routes");
+
+// Health check
 app.get("/", (req, res) => {
-  res.send("MagicBank Backend OK");
+  res.json({ status: "MagicBank Backend OK" });
 });
 
-// 🔴 RUTA CORREGIDA (ESTA ERA LA CAUSA DEL ERROR)
-app.use(
-  "/api/magicbank/aula",
-  require("./api/magicbank/aula/aula.routes")
-);
+// Aula API
+app.use("/api/magicbank/aula", aulaRoutes);
 
 // Puerto Railway
 const PORT = process.env.PORT || 8080;
