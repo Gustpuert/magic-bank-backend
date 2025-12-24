@@ -1,37 +1,28 @@
-const tutorService = require("../../services/tutor.service");
-const voiceService = require("../../services/voice.service");
-const reglasDecision = require("../../pedagogia/reglas_decision");
+const { runTutor } = require("../../services/tutor.service");
+const reglasDecision = require("../../../pedagogia/reglas_decision");
 
-async function runAula({ course_id, message, profile }) {
-  // 1. Ejecutar tutor
-  const tutorResponse = await tutorService.runTutor({
-    context: course_id || "general",
+async function runAula({ message, course_id, profile }) {
+  if (!message) {
+    throw new Error("Mensaje vacío");
+  }
+
+  // Aplicación de reglas pedagógicas
+  const decision = reglasDecision.evaluar({
     message,
     profile,
+    course_id,
   });
 
-  // 2. Evaluar estado pedagógico
-  const pedagogicState = reglasDecision.evaluar({
-    message,
+  // Tutor principal
+  const response = await runTutor({
+    course_id,
+    message: decision.message,
     profile,
-    tutorText: tutorResponse.text,
   });
-
-  // 3. Generar voz adaptativa
-  const voiceResult = await voiceService.textToSpeech(
-    tutorResponse.text,
-    pedagogicState
-  );
 
   return {
-    text: tutorResponse.text,
-    audio_base64: voiceResult.audioBase64,
-    pedagogia: pedagogicState,
-    voz: voiceResult.voiceProfile,
-    metadata: {
-      course_id,
-      timestamp: Date.now(),
-    },
+    text: response.text,
+    decision,
   };
 }
 
