@@ -1,20 +1,8 @@
-function evaluar({ message, profile, tutorText }) {
-  const nivel = profile?.nivel || "medio";
-
-  const confusion =
-    message.length < 10 ||
-    /no entiendo|confuso|otra vez/i.test(message);
-
-  let progreso = "normal";
-
-  if (nivel === "alto" && message.length > 40) {
-    progreso = "rapido";
-  }
-
+function evaluar({ message, profile, course_id }) {
   return {
-    nivel,
-    confusion,
-    progreso,
+    message,
+    nivel_detectado: profile?.nivel || "desconocido",
+    estrategia: "explicacion_progresiva",
   };
 }
 
