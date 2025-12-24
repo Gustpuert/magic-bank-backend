@@ -1,9 +1,8 @@
 const express = require("express");
 const router = express.Router();
+const controller = require("./aula.controller");
 
-const aulaController = require("./aula.controller");
-
-// 🔥 AQUÍ ESTABA EL PROBLEMA SI runAula NO EXISTÍA
-router.post("/", aulaController.runAula);
+router.post("/texto", controller.aulaTexto);
+router.post("/voz", controller.aulaVoz);
 
 module.exports = router;
