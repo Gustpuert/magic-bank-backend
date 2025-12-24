@@ -1,15 +1,21 @@
-const aulaService = require("./aula.service");
+import { runAula } from "./aula.service.js";
 
-async function aulaTexto(req, res) {
+export async function aulaTexto(req, res) {
   try {
-    const result = await aulaService.runAula(req.body);
-    res.json(result);
+    const { message, profile, course_id } = req.body;
+
+    const result = await runAula({
+      message,
+      profile,
+      course_id
+    });
+
+    return res.json(result);
+
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
+    console.error("Aula error:", error);
+    return res.status(500).json({
+      response: "Error interno del tutor"
+    });
   }
 }
-
-module.exports = {
-  aulaTexto,
-};
