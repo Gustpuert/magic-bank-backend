@@ -1,24 +1,77 @@
+/**
+ * MagicBank Backend
+ * Index principal - Railway Safe
+ * NO cerrar procesos
+ * NO puertos fijos
+ * Manejo de errores correcto
+ */
+
 const express = require("express");
 const cors = require("cors");
+const path = require("path");
 
 const app = express();
 
-// Middlewares básicos
-app.use(cors());
-app.use(express.json());
+/* =========================
+   CONFIGURACIÓN BÁSICA
+========================= */
 
-// 🔑 RUTA DE VIDA (CRÍTICA PARA RAILWAY)
+app.use(cors());
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+/* =========================
+   RUTAS PRINCIPALES
+========================= */
+
+// Health check (Railway lo usa)
 app.get("/", (req, res) => {
   res.status(200).send("MagicBank Backend OK");
 });
 
-// Rutas reales de la app
-const aulaRoutes = require("./api/magicbank/aula/aula.routes");
-app.use("/api/magicbank/aula", aulaRoutes);
+// Aula MagicBank
+app.use(
+  "/api/magicbank/aula",
+  require("./api/magicbank/aula.routes")
+);
 
-// Puerto correcto para Railway
+// (Opcional) otros módulos futuros
+// app.use("/api/students", require("./api/students"));
+// app.use("/api/reports", require("./api/reports"));
+
+/* =========================
+   MANEJO DE ERRORES GLOBAL
+========================= */
+
+app.use((err, req, res, next) => {
+  console.error("🔥 Error global:", err);
+
+  res.status(500).json({
+    error: "Error interno del servidor",
+    message: err.message || "Error desconocido",
+  });
+});
+
+/* =========================
+   SERVIDOR (OBLIGATORIO)
+========================= */
+
+// Railway asigna el puerto dinámicamente
 const PORT = process.env.PORT || 8080;
 
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
+  console.log("🚀 MagicBank Backend corriendo en puerto", PORT);
+});
+
+/* =========================
+   PROTECCIÓN ANTI-SIGTERM
+========================= */
+
+// Evita cierres silenciosos
+process.on("unhandledRejection", (reason) => {
+  console.error("❌ Unhandled Rejection:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught Exception:", err);
 });
