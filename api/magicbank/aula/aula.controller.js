@@ -5,7 +5,10 @@ async function aulaTexto(req, res) {
     const result = await aulaService.runAula(req.body);
     res.json(result);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error en aulaTexto:", error.message);
+    res.status(500).json({
+      error: error.message,
+    });
   }
 }
 
