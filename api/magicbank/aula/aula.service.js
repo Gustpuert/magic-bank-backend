@@ -1,17 +1,30 @@
+const path = require("path");
+const { runTutor } = require("../../services/tutor.service");
+
+const reglasDecision = require(
+  path.join(process.cwd(), "pedagogia", "reglas_decision")
+);
+
 async function runAula({ message, course_id, profile }) {
   if (!message) {
     throw new Error("Mensaje vacío");
   }
 
-  const name = profile?.preferred_name || "Estudiante";
+  const decision = reglasDecision.evaluar({
+    message,
+    profile,
+    course_id,
+  });
 
-  // Respuesta mínima garantizada (para que NUNCA quede en silencio)
+  const response = await runTutor({
+    context: course_id,
+    message: decision.message,
+    profile,
+  });
+
   return {
-    text: `Hola ${name}. Recibí tu mensaje: "${message}". El aula MagicBank está operativa.`,
-    meta: {
-      course_id: course_id || "general",
-      timestamp: new Date().toISOString(),
-    },
+    text: response.text,
+    decision,
   };
 }
 
