@@ -6,6 +6,7 @@ const {
   getStudentProgress,
   updateStudentProgress,
 } = require("../../services/student.progress.store");
+const { extraerVeredicto } = require("../../services/veredicto.parser");
 
 const reglasDecision = require(
   path.join(process.cwd(), "pedagogia", "reglas_decision")
@@ -18,16 +19,16 @@ async function runAula({ message, course_id, profile }) {
   const studentId =
     profile?.student_id || profile?.preferred_name || "anonimo";
 
-  // Validación académica
+  // 1️⃣ Validación académica
   const academicEntity = resolveAcademicEntity(course_id);
   if (!academicEntity) {
     throw new Error(`Entidad académica no existe: ${course_id}`);
   }
 
-  // 📌 Cargar progreso persistido
+  // 2️⃣ Cargar progreso persistido
   const progreso = getStudentProgress(studentId, course_id);
 
-  // Reglas pedagógicas
+  // 3️⃣ Reglas pedagógicas
   const decision = reglasDecision.evaluar({
     message,
     profile: {
@@ -38,7 +39,7 @@ async function runAula({ message, course_id, profile }) {
     institucion: academicEntity.tipo,
   });
 
-  // Tutor responde
+  // 4️⃣ Tutor responde
   const response = await runTutor({
     course_id,
     message: decision.message,
@@ -46,30 +47,33 @@ async function runAula({ message, course_id, profile }) {
     academic: academicEntity,
   });
 
+  // 5️⃣ Extraer veredicto institucional
+  const veredicto = extraerVeredicto(response.text);
+
   let estadoFinal = progreso;
 
-  // 🧪 University: aplicar resultado de examen si existe
+  // 6️⃣ Ejecutar decisión institucional (University)
   if (
     academicEntity.tipo === "university" &&
     decision.requiere_examen &&
-    decision.resultado_examen
+    veredicto
   ) {
     estadoFinal = evaluarExamen({
-      resultado: decision.resultado_examen,
+      resultado: veredicto,
       estadoAlumno: progreso,
     });
 
-    // Persistir
     updateStudentProgress(studentId, course_id, estadoFinal);
   }
 
   return {
-    text: response.text,
+    text: response.text.replace(/\[VEREDICTO\][\s\S]*?\[\/VEREDICTO\]/i, "").trim(),
     academic: {
       tipo: academicEntity.tipo,
       id: course_id,
     },
     progreso: estadoFinal,
+    veredicto,
     decision,
   };
 }
