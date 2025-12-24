@@ -1,37 +1,26 @@
-const { runTutor } = require("../../services/tutor.service");
+const aulaService = require("./aula.service");
 
-async function aulaController(req, res) {
+async function runAula(req, res) {
   try {
     const { course_id, message, profile } = req.body;
 
-    // Validaciones mínimas
-    if (!course_id || !message) {
-      return res.status(400).json({
-        error: "course_id y message son obligatorios"
-      });
+    if (!message) {
+      return res.status(400).json({ error: "Mensaje requerido" });
     }
 
-    // Llamada al tutor
-    const response = await runTutor({
+    const response = await aulaService.runAula({
       course_id,
       message,
-      profile
+      profile,
     });
 
-    // RESPUESTA GARANTIZADA
-    return res.json({
-      success: true,
-      text: response.text
-    });
-
+    res.json(response);
   } catch (error) {
-    console.error("ERROR EN AULA:", error.message);
-
-    return res.status(500).json({
-      success: false,
-      error: error.message || "Error interno del aula"
-    });
+    console.error("Error en runAula:", error);
+    res.status(500).json({ error: "Error interno del aula" });
   }
 }
 
-module.exports = { aulaController };
+module.exports = {
+  runAula, // 👈 ESTO ES CLAVE
+};
