@@ -1,28 +1,27 @@
 const path = require("path");
 const { runTutor } = require("../../services/tutor.service");
 const { resolveAcademicEntity } = require("../../services/academic.loader");
+const { evaluarExamen } = require("../../services/exam.engine");
 
 const reglasDecision = require(
   path.join(process.cwd(), "pedagogia", "reglas_decision")
 );
 
 async function runAula({ message, course_id, profile }) {
-  if (!message) {
-    throw new Error("Mensaje vacío");
-  }
+  if (!message) throw new Error("Mensaje vacío");
+  if (!course_id) throw new Error("course_id es obligatorio");
 
-  if (!course_id) {
-    throw new Error("course_id es obligatorio");
-  }
-
-  // 🔒 Validación académica canónica
   const academicEntity = resolveAcademicEntity(course_id);
-
   if (!academicEntity) {
-    throw new Error(`Curso o facultad no existe en MagicBank: ${course_id}`);
+    throw new Error(`Entidad académica no existe: ${course_id}`);
   }
 
-  // Aplicar reglas pedagógicas
+  // Estado académico del alumno (temporal, luego persistente)
+  const estadoAlumno = {
+    modulo_actual: profile?.modulo_actual || 1,
+  };
+
+  // Reglas pedagógicas
   const decision = reglasDecision.evaluar({
     message,
     profile,
@@ -30,7 +29,7 @@ async function runAula({ message, course_id, profile }) {
     institucion: academicEntity.tipo,
   });
 
-  // Tutor
+  // Tutor responde
   const response = await runTutor({
     course_id,
     message: decision.message,
@@ -38,13 +37,27 @@ async function runAula({ message, course_id, profile }) {
     academic: academicEntity,
   });
 
+  // ⚠️ Simulación de veredicto (placeholder)
+  // Luego vendrá desde el tutor
+  let estadoFinal = estadoAlumno;
+
+  if (academicEntity.tipo === "university" && decision.requiere_examen) {
+    const resultado = decision.resultado_examen || null;
+    if (resultado) {
+      estadoFinal = evaluarExamen({
+        resultado,
+        estadoAlumno,
+      });
+    }
+  }
+
   return {
     text: response.text,
     academic: {
       tipo: academicEntity.tipo,
       id: course_id,
-      nombre: academicEntity.data.nombre || academicEntity.data.facultad,
     },
+    estado_academico: estadoFinal,
     decision,
   };
 }
