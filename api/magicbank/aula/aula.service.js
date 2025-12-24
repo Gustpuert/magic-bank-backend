@@ -1,67 +1,39 @@
-const fs = require("fs");
 const path = require("path");
-const { runTutor } = require("../tutors/tutor-connector");
-const reglasDecision = require("../../pedagogia/reglas_decision");
-const metricasBase = require("../../pedagogia/metricas_aprendizaje.json");
+const { runTutor } = require("../../services/tutor.service");
 
 /**
  * Servicio central del Aula MagicBank
- * Aplica pedagogía constitucional antes de responder
+ * Orquesta el tutor según curso, alumno y mensaje
  */
-async function procesarAula({ student, course_id, message }) {
-  // 1. Validaciones mínimas
+async function procesarMensajeAula({ course_id, message, student }) {
   if (!course_id) {
     throw new Error("course_id es obligatorio");
   }
 
   if (!message) {
-    throw new Error("Mensaje del alumno vacío");
+    throw new Error("message es obligatorio");
   }
 
-  // 2. Inicializar métricas del alumno (base + estado actual)
-  const metricasAlumno = {
-    ...metricasBase,
-    errores_consecutivos: student?.errores_consecutivos || 0,
-    nivel_actual: student?.nivel_actual || "medio",
-    dominio_estimado: student?.dominio_estimado || 0.5,
-    intentos: student?.intentos || 1
-  };
-
-  // 3. Ejecutar motor de reglas pedagógicas
-  const decisionPedagogica = reglasDecision(metricasAlumno);
-
-  /*
-    decisionPedagogica ejemplo:
-    {
-      nivel_explicacion: "básico" | "intermedio" | "avanzado",
-      estrategia: "retroceder" | "mantener" | "avanzar",
-      tono: "simple" | "normal" | "tecnico"
-    }
-  */
-
-  // 4. Construir perfil pedagógico para el tutor
-  const perfilTutor = {
+  // Perfil mínimo del estudiante
+  const profile = {
     preferred_name: student?.name || "Alumno",
-    nivel_explicacion: decisionPedagogica.nivel_explicacion,
-    estrategia: decisionPedagogica.estrategia,
-    tono: decisionPedagogica.tono
+    level: student?.level || "desconocido"
   };
 
-  // 5. Llamada al tutor gobernado
-  const respuestaTutor = await runTutor({
+  // Llamada al tutor inteligente
+  const tutorResponse = await runTutor({
     course_id,
     message,
-    profile: perfilTutor
+    profile
   });
 
-  // 6. Retorno estandarizado para el controller
   return {
-    ok: true,
-    pedagogia: decisionPedagogica,
-    respuesta: respuestaTutor.text
+    success: true,
+    course_id,
+    response: tutorResponse.text
   };
 }
 
 module.exports = {
-  procesarAula
+  procesarMensajeAula
 };
