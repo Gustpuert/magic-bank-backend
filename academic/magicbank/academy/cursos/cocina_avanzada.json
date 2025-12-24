@@ -1,1 +1,76 @@
 
+{
+  "id": "cocina_avanzada",
+  "institucion": "magicbank_academy",
+  "nombre": "Cocina Avanzada",
+  "descripcion": "Curso práctico y profesional de cocina avanzada con enfoque productivo y comercial.",
+  "nivel_maximo": 5,
+  "tipo": "curso",
+  "modalidad": "guiado",
+  "tutor_principal": "tutor_cocina_academy",
+
+  "objetivos": [
+    "Dominar técnicas avanzadas de cocina",
+    "Optimizar procesos productivos",
+    "Preparar recetas con estándar comercial"
+  ],
+
+  "niveles": [
+    {
+      "nivel": 1,
+      "titulo": "Bases avanzadas",
+      "dificultad": "media",
+      "contenidos": [
+        "Mise en place profesional",
+        "Control de tiempos",
+        "Seguridad alimentaria avanzada"
+      ]
+    },
+    {
+      "nivel": 2,
+      "titulo": "Técnicas profesionales",
+      "dificultad": "media-alta",
+      "contenidos": [
+        "Cocciones complejas",
+        "Reducciones y fondos",
+        "Texturas y emplatado"
+      ]
+    },
+    {
+      "nivel": 3,
+      "titulo": "Producción",
+      "dificultad": "alta",
+      "contenidos": [
+        "Cocina por volumen",
+        "Optimización de costos",
+        "Estandarización"
+      ]
+    },
+    {
+      "nivel": 4,
+      "titulo": "Negocio gastronómico",
+      "dificultad": "alta",
+      "contenidos": [
+        "Escalabilidad",
+        "Control de inventario",
+        "Rentabilidad"
+      ]
+    },
+    {
+      "nivel": 5,
+      "titulo": "Maestría",
+      "dificultad": "experto",
+      "contenidos": [
+        "Creación de marca",
+        "Producto insignia",
+        "Evaluación final práctica"
+      ]
+    }
+  ],
+
+  "certificacion": {
+    "otorga": true,
+    "tipo": "Certificado MagicBank Academy",
+    "condicion": "Completar todos los niveles"
+  }
+}
