@@ -12,8 +12,8 @@ async function runTutor({ course_id, message, profile }) {
     throw new Error("OPENAI_API_KEY no está definida");
   }
 
-  // 2. Construcción del path del system prompt
-  const promptPath = path.join(
+  // 2. Path del system prompt del tutor
+  const tutorPromptPath = path.join(
     process.cwd(),
     "api",
     "magicbank",
@@ -22,25 +22,43 @@ async function runTutor({ course_id, message, profile }) {
     "system_prompt.txt"
   );
 
-  // 3. Verificación de existencia del prompt
-  if (!fs.existsSync(promptPath)) {
+  if (!fs.existsSync(tutorPromptPath)) {
     throw new Error(`System prompt no encontrado para el curso: ${course_id}`);
   }
 
-  // 4. Lectura del prompt
-  const systemPrompt = fs.readFileSync(promptPath, "utf-8");
+  const tutorSystemPrompt = fs.readFileSync(tutorPromptPath, "utf-8");
 
-  // 5. Llamada oficial a OpenAI (forma correcta)
+  // 3. Path de la Constitución Pedagógica MagicBank
+  const pedagogiaPath = path.join(
+    process.cwd(),
+    "pedagogia",
+    "constitucion_magicbank.txt"
+  );
+
+  if (!fs.existsSync(pedagogiaPath)) {
+    throw new Error("Constitución MagicBank no encontrada");
+  }
+
+  const pedagogiaRules = fs.readFileSync(pedagogiaPath, "utf-8");
+
+  // 4. Construcción del contexto del alumno
+  const studentContext = `Alumno: ${profile?.preferred_name || "Alumno"}`;
+
+  // 5. Llamada oficial a OpenAI
   const response = await openai.responses.create({
     model: "gpt-4.1-mini",
     input: [
       {
         role: "system",
-        content: systemPrompt
+        content: tutorSystemPrompt
       },
       {
         role: "system",
-        content: `Alumno: ${profile?.preferred_name || "Alumno"}`
+        content: pedagogiaRules
+      },
+      {
+        role: "system",
+        content: studentContext
       },
       {
         role: "user",
