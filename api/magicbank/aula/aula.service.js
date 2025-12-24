@@ -2,6 +2,10 @@ const path = require("path");
 const { runTutor } = require("../../services/tutor.service");
 const { resolveAcademicEntity } = require("../../services/academic.loader");
 const { evaluarExamen } = require("../../services/exam.engine");
+const {
+  getStudentProgress,
+  updateStudentProgress,
+} = require("../../services/student.progress.store");
 
 const reglasDecision = require(
   path.join(process.cwd(), "pedagogia", "reglas_decision")
@@ -11,20 +15,25 @@ async function runAula({ message, course_id, profile }) {
   if (!message) throw new Error("Mensaje vacío");
   if (!course_id) throw new Error("course_id es obligatorio");
 
+  const studentId =
+    profile?.student_id || profile?.preferred_name || "anonimo";
+
+  // Validación académica
   const academicEntity = resolveAcademicEntity(course_id);
   if (!academicEntity) {
     throw new Error(`Entidad académica no existe: ${course_id}`);
   }
 
-  // Estado académico del alumno (temporal, luego persistente)
-  const estadoAlumno = {
-    modulo_actual: profile?.modulo_actual || 1,
-  };
+  // 📌 Cargar progreso persistido
+  const progreso = getStudentProgress(studentId, course_id);
 
   // Reglas pedagógicas
   const decision = reglasDecision.evaluar({
     message,
-    profile,
+    profile: {
+      ...profile,
+      modulo_actual: progreso.modulo_actual,
+    },
     course_id,
     institucion: academicEntity.tipo,
   });
@@ -37,18 +46,21 @@ async function runAula({ message, course_id, profile }) {
     academic: academicEntity,
   });
 
-  // ⚠️ Simulación de veredicto (placeholder)
-  // Luego vendrá desde el tutor
-  let estadoFinal = estadoAlumno;
+  let estadoFinal = progreso;
 
-  if (academicEntity.tipo === "university" && decision.requiere_examen) {
-    const resultado = decision.resultado_examen || null;
-    if (resultado) {
-      estadoFinal = evaluarExamen({
-        resultado,
-        estadoAlumno,
-      });
-    }
+  // 🧪 University: aplicar resultado de examen si existe
+  if (
+    academicEntity.tipo === "university" &&
+    decision.requiere_examen &&
+    decision.resultado_examen
+  ) {
+    estadoFinal = evaluarExamen({
+      resultado: decision.resultado_examen,
+      estadoAlumno: progreso,
+    });
+
+    // Persistir
+    updateStudentProgress(studentId, course_id, estadoFinal);
   }
 
   return {
@@ -57,7 +69,7 @@ async function runAula({ message, course_id, profile }) {
       tipo: academicEntity.tipo,
       id: course_id,
     },
-    estado_academico: estadoFinal,
+    progreso: estadoFinal,
     decision,
   };
 }
