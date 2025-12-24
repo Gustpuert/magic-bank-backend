@@ -1,1 +1,23 @@
+{
+  "id": "magicbank_council",
+  "institucion": "council",
+  "nombre": "MagicBank Council",
+  "descripcion": "Consejo de sabios compuesto por tutores de todas las facultades.",
+  "tipo": "consultivo",
 
+  "participantes": [
+    "tutor_administracion",
+    "tutor_derecho",
+    "tutor_contaduria",
+    "tutor_software",
+    "tutor_marketing",
+    "bienestar_tutor_pro",
+    "super_traductor"
+  ],
+
+  "uso": [
+    "Evaluación de proyectos",
+    "Consejos estratégicos",
+    "Decisiones multidisciplinarias"
+  ]
+}
