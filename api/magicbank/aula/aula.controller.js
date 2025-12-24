@@ -1,17 +1,8 @@
-const { procesarMensajeAula } = require("./aula.service");
+const { runTutor } = require("../../services/tutor.service");
 
-/**
- * Controlador del Aula MagicBank
- * Punto de entrada HTTP para mensajes del aula
- */
-async function enviarMensajeAula(req, res) {
+async function aulaController(req, res) {
   try {
-    const {
-      student_id,
-      course_id,
-      message,
-      perfilAlumno
-    } = req.body;
+    const { course_id, message, profile } = req.body;
 
     // Validaciones mínimas
     if (!course_id || !message) {
@@ -20,34 +11,27 @@ async function enviarMensajeAula(req, res) {
       });
     }
 
-    // Llamada al servicio central del aula
-    const resultado = await procesarMensajeAula({
-      student_id,
+    // Llamada al tutor
+    const response = await runTutor({
       course_id,
       message,
-      perfilAlumno
+      profile
     });
 
-    // Respuesta normalizada para el frontend
+    // RESPUESTA GARANTIZADA
     return res.json({
-      ok: true,
-      aula: {
-        respuesta: resultado.respuesta,
-        decision_pedagogica: resultado.decision_pedagogica,
-        metricas: resultado.metricas_actualizadas
-      }
+      success: true,
+      text: response.text
     });
 
   } catch (error) {
-    console.error("Error en aula.controller:", error);
+    console.error("ERROR EN AULA:", error.message);
 
     return res.status(500).json({
-      ok: false,
+      success: false,
       error: error.message || "Error interno del aula"
     });
   }
 }
 
-module.exports = {
-  enviarMensajeAula
-};
+module.exports = { aulaController };
