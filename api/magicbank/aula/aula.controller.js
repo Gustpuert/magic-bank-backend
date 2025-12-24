@@ -1,26 +1,37 @@
 const aulaService = require("./aula.service");
+const speechService = require("../../services/speech.service");
 
-async function runAula(req, res) {
+async function aulaTexto(req, res) {
   try {
-    const { course_id, message, profile } = req.body;
+    const result = await aulaService.runAula(req.body);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+}
 
-    if (!message) {
-      return res.status(400).json({ error: "Mensaje requerido" });
-    }
+async function aulaVoz(req, res) {
+  try {
+    const { audio_base64, course_id, profile } = req.body;
 
-    const response = await aulaService.runAula({
+    const texto = await speechService.speechToText(audio_base64);
+
+    const result = await aulaService.runAula({
+      message: texto,
       course_id,
-      message,
       profile,
     });
 
-    res.json(response);
+    res.json({
+      ...result,
+      texto_detectado: texto,
+    });
   } catch (error) {
-    console.error("Error en runAula:", error);
-    res.status(500).json({ error: "Error interno del aula" });
+    res.status(500).json({ error: error.message });
   }
 }
 
 module.exports = {
-  runAula, // 👈 ESTO ES CLAVE
+  aulaTexto,
+  aulaVoz,
 };
