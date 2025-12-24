@@ -1,19 +1,12 @@
-async function runTutor({ course_id, message, profile }) {
-  const name = profile?.preferred_name || "Estudiante";
+export async function runTutor({ message, profile, course_id }) {
 
-  // Seguridad básica
-  if (!course_id) {
-    throw new Error("course_id no definido en runTutor");
-  }
+  // Valor por defecto
+  const resolvedCourse = course_id || "general";
+
+  const response = `Tutor (${resolvedCourse}): recibí tu mensaje "${message}".`;
 
   return {
-    text: `Hola ${name}. En el curso de ${course_id.replace(
-      /_/g,
-      " "
-    )}, te explico: ${message}`,
+    response,
+    course_id: resolvedCourse
   };
 }
-
-module.exports = {
-  runTutor,
-};
