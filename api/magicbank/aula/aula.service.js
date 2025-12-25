@@ -13,27 +13,29 @@ function tutorAprueba(texto) {
     "HAS SUPERADO EL MÓDULO"
   ];
 
-  const textoUpper = texto.toUpperCase();
-  return señales.some(señal => textoUpper.includes(señal));
+  return señales.some(s => texto.toUpperCase().includes(s));
+}
+
+function detectarModuloRecomendado(texto, totalModulos) {
+  if (!texto) return null;
+
+  const match = texto.match(/módulo\s*(\d+)/i);
+  if (!match) return null;
+
+  const modulo = parseInt(match[1], 10);
+  if (modulo >= 1 && modulo <= totalModulos) {
+    return modulo;
+  }
+
+  return null;
 }
 
 function intentaSaltarModulo(message, moduloActual) {
-  const patrones = [
-    /módulo\s*(\d+)/i,
-    /modulo\s*(\d+)/i
-  ];
+  const match = message.match(/módulo\s*(\d+)/i);
+  if (!match) return false;
 
-  for (const patron of patrones) {
-    const match = message.match(patron);
-    if (match) {
-      const moduloSolicitado = parseInt(match[1], 10);
-      if (moduloSolicitado > moduloActual) {
-        return true;
-      }
-    }
-  }
-
-  return false;
+  const solicitado = parseInt(match[1], 10);
+  return solicitado > moduloActual;
 }
 
 async function runAula({ message, course_id, profile }) {
@@ -52,28 +54,26 @@ async function runAula({ message, course_id, profile }) {
 
   const progreso = JSON.parse(fs.readFileSync(progresoPath, "utf-8"));
 
-  const moduloActual = progreso.modulo_actual;
+  let moduloActual = progreso.modulo_actual;
   const totalModulos = progreso.total_modulos;
 
   // 2. Detectar intento de salto
   const salto = intentaSaltarModulo(message, moduloActual);
 
-  // 3. Contexto pedagógico invisible
+  // 3. Contexto invisible
   let contexto = `
 Curso: ${course_id}
 Módulo actual: ${moduloActual} de ${totalModulos}
 
-Enseña exclusivamente el contenido del módulo actual.
-Evalúa cuando lo consideres necesario.
-No avances si el alumno no domina la técnica.
-Declara explícitamente cuando el módulo esté APROBADO.
+Si es una interacción inicial, evalúa el nivel del alumno.
+Si detectas que debe iniciar en otro módulo, indícalo explícitamente.
+No avances sin aprobación.
 `;
 
   if (salto) {
     contexto += `
-El alumno intenta acceder a contenido de módulos posteriores.
-Redirígelo con firmeza y pedagogía al módulo actual.
-No expliques contenidos futuros.
+El alumno intenta acceder a módulos posteriores.
+Redirígelo con firmeza al módulo actual.
 `;
   }
 
@@ -86,7 +86,23 @@ No expliques contenidos futuros.
 
   const textoTutor = response.text || "";
 
-  // 5. Evaluar aprobación
+  // 5. Diagnóstico inicial (solo si aún está en módulo 1)
+  if (moduloActual === 1) {
+    const recomendado = detectarModuloRecomendado(textoTutor, totalModulos);
+
+    if (recomendado && recomendado !== moduloActual) {
+      progreso.modulo_actual = recomendado;
+      moduloActual = recomendado;
+
+      fs.writeFileSync(
+        progresoPath,
+        JSON.stringify(progreso, null, 2),
+        "utf-8"
+      );
+    }
+  }
+
+  // 6. Evaluar aprobación
   const aprobado = tutorAprueba(textoTutor);
 
   if (aprobado && moduloActual < totalModulos) {
