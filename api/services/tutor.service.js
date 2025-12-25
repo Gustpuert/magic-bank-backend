@@ -1,30 +1,37 @@
 /**
  * Tutor Service - MagicBank
- * Usa OpenAI SDK oficial
- * System prompt SIEMPRE invisible
+ * Conecta tutores reales (ej: ElChef) vía OpenAI API
+ * CommonJS compatible con Railway
  */
 
 const fs = require("fs");
 const path = require("path");
 const OpenAI = require("openai");
 
-const client = new OpenAI({
+/* =========================
+   CLIENTE OPENAI
+========================= */
+const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-/**
- * Ejecuta un tutor específico según course_id
- */
+/* =========================
+   RUN TUTOR (REAL)
+========================= */
 async function runTutor({ message, profile, course_id }) {
+
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY no definida en el entorno");
+  }
+
   if (!course_id) {
-    throw new Error("course_id requerido para ejecutar tutor");
+    throw new Error("course_id es obligatorio");
   }
 
   /* =========================
-     RESOLVER SYSTEM PROMPT
+     CARGA SYSTEM PROMPT REAL
   ========================= */
-
-  const tutorPromptPath = path.join(
+  const promptPath = path.join(
     process.cwd(),
     "api",
     "magicbank",
@@ -33,44 +40,52 @@ async function runTutor({ message, profile, course_id }) {
     "system_prompt.txt"
   );
 
-  if (!fs.existsSync(tutorPromptPath)) {
-    throw new Error(`System prompt no encontrado para tutor ${course_id}`);
+  if (!fs.existsSync(promptPath)) {
+    throw new Error(`system_prompt.txt no encontrado para ${course_id}`);
   }
 
-  const systemPrompt = fs.readFileSync(tutorPromptPath, "utf-8");
+  const systemPrompt = fs.readFileSync(promptPath, "utf-8");
+
+  const alumno = profile?.preferred_name || "Alumno";
+
+  /* =========================
+     MENSAJES AL MODELO
+  ========================= */
+  const messages = [
+    {
+      role: "system",
+      content: systemPrompt
+    },
+    {
+      role: "system",
+      content: `Alumno: ${alumno}`
+    },
+    {
+      role: "user",
+      content: message
+    }
+  ];
 
   /* =========================
      LLAMADA A OPENAI
   ========================= */
-
-  const completion = await client.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0.3,
-    messages: [
-      {
-        role: "system",
-        content: systemPrompt
-      },
-      {
-        role: "user",
-        content: message
-      }
-    ]
+  const completion = await openai.chat.completions.create({
+    model: "gpt-4.1",
+    messages,
+    temperature: 0.3
   });
 
-  const text = completion.choices[0]?.message?.content;
+  const text = completion.choices?.[0]?.message?.content;
 
   if (!text) {
-    throw new Error("Respuesta vacía del modelo");
+    throw new Error("OpenAI no devolvió contenido del tutor");
   }
 
   /* =========================
      RESPUESTA LIMPIA
   ========================= */
-
   return {
-    text,
-    tutor: course_id
+    text
   };
 }
 
