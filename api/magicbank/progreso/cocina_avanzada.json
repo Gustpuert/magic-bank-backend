@@ -1,0 +1,24 @@
+{
+  "alumno_id": "gustavo",
+  "curso": "cocina_avanzada",
+  "modulo_actual": 1,
+  "estado": "en_progreso",
+  "total_modulos": 15,
+  "modulos": {
+    "1": { "aprobado": false },
+    "2": { "aprobado": false },
+    "3": { "aprobado": false },
+    "4": { "aprobado": false },
+    "5": { "aprobado": false },
+    "6": { "aprobado": false },
+    "7": { "aprobado": false },
+    "8": { "aprobado": false },
+    "9": { "aprobado": false },
+    "10": { "aprobado": false },
+    "11": { "aprobado": false },
+    "12": { "aprobado": false },
+    "13": { "aprobado": false },
+    "14": { "aprobado": false },
+    "15": { "aprobado": false }
+  }
+}
