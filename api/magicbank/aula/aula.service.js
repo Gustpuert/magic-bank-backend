@@ -26,7 +26,8 @@ function tutorIniciaExamen(texto) {
   const señales = [
     "EXAMEN",
     "EVALUACIÓN FORMAL",
-    "PRUEBA DEL MÓDULO"
+    "PRUEBA DEL MÓDULO",
+    "INICIAR EXAMEN"
   ];
 
   return señales.some(s => texto.toUpperCase().includes(s));
@@ -71,7 +72,7 @@ async function runAula({ message, course_id, profile }) {
   );
 
   if (!fs.existsSync(progresoPath)) {
-    throw new Error(`Archivo de progreso no encontrado para ${course_id}`);
+    throw new Error(`Progreso no encontrado para el curso ${course_id}`);
   }
 
   const progreso = JSON.parse(fs.readFileSync(progresoPath, "utf-8"));
@@ -82,25 +83,45 @@ async function runAula({ message, course_id, profile }) {
   const salto = intentaSaltarModulo(message, moduloActual);
 
   /* =========================
+     DETERMINACIÓN DE MODO
+     (CLASE vs EXAMEN)
+  ========================= */
+
+  let modo = "clase";
+
+  if (tutorIniciaExamen(message)) {
+    modo = "examen";
+  }
+
+  /* =========================
      CONTEXTO INVISIBLE
   ========================= */
 
   let contexto = `
-Curso: ${course_id}
-Módulo actual: ${moduloActual} de ${totalModulos}
+INSTITUCIÓN: MagicBank Academy
+CURSO: ${course_id}
+MÓDULO ACTUAL: ${moduloActual} de ${totalModulos}
+MODO ACTUAL: ${modo}
 
-Si el alumno domina el módulo, puedes iniciar EXAMEN FORMAL.
-Durante el examen:
-- No des pistas
-- No enseñes
-- Evalúa con rigor
-Declara explícitamente APROBADO o REPROBADO.
+REGLAS ESTRICTAS:
+- Si MODO = clase:
+  • Enseña el módulo actual paso a paso.
+  • Explica conceptos, técnica y fundamentos.
+  • No evalúes todavía.
+- Si MODO = examen:
+  • NO enseñes.
+  • NO des pistas.
+  • Evalúa con rigor profesional.
+  • Declara explícitamente APROBADO o REPROBADO.
+- Nunca permitas saltar módulos.
+- Mantente siempre dentro del módulo actual.
 `;
 
   if (salto) {
     contexto += `
+ALERTA:
 El alumno intenta saltar módulos.
-Redirígelo con firmeza al módulo actual.
+Debes redirigirlo con firmeza al módulo ${moduloActual}.
 `;
   }
 
@@ -110,14 +131,15 @@ Redirígelo con firmeza al módulo actual.
 
   const response = await runTutor({
     course_id,
-    message: `${contexto}\n\nMensaje del alumno: ${message}`,
+    message: `${contexto}\n\nMENSAJE DEL ALUMNO:\n${message}`,
     profile
   });
 
-  const textoTutor = response.text || "";
+  const textoTutor = response.text || response.response || "";
 
   /* =========================
-     DIAGNÓSTICO INICIAL
+     AJUSTE INICIAL DE MÓDULO
+     (SOLO SI ES EL PRIMERO)
   ========================= */
 
   if (moduloActual === 1) {
@@ -135,7 +157,7 @@ Redirígelo con firmeza al módulo actual.
   const aprobado = tutorAprueba(textoTutor);
   let certificado = false;
 
-  if (aprobado) {
+  if (modo === "examen" && aprobado) {
     progreso.modulos[moduloActual].aprobado = true;
 
     if (moduloActual < totalModulos) {
@@ -153,6 +175,10 @@ Redirígelo con firmeza al módulo actual.
     "utf-8"
   );
 
+  /* =========================
+     RESPUESTA FINAL
+  ========================= */
+
   if (certificado) {
     return {
       text:
@@ -166,6 +192,7 @@ Redirígelo con firmeza al módulo actual.
   return {
     text: textoTutor,
     modulo_actual: progreso.modulo_actual,
+    modo,
     aprobado
   };
 }
