@@ -1,6 +1,6 @@
-import { runAula } from "./aula.service.js";
+const { runAula } = require("./aula.service");
 
-export async function aulaTexto(req, res) {
+async function aulaTexto(req, res) {
   try {
     const { message, profile, course_id } = req.body;
 
@@ -19,3 +19,7 @@ export async function aulaTexto(req, res) {
     });
   }
 }
+
+module.exports = {
+  aulaTexto
+};
