@@ -1,6 +1,11 @@
-export async function runTutor({ message, profile, course_id }) {
+/**
+ * Tutor Service - MagicBank
+ * CommonJS compatible con Railway
+ */
 
-  // Valor por defecto
+async function runTutor({ message, profile, course_id }) {
+
+  // Valor por defecto seguro
   const resolvedCourse = course_id || "general";
 
   const response = `Tutor (${resolvedCourse}): recibí tu mensaje "${message}".`;
@@ -10,3 +15,7 @@ export async function runTutor({ message, profile, course_id }) {
     course_id: resolvedCourse
   };
 }
+
+module.exports = {
+  runTutor
+};
