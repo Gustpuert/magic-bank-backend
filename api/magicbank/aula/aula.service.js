@@ -1,5 +1,13 @@
-import { runTutor } from "../../services/tutor.service.js";
+const { runTutor } = require("../../services/tutor.service");
 
-export async function runAula({ message, profile, course_id }) {
-  return await runTutor({ message, profile, course_id });
+async function runAula({ message, profile, course_id }) {
+  return await runTutor({
+    message,
+    profile,
+    course_id
+  });
 }
+
+module.exports = {
+  runAula
+};
