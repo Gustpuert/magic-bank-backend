@@ -125,15 +125,24 @@ Redirígelo con firmeza al módulo actual.
   }
 
   /* =========================
-     EXAMEN Y AVANCE
+     EXAMEN, AVANCE Y CIERRE
   ========================= */
 
-  const enExamen = tutorIniciaExamen(textoTutor);
   const aprobado = tutorAprueba(textoTutor);
 
-  if (aprobado && moduloActual < totalModulos) {
+  let certificado = false;
+
+  if (aprobado) {
     progreso.modulos[moduloActual].aprobado = true;
-    progreso.modulo_actual += 1;
+
+    if (moduloActual < totalModulos) {
+      progreso.modulo_actual += 1;
+    } else {
+      // 🏁 FIN DEL CURSO
+      progreso.estado = "CERTIFICADO";
+      progreso.fecha_certificacion = new Date().toISOString();
+      certificado = true;
+    }
   }
 
   fs.writeFileSync(
@@ -142,10 +151,21 @@ Redirígelo con firmeza al módulo actual.
     "utf-8"
   );
 
+  /* =========================
+     RESPUESTA FINAL
+  ========================= */
+
+  if (certificado) {
+    return {
+      text: textoTutor + "\n\n🎓 FELICITACIONES: Has completado y aprobado el curso completo. MagicBank certifica tu formación.",
+      estado: "CERTIFICADO",
+      curso: course_id
+    };
+  }
+
   return {
     text: textoTutor,
     modulo_actual: progreso.modulo_actual,
-    en_examen: enExamen,
     aprobado
   };
 }
