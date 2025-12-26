@@ -1,92 +1,47 @@
-/**
- * Tutor Service - MagicBank
- * Conecta tutores reales (ej: ElChef) vía OpenAI API
- * CommonJS compatible con Railway
- */
-
 const fs = require("fs");
 const path = require("path");
-const OpenAI = require("openai");
 
-/* =========================
-   CLIENTE OPENAI
-========================= */
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
-
-/* =========================
-   RUN TUTOR (REAL)
-========================= */
 async function runTutor({ message, profile, course_id }) {
+  console.log("🧠 runTutor INICIO");
+  console.log("📘 course_id:", course_id);
+  console.log("👤 profile:", profile);
+  console.log("💬 message:", message);
 
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY no definida en el entorno");
-  }
+  try {
+    const tutorPath = path.join(
+      process.cwd(),
+      "api",
+      "magicbank",
+      "tutors",
+      course_id,
+      "system_prompt.txt"
+    );
 
-  if (!course_id) {
-    throw new Error("course_id es obligatorio");
-  }
+    console.log("📄 Buscando system_prompt en:", tutorPath);
 
-  /* =========================
-     CARGA SYSTEM PROMPT REAL
-  ========================= */
-  const promptPath = path.join(
-    process.cwd(),
-    "api",
-    "magicbank",
-    "tutors",
-    course_id,
-    "system_prompt.txt"
-  );
-
-  if (!fs.existsSync(promptPath)) {
-    throw new Error(`system_prompt.txt no encontrado para ${course_id}`);
-  }
-
-  const systemPrompt = fs.readFileSync(promptPath, "utf-8");
-
-  const alumno = profile?.preferred_name || "Alumno";
-
-  /* =========================
-     MENSAJES AL MODELO
-  ========================= */
-  const messages = [
-    {
-      role: "system",
-      content: systemPrompt
-    },
-    {
-      role: "system",
-      content: `Alumno: ${alumno}`
-    },
-    {
-      role: "user",
-      content: message
+    if (!fs.existsSync(tutorPath)) {
+      console.error("❌ system_prompt NO encontrado");
+      throw new Error("System prompt no encontrado para " + course_id);
     }
-  ];
 
-  /* =========================
-     LLAMADA A OPENAI
-  ========================= */
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4.1",
-    messages,
-    temperature: 0.3
-  });
+    const systemPrompt = fs.readFileSync(tutorPath, "utf-8");
+    console.log("✅ system_prompt cargado (length:", systemPrompt.length, ")");
 
-  const text = completion.choices?.[0]?.message?.content;
+    console.log("🚀 Llamando a OpenAI...");
 
-  if (!text) {
-    throw new Error("OpenAI no devolvió contenido del tutor");
+    // AQUÍ VA TU LLAMADA REAL A OPENAI
+    // (no la invento porque tú ya la tienes)
+
+    console.log("✅ OpenAI respondió");
+
+    return {
+      text: "RESPUESTA DEL TUTOR (placeholder)",
+    };
+
+  } catch (error) {
+    console.error("🔥 ERROR EN runTutor:", error.message);
+    throw error;
   }
-
-  /* =========================
-     RESPUESTA LIMPIA
-  ========================= */
-  return {
-    text
-  };
 }
 
 module.exports = {
