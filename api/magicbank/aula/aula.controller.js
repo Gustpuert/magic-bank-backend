@@ -2,19 +2,27 @@ const { runAula } = require("./aula.service");
 
 async function aulaTexto(req, res) {
   try {
-    const { message, course_id, profile } = req.body;
+    const { message } = req.body;
 
-    const response = await runAula({
+    const permiso = req.magicbank;
+
+    const result = await runAula({
       message,
-      course_id,
-      profile
+      course_id:
+        permiso.tipo === "academy"
+          ? permiso.destino.curso_id
+          : permiso.destino.facultad_id,
+      profile: {
+        preferred_name: permiso.nombre || "Estudiante"
+      }
     });
 
-    res.json(response);
+    return res.json(result);
+
   } catch (error) {
     console.error("Aula error:", error);
-    res.status(500).json({
-      error: "Error interno del aula"
+    return res.status(500).json({
+      error: "Error interno del aula MagicBank"
     });
   }
 }
