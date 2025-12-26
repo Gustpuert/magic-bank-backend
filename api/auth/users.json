@@ -1,8 +1,15 @@
-[
-  {
-    "email": "gustavo@magicbank.org",
-    "password": "magic2025",
-    "redirect": "https://chatgpt.com/g/g-6934d1a2900c8191ab3aafa382225a65-superadministrador-magic-tutor-pro",
-    "expires_at": "2027-12-31T23:59:59Z"
-  }
-]
+{
+  "users": [
+    {
+      "email": "estudiante@magicbank.org",
+      "password": "MB-4821",
+      "nombre": "Gustavo",
+      "acceso": {
+        "tipo": "academy",
+        "curso_id": "cocina_avanzada"
+      },
+      "expira": "2027-12-31",
+      "activo": true
+    }
+  ]
+}
