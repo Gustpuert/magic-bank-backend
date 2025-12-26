@@ -1,34 +1,25 @@
 /**
- * Middleware de protección de aula
- * MagicBank
+ * Auth Middleware - MagicBank
+ * Ruta oficial: api/auth/auth.middleware.js
  */
 
-function verificarAcceso(req, res, next) {
-  const acceso = req.headers["x-magicbank-acceso"];
+module.exports = function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization;
 
-  if (!acceso) {
+  if (!authHeader) {
     return res.status(401).json({
-      error: "Acceso no autorizado"
+      error: "No autorizado: token ausente"
     });
   }
 
-  try {
-    const permiso = JSON.parse(acceso);
+  const token = authHeader.replace("Bearer ", "");
 
-    if (!permiso.tipo || !permiso.destino) {
-      throw new Error("Permiso inválido");
-    }
-
-    req.magicbank = permiso;
-    next();
-
-  } catch (err) {
-    return res.status(401).json({
-      error: "Permiso corrupto"
+  // 🔐 Fase inicial: token único (luego JWT por curso)
+  if (token !== process.env.MAGICBANK_ACCESS_TOKEN) {
+    return res.status(403).json({
+      error: "Token inválido"
     });
   }
-}
 
-module.exports = {
-  verificarAcceso
+  next();
 };
