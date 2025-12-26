@@ -1,21 +1,38 @@
+/**
+ * Aula Controller
+ * Recibe texto del tutor y lo pasa a la CEA.
+ * El aula NO decide nada.
+ */
+
 const { runAula } = require("./aula.service");
+const { runCEA } = require("../cea/cea.service");
 
 async function aulaTexto(req, res) {
   try {
-    const { message, profile, course_id } = req.body;
+    const { message, course_id, profile } = req.body;
 
-    const result = await runAula({
+    const tutorResult = await runAula({
       message,
-      profile,
-      course_id
+      course_id,
+      profile
     });
 
-    return res.json(result);
+    const ceaResult = runCEA({
+      text: tutorResult.text,
+      tutor_id: course_id
+    });
 
-  } catch (error) {
-    console.error("Aula error:", error);
-    return res.status(500).json({
-      response: "Error interno del tutor"
+    res.json({
+      ok: true,
+      tutor: tutorResult,
+      cea: ceaResult
+    });
+
+  } catch (err) {
+    console.error("Aula error:", err);
+    res.status(500).json({
+      ok: false,
+      error: err.message
     });
   }
 }
