@@ -1,43 +1,28 @@
-const path = require("path");
 const fs = require("fs");
+const path = require("path");
 
-const usersPath = path.join(
-  process.cwd(),
-  "api",
-  "auth",
-  "users.json"
-);
+const usersPath = path.join(__dirname, "users.json");
 
-function login({ email, password }) {
+function loadUsers() {
+  return JSON.parse(fs.readFileSync(usersPath, "utf-8")).users;
+}
 
-  if (!fs.existsSync(usersPath)) {
-    throw new Error("Sistema de usuarios no inicializado");
-  }
-
-  const users = JSON.parse(fs.readFileSync(usersPath, "utf-8"));
-
+function validarLogin(email, password) {
+  const users = loadUsers();
   const user = users.find(
-    u => u.email === email && u.password === password
+    u => u.email === email && u.password === password && u.activo
   );
 
-  if (!user) {
-    throw new Error("Credenciales inválidas");
-  }
+  if (!user) return null;
 
-  // ⏱️ Verificación de vencimiento
-  const now = new Date();
-  const expires = new Date(user.expires_at);
+  const hoy = new Date();
+  const expira = new Date(user.expira);
 
-  if (now > expires) {
-    throw new Error("Acceso vencido");
-  }
+  if (hoy > expira) return null;
 
-  return {
-    message: "Acceso concedido",
-    redirect: user.redirect
-  };
+  return user;
 }
 
 module.exports = {
-  login
+  validarLogin
 };
