@@ -1,45 +1,55 @@
 /**
- * MagicBank Backend
- * Entry point compatible con Railway
+ * MagicBank Backend - index.js
+ * Archivo raíz
  */
 
 const express = require("express");
 const cors = require("cors");
 
-const aulaRoutes = require("./api/magicbank/aula/aula.routes");
+const aulaRouter = require("./api/magicbank/aula/aula.controller");
 
 const app = express();
+const PORT = process.env.PORT || 8080;
 
 /* =========================
-   MIDDLEWARES
+   MIDDLEWARE GLOBAL
 ========================= */
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "2mb" }));
 
 /* =========================
-   HEALTH CHECK (CRÍTICO)
-   Railway usa "/" implícitamente
+   HEALTHCHECK (OBLIGATORIO)
 ========================= */
+
 app.get("/", (req, res) => {
-  res.status(200).send("OK");
+  res.status(200).send("MagicBank Backend OK");
 });
 
 /* =========================
-   API ROUTES
+   RUTAS
 ========================= */
-app.use("/api/magicbank/aula", aulaRoutes);
+
+app.use("/api/aula", aulaRouter);
 
 /* =========================
-   SERVER START
-   OBLIGATORIO process.env.PORT
+   START SERVER
 ========================= */
-const PORT = process.env.PORT;
 
-if (!PORT) {
-  console.error("❌ PORT no definido por el entorno");
-  process.exit(1);
-}
-
-app.listen(PORT, "0.0.0.0", () => {
+app.listen(PORT, () => {
   console.log(`✅ MagicBank Backend corriendo en puerto ${PORT}`);
+});
+
+/* =========================
+   MANEJO DE SEÑALES
+========================= */
+
+process.on("SIGTERM", () => {
+  console.warn("⚠️ SIGTERM recibido. Cerrando servidor...");
+  process.exit(0);
+});
+
+process.on("SIGINT", () => {
+  console.warn("⚠️ SIGINT recibido. Cerrando servidor...");
+  process.exit(0);
 });
