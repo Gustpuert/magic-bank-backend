@@ -1,0 +1,13 @@
+[
+  {
+    "usuario": "gustavo",
+    "password_hash": "$2a$10$REEMPLAZA_ESTE_HASH_POR_EL_REAL",
+    "tipo": "academy",
+    "programa_id": "cocina_avanzada",
+    "fecha_inicio": "2025-01-01",
+    "fecha_fin": "2028-01-01",
+    "activo": true,
+    "link_aula": "https://aula.magicbank.org",
+    "link_tutor": "https://chatgpt.com/g/ID_DEL_TUTOR"
+  }
+]
