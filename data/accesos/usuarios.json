@@ -1,1 +1,9 @@
-
+[
+  {
+    "email": "alumno1@magicbank.org",
+    "nombre": "Alumno MagicBank",
+    "password_hash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8",
+    "destino": "https://chatgpt.com/g/g-6934d1a2900c8191ab3aafa382225a65-superadministrador-magic-tutor-pro",
+    "expires_at": "2027-12-31T23:59:59Z"
+  }
+]
