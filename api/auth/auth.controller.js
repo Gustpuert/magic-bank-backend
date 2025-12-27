@@ -1,27 +1,32 @@
 const authService = require("./auth.service");
 
+/**
+ * Controlador de registro
+ */
 async function register(req, res) {
   try {
-    const { email, password } = req.body;
+    const { email, password, role } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
-        message: "Email y contraseña son obligatorios"
+        error: "Email y password son obligatorios"
       });
     }
 
-    const user = await authService.createUser({ email, password });
+    const user = authService.registerUser({
+      email,
+      password,
+      role
+    });
 
     return res.status(201).json({
-      message: "Usuario creado correctamente",
-      user: {
-        email: user.email
-      }
+      message: "Usuario registrado correctamente",
+      user
     });
 
   } catch (error) {
     return res.status(400).json({
-      message: error.message
+      error: error.message
     });
   }
 }
