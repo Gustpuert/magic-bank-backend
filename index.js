@@ -1,7 +1,10 @@
+/**
+ * MagicBank Backend
+ */
+
 const express = require("express");
 const cors = require("cors");
 
-const aulaRoutes = require("./api/magicbank/aula/aula.routes");
 const authRoutes = require("./api/auth/auth.routes");
 
 const app = express();
@@ -9,13 +12,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+/* Health */
 app.get("/", (req, res) => {
   res.status(200).send("OK");
 });
 
-app.use("/api/magicbank/aula", aulaRoutes);
+/* AUTH */
 app.use("/api/auth", authRoutes);
 
+/* PORT */
 const PORT = process.env.PORT;
 
 if (!PORT) {
@@ -24,5 +29,5 @@ if (!PORT) {
 }
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`MagicBank Backend activo en puerto ${PORT}`);
+  console.log(`MagicBank Backend corriendo en puerto ${PORT}`);
 });
