@@ -12,7 +12,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-/* Health */
+/* Health check */
 app.get("/", (req, res) => {
   res.status(200).send("OK");
 });
