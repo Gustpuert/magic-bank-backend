@@ -1,28 +1,43 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
-const usersPath = path.join(__dirname, "users.json");
+const usersPath = path.join(process.cwd(), "data", "users.json");
 
-function loadUsers() {
-  return JSON.parse(fs.readFileSync(usersPath, "utf-8")).users;
+function hashPassword(password) {
+  return crypto
+    .createHash("sha256")
+    .update(password)
+    .digest("hex");
 }
 
-function validarLogin(email, password) {
-  const users = loadUsers();
-  const user = users.find(
-    u => u.email === email && u.password === password && u.activo
-  );
+async function createUser({ email, password }) {
+  if (!fs.existsSync(usersPath)) {
+    throw new Error("Archivo de usuarios no encontrado");
+  }
 
-  if (!user) return null;
+  const data = JSON.parse(fs.readFileSync(usersPath, "utf-8"));
 
-  const hoy = new Date();
-  const expira = new Date(user.expira);
+  const exists = data.users.find(u => u.email === email);
+  if (exists) {
+    throw new Error("El usuario ya existe");
+  }
 
-  if (hoy > expira) return null;
+  const user = {
+    id: crypto.randomUUID(),
+    email,
+    password: hashPassword(password),
+    created_at: new Date().toISOString(),
+    active: true
+  };
+
+  data.users.push(user);
+
+  fs.writeFileSync(usersPath, JSON.stringify(data, null, 2));
 
   return user;
 }
 
 module.exports = {
-  validarLogin
+  createUser
 };
