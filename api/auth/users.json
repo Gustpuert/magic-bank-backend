@@ -1,15 +1,1 @@
-{
-  "users": [
-    {
-      "email": "estudiante@magicbank.org",
-      "password": "MB-4821",
-      "nombre": "Gustavo",
-      "acceso": {
-        "tipo": "academy",
-        "curso_id": "cocina_avanzada"
-      },
-      "expira": "2027-12-31",
-      "activo": true
-    }
-  ]
-}
+[]
