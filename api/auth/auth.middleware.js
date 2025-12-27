@@ -1,5 +1,8 @@
+/**
+ * Middleware placeholder
+ * (listo para JWT o roles después)
+ */
 function authMiddleware(req, res, next) {
-  // Placeholder para JWT en el futuro
   next();
 }
 
