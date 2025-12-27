@@ -1,43 +1,58 @@
 const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto");
 
-const usersPath = path.join(process.cwd(), "data", "users.json");
+const USERS_FILE = path.join(__dirname, "users.json");
 
-function hashPassword(password) {
-  return crypto
-    .createHash("sha256")
-    .update(password)
-    .digest("hex");
+/**
+ * Lee usuarios desde archivo
+ */
+function readUsers() {
+  if (!fs.existsSync(USERS_FILE)) {
+    return [];
+  }
+  const data = fs.readFileSync(USERS_FILE, "utf-8");
+  return JSON.parse(data);
 }
 
-async function createUser({ email, password }) {
-  if (!fs.existsSync(usersPath)) {
-    throw new Error("Archivo de usuarios no encontrado");
-  }
+/**
+ * Guarda usuarios en archivo
+ */
+function saveUsers(users) {
+  fs.writeFileSync(
+    USERS_FILE,
+    JSON.stringify(users, null, 2)
+  );
+}
 
-  const data = JSON.parse(fs.readFileSync(usersPath, "utf-8"));
+/**
+ * Registro de usuario
+ */
+function registerUser({ email, password, role }) {
+  const users = readUsers();
 
-  const exists = data.users.find(u => u.email === email);
+  const exists = users.find(u => u.email === email);
   if (exists) {
     throw new Error("El usuario ya existe");
   }
 
-  const user = {
-    id: crypto.randomUUID(),
+  const newUser = {
+    id: Date.now(),
     email,
-    password: hashPassword(password),
-    created_at: new Date().toISOString(),
-    active: true
+    password, // (luego se encripta)
+    role: role || "student",
+    createdAt: new Date().toISOString()
   };
 
-  data.users.push(user);
+  users.push(newUser);
+  saveUsers(users);
 
-  fs.writeFileSync(usersPath, JSON.stringify(data, null, 2));
-
-  return user;
+  return {
+    id: newUser.id,
+    email: newUser.email,
+    role: newUser.role
+  };
 }
 
 module.exports = {
-  createUser
+  registerUser
 };
