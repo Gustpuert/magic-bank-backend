@@ -5,6 +5,10 @@ const {
   register
 } = require("./auth.controller");
 
+/**
+ * Registro de usuario
+ * POST /api/auth/register
+ */
 router.post("/register", register);
 
 module.exports = router;
