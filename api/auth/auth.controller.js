@@ -1,30 +1,31 @@
-const { validarLogin } = require("./auth.service");
+const authService = require("./auth.service");
 
-async function login(req, res) {
-  const { email, password } = req.body;
+async function register(req, res) {
+  try {
+    const { email, password } = req.body;
 
-  if (!email || !password) {
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email y contraseña son obligatorios"
+      });
+    }
+
+    const user = await authService.createUser({ email, password });
+
+    return res.status(201).json({
+      message: "Usuario creado correctamente",
+      user: {
+        email: user.email
+      }
+    });
+
+  } catch (error) {
     return res.status(400).json({
-      error: "Credenciales incompletas"
+      message: error.message
     });
   }
-
-  const user = validarLogin(email, password);
-
-  if (!user) {
-    return res.status(401).json({
-      error: "Acceso denegado"
-    });
-  }
-
-  return res.json({
-    acceso: true,
-    nombre: user.nombre,
-    tipo: user.acceso.tipo,
-    destino: user.acceso
-  });
 }
 
 module.exports = {
-  login
+  register
 };
