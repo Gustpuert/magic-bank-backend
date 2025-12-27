@@ -4,30 +4,21 @@ const path = require("path");
 const USERS_FILE = path.join(__dirname, "users.json");
 
 /**
- * Lee usuarios desde archivo
+ * Helpers
  */
 function readUsers() {
-  if (!fs.existsSync(USERS_FILE)) {
-    return [];
-  }
   const data = fs.readFileSync(USERS_FILE, "utf-8");
   return JSON.parse(data);
 }
 
-/**
- * Guarda usuarios en archivo
- */
 function saveUsers(users) {
-  fs.writeFileSync(
-    USERS_FILE,
-    JSON.stringify(users, null, 2)
-  );
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
 
 /**
- * Registro de usuario
+ * REGISTER
  */
-function registerUser({ email, password, role }) {
+async function register(email, password) {
   const users = readUsers();
 
   const exists = users.find(u => u.email === email);
@@ -38,8 +29,7 @@ function registerUser({ email, password, role }) {
   const newUser = {
     id: Date.now(),
     email,
-    password, // (luego se encripta)
-    role: role || "student",
+    password,
     createdAt: new Date().toISOString()
   };
 
@@ -48,11 +38,31 @@ function registerUser({ email, password, role }) {
 
   return {
     id: newUser.id,
-    email: newUser.email,
-    role: newUser.role
+    email: newUser.email
+  };
+}
+
+/**
+ * LOGIN
+ */
+async function login(email, password) {
+  const users = readUsers();
+
+  const user = users.find(
+    u => u.email === email && u.password === password
+  );
+
+  if (!user) {
+    throw new Error("Credenciales inválidas");
+  }
+
+  return {
+    id: user.id,
+    email: user.email
   };
 }
 
 module.exports = {
-  registerUser
+  register,
+  login
 };
