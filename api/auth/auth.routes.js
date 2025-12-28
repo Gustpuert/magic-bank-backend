@@ -1,10 +1,13 @@
 const express = require("express");
 const router = express.Router();
 
-const { registerAuto, verifyToken } = require("./auth.controller");
-const { authMiddleware } = require("./auth.middleware");
+const { register, logout } = require("./auth.controller");
+const { authenticate } = require("./auth.middleware");
 
-router.post("/register-auto", registerAuto);
-router.get("/verify", authMiddleware, verifyToken);
+/* Registro automático (post-pago) */
+router.post("/register", register);
+
+/* Logout seguro */
+router.post("/logout", authenticate, logout);
 
 module.exports = router;
