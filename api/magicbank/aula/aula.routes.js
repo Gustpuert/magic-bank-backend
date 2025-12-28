@@ -1,11 +1,25 @@
 const express = require("express");
 const router = express.Router();
 
-const controller = require("./aula.controller");
+const { aulaTexto } = require("./aula.controller");
+const {
+  requireAuth,
+  requireRole,
+  requireCourseMatch
+} = require("../auth/auth.middleware");
 
-// ✅ Ruta real y existente
-const authMiddleware = require("../../auth/auth.middleware");
-
-router.post("/texto", authMiddleware, controller.aulaTexto);
+/**
+ * Aula protegida:
+ * - requiere login
+ * - solo estudiantes
+ * - solo su curso
+ */
+router.post(
+  "/texto",
+  requireAuth,
+  requireRole("student"),
+  requireCourseMatch,
+  aulaTexto
+);
 
 module.exports = router;
