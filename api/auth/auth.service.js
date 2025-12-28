@@ -17,8 +17,8 @@ function saveUsers(users) {
 function createUser({ email, role, course }) {
   const users = loadUsers();
 
-  const exists = users.find(u => u.email === email);
-  if (exists) return exists;
+  const existing = users.find(u => u.email === email);
+  if (existing) return existing;
 
   const user = {
     id: Date.now(),
@@ -30,6 +30,7 @@ function createUser({ email, role, course }) {
 
   users.push(user);
   saveUsers(users);
+
   return user;
 }
 
@@ -42,7 +43,7 @@ function generateJWT(user) {
       course: user.course
     },
     JWT_SECRET,
-    { expiresIn: "30d" }
+    { expiresIn: "3y" } // 👈 duración contractual
   );
 }
 
