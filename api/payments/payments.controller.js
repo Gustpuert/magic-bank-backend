@@ -12,14 +12,14 @@ async function paymentWebhook(req, res) {
 
     if (!email || !course) {
       return res.status(400).json({
-        error: "Datos de pago incompletos"
+        error: "Datos incompletos"
       });
     }
 
     await paymentService.processPayment(email, course);
 
     return res.status(200).json({
-      message: "Pago procesado y usuario registrado"
+      message: "Pago procesado correctamente"
     });
 
   } catch (error) {
