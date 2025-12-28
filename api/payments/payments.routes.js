@@ -1,12 +1,12 @@
 const express = require("express");
 const router = express.Router();
 
-const { paymentWebhook } = require("./payments.controller");
+const { tiendaNubeWebhook } = require("./payments.controller");
 
 /**
- * Webhook de pagos
- * POST /api/payments/webhook
+ * Webhook TiendaNube
+ * SOLO POST
  */
-router.post("/webhook", paymentWebhook);
+router.post("/tiendanube", tiendaNubeWebhook);
 
 module.exports = router;
