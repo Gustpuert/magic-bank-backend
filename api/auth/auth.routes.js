@@ -1,11 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const { register } = require("./auth.controller");
+const controller = require("./auth.controller");
 
 /**
- * POST /api/auth/register
- * Registro + JWT automático
+ * Registro automático post-pago
  */
-router.post("/register", register);
+router.post("/post-payment", controller.postPaymentLogin);
 
 module.exports = router;
