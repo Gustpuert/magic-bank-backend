@@ -1,10 +1,9 @@
 const express = require("express");
 const router = express.Router();
-
 const { paymentWebhook } = require("./payments.controller");
 
 /**
- * WEBHOOK DE PAGO
+ * Webhook de pagos
  * SOLO POST
  */
 router.post("/webhook", paymentWebhook);
