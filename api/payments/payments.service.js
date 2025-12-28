@@ -32,16 +32,12 @@ exports.processTiendaNubePayment = async (signature, payload) => {
 
   const data = JSON.parse(payload);
 
-  if (data.payment_status !== "paid") {
-    return;
-  }
+  if (data.payment_status !== "paid") return;
 
   const email = data.customer?.email;
   const product = data.products?.[0]?.name || "curso";
 
-  if (!email) {
-    throw new Error("Email no encontrado");
-  }
+  if (!email) throw new Error("Email no encontrado");
 
   const users = loadUsers();
 
