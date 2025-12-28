@@ -1,3 +1,38 @@
 {
-  "users": []
+  "users": [
+    {
+      "id": "u-001",
+      "nombre": "Juan Perez",
+      "email": "juan@email.com",
+      "password_hash": "$2b$10$EXAMPLEHASH",
+      "estado": "activo",
+
+      "accesos": {
+        "academy": [
+          "cocina_avanzada",
+          "ingles",
+          "italiano"
+        ],
+        "university": [
+          "facultad_derecho"
+        ],
+        "otros": [
+          "evaluador_tutor_pro"
+        ]
+      },
+
+      "fechas": {
+        "creado": "2025-01-10T12:00:00Z",
+        "inicio_acceso": "2025-01-10T12:00:00Z",
+        "fin_acceso": "2028-01-10T12:00:00Z"
+      },
+
+      "metadata": {
+        "origen_pago": "tiendanube",
+        "producto": "facultad_derecho",
+        "orden_id": "TN-983746",
+        "pais": "CO"
+      }
+    }
+  ]
 }
