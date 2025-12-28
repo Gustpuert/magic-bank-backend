@@ -1,15 +1,8 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("./auth.controller");
 
-/*
-  Registro automático post-pago
-*/
-router.post("/register", controller.register);
+const authController = require("./auth.controller");
 
-/*
-  Login (lo haremos en A7.3)
-*/
-// router.post("/login", controller.login);
+router.post("/login", authController.login);
 
 module.exports = router;
