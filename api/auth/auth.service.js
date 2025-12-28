@@ -1,60 +1,39 @@
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 const USERS_FILE = path.join(__dirname, "users.json");
 
-/**
- * Helpers
- */
 function readUsers() {
-  const data = fs.readFileSync(USERS_FILE, "utf-8");
-  return JSON.parse(data);
+  return JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
 }
 
 function saveUsers(users) {
   fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
 
-/**
- * REGISTER
- */
-async function register(email, password) {
+async function registerUser(email, password) {
   const users = readUsers();
 
-  const exists = users.find(u => u.email === email);
-  if (exists) {
+  if (users.find(u => u.email === email)) {
     throw new Error("El usuario ya existe");
   }
 
-  const newUser = {
+  const hashedPassword = crypto
+    .createHash("sha256")
+    .update(password)
+    .digest("hex");
+
+  const user = {
     id: Date.now(),
     email,
-    password,
+    password: hashedPassword,
+    courses: [],
     createdAt: new Date().toISOString()
   };
 
-  users.push(newUser);
+  users.push(user);
   saveUsers(users);
-
-  return {
-    id: newUser.id,
-    email: newUser.email
-  };
-}
-
-/**
- * LOGIN
- */
-async function login(email, password) {
-  const users = readUsers();
-
-  const user = users.find(
-    u => u.email === email && u.password === password
-  );
-
-  if (!user) {
-    throw new Error("Credenciales inválidas");
-  }
 
   return {
     id: user.id,
@@ -63,6 +42,5 @@ async function login(email, password) {
 }
 
 module.exports = {
-  register,
-  login
+  registerUser
 };
