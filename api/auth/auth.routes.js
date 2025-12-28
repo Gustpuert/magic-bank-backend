@@ -1,27 +1,50 @@
-/**
- * MagicBank - Rutas protegidas
- */
-
 const express = require("express");
-const accesoPorCurso = require("./auth.middleware");
+const jwt = require("jsonwebtoken");
 
 const router = express.Router();
 
 /**
- * Ruta protegida por curso
- * Ejemplo:
- * GET /api/auth/curso?destino=https://chatgpt.com/g/g-XXXX
+ * DEV TOKEN – SOLO PRUEBAS
+ * Genera un token válido para el curso INGLÉS
  */
-router.get("/curso", accesoPorCurso, (req, res) => {
-  res.json({
-    mensaje: "Acceso concedido",
-    usuario: {
-      email: req.usuario.email,
-      nombre: req.usuario.nombre,
-      destino: req.usuario.destino,
-      expires_at: req.usuario.expires_at
+router.get("/dev-token", (req, res) => {
+  const payload = {
+    user: {
+      email: "test@magicbank.org",
+      course: "ingles"
     }
+  };
+
+  const token = jwt.sign(
+    payload,
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+
+  res.json({
+    ok: true,
+    token
   });
+});
+
+/**
+ * VERIFY TOKEN
+ */
+router.get("/verify", (req, res) => {
+  const auth = req.headers.authorization;
+
+  if (!auth) {
+    return res.status(401).json({ error: "No token" });
+  }
+
+  const token = auth.replace("Bearer ", "");
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    res.json(decoded);
+  } catch (err) {
+    res.status(401).json({ error: "Token inválido" });
+  }
 });
 
 module.exports = router;
