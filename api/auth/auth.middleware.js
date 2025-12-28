@@ -1,63 +1,23 @@
 const jwt = require("jsonwebtoken");
-const JWT_SECRET = process.env.JWT_SECRET;
 
-/**
- * Verifica JWT y adjunta req.user
- */
-function requireAuth(req, res, next) {
+function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
-    return res.status(401).json({ error: "Token requerido" });
+    return res.status(401).json({ error: "Token no enviado" });
   }
 
-  const token = authHeader.split(" ")[1];
+  const token = authHeader.replace("Bearer ", "");
 
   try {
-    const decoded = jwt.verify(token, JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
-  } catch {
+  } catch (err) {
     return res.status(401).json({ error: "Token inválido o expirado" });
   }
 }
 
-/**
- * Control por rol
- */
-function requireRole(...rolesPermitidos) {
-  return (req, res, next) => {
-    if (!req.user || !rolesPermitidos.includes(req.user.role)) {
-      return res.status(403).json({
-        error: "Acceso denegado por rol"
-      });
-    }
-    next();
-  };
-}
-
-/**
- * Control por curso/facultad
- * (el alumno solo accede a lo que pagó)
- */
-function requireCourseMatch(req, res, next) {
-  const requestedCourse = req.body.course_id || req.params.course_id;
-
-  if (
-    req.user.role === "student" &&
-    requestedCourse &&
-    req.user.course !== requestedCourse
-  ) {
-    return res.status(403).json({
-      error: "No tienes acceso a este curso"
-    });
-  }
-
-  next();
-}
-
 module.exports = {
-  requireAuth,
-  requireRole,
-  requireCourseMatch
+  verifyToken
 };
