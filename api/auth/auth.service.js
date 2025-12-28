@@ -1,46 +1,63 @@
 const fs = require("fs");
 const path = require("path");
-const crypto = require("crypto");
+const jwt = require("jsonwebtoken");
 
-const USERS_FILE = path.join(__dirname, "users.json");
+const usersPath = path.join(__dirname, "users.json");
 
 function readUsers() {
-  return JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
+  if (!fs.existsSync(usersPath)) return [];
+  return JSON.parse(fs.readFileSync(usersPath, "utf8"));
 }
 
 function saveUsers(users) {
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
+  fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
 }
 
-async function registerUser(email, password) {
+function registerUser(email, password) {
   const users = readUsers();
 
-  if (users.find(u => u.email === email)) {
-    throw new Error("El usuario ya existe");
+  const exists = users.find(u => u.email === email);
+  if (exists) {
+    throw new Error("Usuario ya existe");
   }
 
-  const hashedPassword = crypto
-    .createHash("sha256")
-    .update(password)
-    .digest("hex");
-
-  const user = {
+  const newUser = {
     id: Date.now(),
     email,
-    password: hashedPassword,
-    courses: [],
-    createdAt: new Date().toISOString()
+    password,
+    courses: []
   };
 
-  users.push(user);
+  users.push(newUser);
   saveUsers(users);
 
-  return {
-    id: user.id,
-    email: user.email
-  };
+  return newUser;
+}
+
+function loginUser(email, password) {
+  const users = readUsers();
+  const user = users.find(
+    u => u.email === email && u.password === password
+  );
+
+  if (!user) {
+    throw new Error("Credenciales inválidas");
+  }
+
+  const token = jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      courses: user.courses
+    },
+    process.env.JWT_SECRET,
+    { expiresIn: "1h" }
+  );
+
+  return { token };
 }
 
 module.exports = {
-  registerUser
+  registerUser,
+  loginUser
 };
