@@ -1,52 +1,53 @@
 const fs = require("fs");
 const path = require("path");
-const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
-const USERS_PATH = path.join(process.cwd(), "data", "users.json");
-const JWT_SECRET = process.env.JWT_SECRET;
+const usersFile = path.join(__dirname, "users.json");
 
-if (!JWT_SECRET) {
-  throw new Error("JWT_SECRET no definido");
+function readUsers() {
+  return JSON.parse(fs.readFileSync(usersFile, "utf8"));
 }
 
-async function login({ email, password }) {
-  const users = JSON.parse(fs.readFileSync(USERS_PATH, "utf-8"));
+function writeUsers(users) {
+  fs.writeFileSync(usersFile, JSON.stringify(users, null, 2));
+}
 
-  const user = users.find(u => u.email === email);
+exports.createUserIfNotExists = async ({ email, name }) => {
+  const users = readUsers();
+  let user = users.find(u => u.email === email);
 
   if (!user) {
-    throw new Error("Usuario no encontrado");
+    user = {
+      email,
+      name: name || "",
+      courses: [],
+      createdAt: new Date().toISOString()
+    };
+    users.push(user);
+    writeUsers(users);
   }
 
-  const valid = await bcrypt.compare(password, user.password);
+  return user;
+};
 
-  if (!valid) {
-    throw new Error("Contraseña incorrecta");
+exports.assignCourse = async (email, course) => {
+  const users = readUsers();
+  const user = users.find(u => u.email === email);
+
+  if (!user) throw new Error("Usuario no encontrado");
+
+  if (!user.courses.includes(course)) {
+    user.courses.push(course);
+    writeUsers(users);
   }
 
-  const token = jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      cursos: user.cursos
-    },
-    JWT_SECRET,
-    {
-      expiresIn: "3y"
-    }
+  return true;
+};
+
+exports.generateJWT = (email) => {
+  return jwt.sign(
+    { email },
+    process.env.JWT_SECRET,
+    { expiresIn: "30d" }
   );
-
-  return {
-    token,
-    user: {
-      id: user.id,
-      email: user.email,
-      cursos: user.cursos
-    }
-  };
-}
-
-module.exports = {
-  login
 };
