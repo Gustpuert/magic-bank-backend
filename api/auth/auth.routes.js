@@ -1,13 +1,33 @@
 const express = require("express");
 const router = express.Router();
-const { generateJWT } = require("./auth.service");
+const authMiddleware = require("./auth.middleware");
+const fs = require("fs");
+const path = require("path");
 
-router.post("/token", (req, res) => {
-  const { email } = req.body;
-  if (!email) return res.status(400).json({ error: "Email requerido" });
+const usersFile = path.join(__dirname, "users.json");
 
-  const token = generateJWT(email);
-  res.json({ token });
+function readUsers() {
+  return JSON.parse(fs.readFileSync(usersFile, "utf8"));
+}
+
+/**
+ * Verificar acceso a curso
+ * GET /api/auth/access/:course
+ */
+router.get("/access/:course", authMiddleware, (req, res) => {
+  const { email } = req.user;
+  const { course } = req.params;
+
+  const users = readUsers();
+  const user = users.find(u => u.email === email);
+
+  if (!user) {
+    return res.status(403).json({ access: false });
+  }
+
+  const hasAccess = user.courses.includes(course);
+
+  return res.json({ access: hasAccess });
 });
 
 module.exports = router;
