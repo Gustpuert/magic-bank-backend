@@ -1,5 +1,6 @@
 /**
  * MagicBank Backend
+ * Auth + JWT
  */
 
 const express = require("express");
