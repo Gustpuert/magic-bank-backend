@@ -1,5 +1,6 @@
 /**
  * MagicBank Backend
+ * Archivo canónico principal
  */
 
 const express = require("express");
@@ -7,22 +8,27 @@ const cors = require("cors");
 
 const authRoutes = require("./api/auth/auth.routes");
 const accessRoutes = require("./api/access/access.routes");
-const paymentWebhook = require("./api/webhook/payment.routes");
+const paymentRoutes = require("./api/payments/payments.routes");
 
 const app = express();
 
+/* Middlewares globales */
 app.use(cors());
 app.use(express.json());
 
-/* Health */
+/* Health check */
 app.get("/", (req, res) => {
   res.status(200).send("OK");
 });
 
-/* ROUTES */
+/* AUTH (login, JWT) */
 app.use("/api/auth", authRoutes);
+
+/* ACCESS (verificación de accesos) */
 app.use("/api/access", accessRoutes);
-app.use("/api/webhook", paymentWebhook);
+
+/* PAYMENTS (webhook de pagos) */
+app.use("/api/payments", paymentRoutes);
 
 /* PORT */
 const PORT = process.env.PORT;
