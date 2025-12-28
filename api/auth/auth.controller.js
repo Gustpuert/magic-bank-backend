@@ -1,41 +1,22 @@
 const authService = require("./auth.service");
 
-async function register(req, res) {
+async function login(req, res) {
   try {
-    const {
-      email,
-      password,
-      course_id,
-      source // "academy" | "university"
-    } = req.body;
+    const { email, password } = req.body;
 
-    if (!email || !password || !course_id || !source) {
-      return res.status(400).json({
-        error: "Datos incompletos para registro"
-      });
+    if (!email || !password) {
+      return res.status(400).json({ error: "Datos incompletos" });
     }
 
-    const user = await authService.registerUser({
-      email,
-      password,
-      course_id,
-      source
-    });
+    const result = await authService.login({ email, password });
 
-    return res.status(201).json({
-      message: "Usuario registrado correctamente",
-      user_id: user.id,
-      course_id
-    });
+    return res.json(result);
 
   } catch (error) {
-    console.error("REGISTER ERROR:", error.message);
-    return res.status(500).json({
-      error: error.message
-    });
+    return res.status(401).json({ error: error.message });
   }
 }
 
 module.exports = {
-  register
+  login
 };
