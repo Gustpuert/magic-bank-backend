@@ -1,10 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const controller = require("./auth.controller");
 
-/**
- * Registro automático post-pago
- */
-router.post("/post-payment", controller.postPaymentLogin);
+const { validateSession } = require("./auth.controller");
+const { verifyToken } = require("./auth.middleware");
+
+router.get("/validate", verifyToken, validateSession);
 
 module.exports = router;
