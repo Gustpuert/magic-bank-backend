@@ -1,28 +1,30 @@
-const { createUser, generateJWT } = require("../auth/auth.service");
+const crypto = require("crypto");
+const { createUserIfNotExists, assignCourse } = require("../auth/auth.service");
+const { sendAccessEmail } = require("../../services/email.service");
 
-async function paymentWebhook(req, res) {
-  const { email, course } = req.body;
+exports.paymentWebhook = async (req, res) => {
+  try {
+    const secret = process.env.PAYMENT_WEBHOOK_SECRET;
+    const signature = req.headers["x-signature"];
 
-  // Validación webhook ya existente (firma, etc)
+    if (!signature || signature !== secret) {
+      return res.status(401).json({ error: "Webhook no autorizado" });
+    }
 
-  const user = createUser({
-    email,
-    role: "student",
-    course
-  });
+    const { email, name, course } = req.body;
 
-  const token = generateJWT(user);
+    if (!email || !course) {
+      return res.status(400).json({ error: "Datos incompletos" });
+    }
 
-  // 🔐 JWT listo para:
-  // - redirección frontend
-  // - tutor IA
-  // - email automático
+    const user = await createUserIfNotExists({ email, name });
+    await assignCourse(email, course);
 
-  res.status(200).json({
-    message: "Pago confirmado y acceso creado",
-    token,
-    user
-  });
-}
+    await sendAccessEmail(email, course);
 
-module.exports = { paymentWebhook };
+    return res.status(200).json({ status: "OK" });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ error: "Error interno" });
+  }
+};
