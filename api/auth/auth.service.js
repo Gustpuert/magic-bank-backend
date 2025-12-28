@@ -1,63 +1,37 @@
 const fs = require("fs");
 const path = require("path");
-const jwt = require("jsonwebtoken");
 
-const usersPath = path.join(__dirname, "users.json");
+const USERS_PATH = path.join(__dirname, "users.json");
 
-function readUsers() {
-  if (!fs.existsSync(usersPath)) return [];
-  return JSON.parse(fs.readFileSync(usersPath, "utf8"));
+function loadUsers() {
+  if (!fs.existsSync(USERS_PATH)) {
+    fs.writeFileSync(USERS_PATH, JSON.stringify([]));
+  }
+  return JSON.parse(fs.readFileSync(USERS_PATH));
 }
 
 function saveUsers(users) {
-  fs.writeFileSync(usersPath, JSON.stringify(users, null, 2));
+  fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2));
 }
 
-function registerUser(email, password) {
-  const users = readUsers();
+exports.createUser = async ({ email }) => {
+  if (!email) throw new Error("Email requerido");
 
-  const exists = users.find(u => u.email === email);
-  if (exists) {
+  const users = loadUsers();
+
+  if (users.find(u => u.email === email)) {
     throw new Error("Usuario ya existe");
   }
 
-  const newUser = {
+  const user = {
     id: Date.now(),
     email,
-    password,
-    courses: []
+    courses: [],
+    createdAt: new Date().toISOString()
   };
 
-  users.push(newUser);
+  users.push(user);
   saveUsers(users);
 
-  return newUser;
-}
-
-function loginUser(email, password) {
-  const users = readUsers();
-  const user = users.find(
-    u => u.email === email && u.password === password
-  );
-
-  if (!user) {
-    throw new Error("Credenciales inválidas");
-  }
-
-  const token = jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      courses: user.courses
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "1h" }
-  );
-
-  return { token };
-}
-
-module.exports = {
-  registerUser,
-  loginUser
+  return user;
 };
