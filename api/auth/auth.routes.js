@@ -1,11 +1,10 @@
 const express = require("express");
 const router = express.Router();
 
-const { register } = require("./auth.controller");
+const { registerAuto, verifyToken } = require("./auth.controller");
+const { authMiddleware } = require("./auth.middleware");
 
-/**
- * Registro manual (fallback)
- */
-router.post("/register", register);
+router.post("/register-auto", registerAuto);
+router.get("/verify", authMiddleware, verifyToken);
 
 module.exports = router;
