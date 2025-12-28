@@ -1,69 +1,37 @@
 /**
  * MagicBank Backend
- * Entry point
  */
 
 const express = require("express");
 const cors = require("cors");
-require("dotenv").config();
 
 const authRoutes = require("./api/auth/auth.routes");
 const accessRoutes = require("./api/access/access.routes");
+const paymentWebhook = require("./api/webhook/payment.routes");
 
 const app = express();
-
-/* =========================
-   MIDDLEWARE GLOBAL
-========================= */
 
 app.use(cors());
 app.use(express.json());
 
-/* =========================
-   HEALTH CHECK
-========================= */
-
+/* Health */
 app.get("/", (req, res) => {
-  res.status(200).json({
-    ok: true,
-    service: "MagicBank Backend",
-    status: "running"
-  });
+  res.status(200).send("OK");
 });
 
-/* =========================
-   ROUTES
-========================= */
-
-// Autenticación (login / register)
+/* ROUTES */
 app.use("/api/auth", authRoutes);
-
-// Control de accesos (academy / university / cursos)
 app.use("/api/access", accessRoutes);
+app.use("/api/webhook", paymentWebhook);
 
-/* =========================
-   ERROR HANDLER BÁSICO
-========================= */
-
-app.use((err, req, res, next) => {
-  console.error("Error global:", err);
-  res.status(500).json({
-    ok: false,
-    message: "Error interno del servidor"
-  });
-});
-
-/* =========================
-   SERVER
-========================= */
-
+/* PORT */
 const PORT = process.env.PORT;
 
 if (!PORT) {
-  console.error("❌ PORT no definido en variables de entorno");
+  console.error("PORT no definido");
   process.exit(1);
 }
 
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ MagicBank Backend corriendo en puerto ${PORT}`);
+  console.log(`MagicBank Backend corriendo en puerto ${PORT}`);
 });
