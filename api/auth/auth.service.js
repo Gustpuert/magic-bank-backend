@@ -20,7 +20,7 @@ function createUser({ email, role, course }) {
   const exists = users.find(u => u.email === email);
   if (exists) return exists;
 
-  const newUser = {
+  const user = {
     id: Date.now(),
     email,
     role,
@@ -28,10 +28,9 @@ function createUser({ email, role, course }) {
     createdAt: new Date().toISOString()
   };
 
-  users.push(newUser);
+  users.push(user);
   saveUsers(users);
-
-  return newUser;
+  return user;
 }
 
 function generateJWT(user) {
