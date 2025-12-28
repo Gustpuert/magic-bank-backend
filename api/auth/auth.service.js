@@ -2,42 +2,52 @@ const fs = require("fs");
 const path = require("path");
 const jwt = require("jsonwebtoken");
 
-const USERS_PATH = path.join(__dirname, "users.json");
-const REVOKED_PATH = path.join(__dirname, "revoked_tokens.json");
+const USERS_FILE = path.join(__dirname, "users.json");
+const JWT_SECRET = process.env.JWT_SECRET;
 
-function readUsers() {
-  return JSON.parse(fs.readFileSync(USERS_PATH, "utf8"));
+function loadUsers() {
+  if (!fs.existsSync(USERS_FILE)) return [];
+  return JSON.parse(fs.readFileSync(USERS_FILE, "utf-8"));
 }
 
-function writeUsers(users) {
-  fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2));
+function saveUsers(users) {
+  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2));
 }
 
-function readRevokedTokens() {
-  return JSON.parse(fs.readFileSync(REVOKED_PATH, "utf8"));
+function createUser({ email, role, course }) {
+  const users = loadUsers();
+
+  const exists = users.find(u => u.email === email);
+  if (exists) return exists;
+
+  const newUser = {
+    id: Date.now(),
+    email,
+    role,
+    course,
+    createdAt: new Date().toISOString()
+  };
+
+  users.push(newUser);
+  saveUsers(users);
+
+  return newUser;
 }
 
-function revokeToken(token) {
-  const revoked = readRevokedTokens();
-  revoked.push({ token, revokedAt: new Date().toISOString() });
-  fs.writeFileSync(REVOKED_PATH, JSON.stringify(revoked, null, 2));
-}
-
-function isTokenRevoked(token) {
-  const revoked = readRevokedTokens();
-  return revoked.some(r => r.token === token);
-}
-
-function generateToken(payload) {
-  return jwt.sign(payload, process.env.JWT_SECRET, {
-    expiresIn: "24h" // 🔐 EXPIRACIÓN REAL
-  });
+function generateJWT(user) {
+  return jwt.sign(
+    {
+      id: user.id,
+      email: user.email,
+      role: user.role,
+      course: user.course
+    },
+    JWT_SECRET,
+    { expiresIn: "30d" }
+  );
 }
 
 module.exports = {
-  readUsers,
-  writeUsers,
-  generateToken,
-  revokeToken,
-  isTokenRevoked
+  createUser,
+  generateJWT
 };
