@@ -6,7 +6,6 @@ const express = require("express");
 const cors = require("cors");
 
 const authRoutes = require("./api/auth/auth.routes");
-const devRoutes = require("./api/dev/dev.routes");
 
 const app = express();
 
@@ -20,9 +19,6 @@ app.get("/", (req, res) => {
 
 /* AUTH */
 app.use("/api/auth", authRoutes);
-
-/* DEV (TEMPORAL) */
-app.use("/api/dev", devRoutes);
 
 /* PORT */
 const PORT = process.env.PORT;
