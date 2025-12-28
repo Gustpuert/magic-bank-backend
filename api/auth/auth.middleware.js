@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-exports.verifyToken = (req, res, next) => {
+exports.authMiddleware = (req, res, next) => {
   const authHeader = req.headers.authorization;
 
   if (!authHeader) {
@@ -13,7 +13,7 @@ exports.verifyToken = (req, res, next) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
-  } catch (err) {
-    return res.status(401).json({ error: "Token inválido" });
+  } catch {
+    res.status(401).json({ error: "Token inválido" });
   }
 };
