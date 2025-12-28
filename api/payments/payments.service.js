@@ -20,15 +20,11 @@ async function processPayment(email, course) {
     user = {
       id: Date.now(),
       email,
-      password: null, // se define después
+      password: null,
       courses: [],
       createdAt: new Date().toISOString()
     };
     users.push(user);
-  }
-
-  if (!user.courses) {
-    user.courses = [];
   }
 
   if (!user.courses.includes(course)) {
