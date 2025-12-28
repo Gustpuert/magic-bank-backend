@@ -1,17 +1,10 @@
 [
   {
-    "id": "u-001",
-    "email": "alumno@magicbank.org",
-    "password": "$2b$10$HASH_BCRYPT",
+    "email": "magicbankia@gmail.com",
     "access": [
-      {
-        "code": "academy",
-        "expires_at": "2028-09-21T00:00:00.000Z"
-      },
-      {
-        "code": "facultad-derecho",
-        "expires_at": "2028-09-21T00:00:00.000Z"
-      }
-    ]
+      "academy.magicbank.org",
+      "university.magicbank.org"
+    ],
+    "expires": "2027-01-01"
   }
 ]
