@@ -1,34 +1,19 @@
-const paymentService = require("./payments.service");
+const { processTiendaNubePayment } = require("./payments.service");
 
-async function paymentWebhook(req, res) {
+exports.tiendaNubeWebhook = async (req, res) => {
   try {
-    const secret = req.headers["x-magicbank-secret"];
+    const signature = req.headers["x-linkedstore-hmac-sha256"];
+    const payload = JSON.stringify(req.body);
 
-    if (secret !== process.env.PAYMENT_WEBHOOK_SECRET) {
-      return res.status(403).json({ error: "No autorizado" });
+    if (!signature) {
+      return res.status(401).json({ error: "Firma faltante" });
     }
 
-    const { email, course } = req.body;
+    await processTiendaNubePayment(signature, payload);
 
-    if (!email || !course) {
-      return res.status(400).json({
-        error: "Datos incompletos"
-      });
-    }
-
-    await paymentService.processPayment(email, course);
-
-    return res.status(200).json({
-      message: "Pago procesado correctamente"
-    });
-
+    return res.status(200).json({ status: "ok" });
   } catch (error) {
-    return res.status(500).json({
-      error: error.message
-    });
+    console.error("Webhook error:", error.message);
+    return res.status(400).json({ error: "Webhook inválido" });
   }
-}
-
-module.exports = {
-  paymentWebhook
 };
