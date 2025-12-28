@@ -1,8 +1,13 @@
 const express = require("express");
 const router = express.Router();
+const { generateJWT } = require("./auth.service");
 
-const authController = require("./auth.controller");
+router.post("/token", (req, res) => {
+  const { email } = req.body;
+  if (!email) return res.status(400).json({ error: "Email requerido" });
 
-router.post("/login", authController.login);
+  const token = generateJWT(email);
+  res.json({ token });
+});
 
 module.exports = router;
