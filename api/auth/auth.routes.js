@@ -1,9 +1,11 @@
 const express = require("express");
 const router = express.Router();
 
-const controller = require("./auth.controller");
+const { register } = require("./auth.controller");
 
-router.post("/register", controller.register);
-router.post("/login", controller.login);
+/**
+ * Registro manual (fallback)
+ */
+router.post("/register", register);
 
 module.exports = router;
