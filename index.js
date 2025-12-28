@@ -1,8 +1,11 @@
+/**
+ * MagicBank Backend
+ */
+
 const express = require("express");
 const cors = require("cors");
 
 const authRoutes = require("./api/auth/auth.routes");
-const paymentRoutes = require("./api/payments/payments.routes");
 
 const app = express();
 
@@ -16,9 +19,6 @@ app.get("/", (req, res) => {
 
 /* AUTH */
 app.use("/api/auth", authRoutes);
-
-/* PAYMENTS */
-app.use("/api/payments", paymentRoutes);
 
 /* PORT */
 const PORT = process.env.PORT;
