@@ -1,14 +1,16 @@
 import express from "express";
-import axios from "axios";
+import fetch from "node-fetch";
 
 const app = express();
-
 const PORT = process.env.PORT || 3000;
-const CLIENT_ID = process.env.CLIENT_ID;
-const CLIENT_SECRET = process.env.CLIENT_SECRET;
 
 app.get("/", (req, res) => {
-  res.status(200).send("MagicBank Backend OK");
+  res.status(200).send("MagicBank backend activo");
+});
+
+app.get("/auth/tiendanube", (req, res) => {
+  const url = `https://www.tiendanube.com/apps/${process.env.CLIENT_ID}/authorize`;
+  res.redirect(url);
 });
 
 app.get("/auth/tiendanube/callback", async (req, res) => {
@@ -19,28 +21,30 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
   }
 
   try {
-    const response = await axios.post(
-      "https://www.tiendanube.com/apps/authorize/token",
-      {
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
+    const response = await fetch("https://api.tiendanube.com/v1/oauth/token", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "User-Agent": "MagicBank Access Gateway"
+      },
+      body: JSON.stringify({
+        client_id: process.env.CLIENT_ID,
+        client_secret: process.env.CLIENT_SECRET,
         grant_type: "authorization_code",
         code
-      },
-      {
-        headers: { "Content-Type": "application/json" }
-      }
-    );
+      })
+    });
 
-    const { access_token } = response.data;
+    const data = await response.json();
 
-    console.log("ACCESS TOKEN:", access_token);
-    console.log("STORE ID:", store_id);
+    if (!data.access_token) {
+      return res.status(400).json(data);
+    }
 
-    res.send("App instalada correctamente");
-  } catch (error) {
-    console.error(error.response?.data || error.message);
-    res.status(500).send("OAuth failed");
+    res.send(`App instalada correctamente en la tienda ${store_id}`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("OAuth error");
   }
 });
 
