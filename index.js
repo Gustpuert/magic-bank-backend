@@ -3,7 +3,6 @@ import axios from "axios";
 import bodyParser from "body-parser";
 
 const app = express();
-
 app.use(bodyParser.json());
 
 const PORT = process.env.PORT || 3000;
@@ -11,33 +10,13 @@ const PORT = process.env.PORT || 3000;
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 
-/**
- * Health check
- */
 app.get("/", (req, res) => {
   res.status(200).send("MagicBank Backend OK");
 });
 
-/**
- * INICIO DEL FLUJO OAUTH (ESTE ES EL QUE DEBES USAR)
- */
-app.get("/auth/tiendanube", (req, res) => {
-  const redirectUri = encodeURIComponent(
-    "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback"
-  );
-
-  const authUrl =
-    "https://www.tiendanube.com/apps/authorize" +
-    `?client_id=${CLIENT_ID}` +
-    `&redirect_uri=${redirectUri}`;
-
-  res.redirect(authUrl);
-});
-
-/**
- * CALLBACK OAUTH
- */
 app.get("/auth/tiendanube/callback", async (req, res) => {
+  console.log("QUERY RECIBIDO:", req.query);
+
   const { code, store_id } = req.query;
 
   if (!code || !store_id) {
@@ -65,12 +44,9 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
     console.log("ACCESS TOKEN:", access_token);
     console.log("STORE ID:", store_id);
 
-    res.status(200).send("App instalada correctamente");
+    res.send("App instalada correctamente");
   } catch (error) {
-    console.error(
-      "OAuth error:",
-      error.response?.data || error.message
-    );
+    console.error("OAuth error:", error.response?.data || error.message);
     res.status(500).send("OAuth failed");
   }
 });
