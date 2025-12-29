@@ -1,58 +1,76 @@
-import express from "express";
-import axios from "axios";
-import dotenv from "dotenv";
+// ==============================
+// MagicBank Backend - index.js
+// Cláusula canónica: CommonJS
+// ==============================
 
-dotenv.config();
+const express = require("express");
+const axios = require("axios");
+const bodyParser = require("body-parser");
 
 const app = express();
-app.use(express.json());
 
-const PORT = process.env.PORT || 3000;
+// ------------------------------
+// Middlewares
+// ------------------------------
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
-/**
- * Health check
- */
+// ------------------------------
+// Health check
+// ------------------------------
 app.get("/", (req, res) => {
-  res.status(200).send("MagicBank backend running");
+  res.send("MagicBank Backend OK");
 });
 
-/**
- * OAuth callback Tiendanube
- */
-app.get("/auth/callback", async (req, res) => {
-  const { code, store_id } = req.query;
-
-  if (!code || !store_id) {
-    return res.status(400).json({ error: "Missing code or store_id" });
-  }
-
+// ------------------------------
+// Tiendanube OAuth CALLBACK
+// ------------------------------
+app.get("/auth/tiendanube/callback", async (req, res) => {
   try {
-    const response = await axios.post(
-      "https://www.tiendanube.com/apps/authorize/token",
-      {
-        client_id: process.env.CLIENT_ID,
-        client_secret: process.env.CLIENT_SECRET,
-        grant_type: "authorization_code",
-        code
-      }
-    );
+    const { code, store_id } = req.query;
 
-    const accessToken = response.data.access_token;
+    if (!code || !store_id) {
+      return res.status(400).json({
+        error: "Missing code or store_id",
+      });
+    }
 
-    // aquí guardas accessToken y store_id en DB si quieres
+    // ⚠️ SOLO PRUEBA DE FLUJO
+    // Aquí NO intercambiamos aún el token
+    // Primero confirmamos que el callback funciona
 
-    return res.status(200).json({
-      ok: true,
+    return res.json({
+      success: true,
+      message: "Callback recibido correctamente",
+      code,
       store_id,
-      access_token: accessToken
     });
   } catch (error) {
-    return res.status(500).json({
-      error: "Token exchange failed",
-      details: error.response?.data || error.message
-    });
+    console.error("Callback error:", error.message);
+    return res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// ------------------------------
+// Webhooks requeridos por Tiendanube
+// (obligatorios aunque no los uses aún)
+// ------------------------------
+app.post("/webhooks/store/redact", (req, res) => {
+  return res.status(200).send("OK");
+});
+
+app.post("/webhooks/customers/redact", (req, res) => {
+  return res.status(200).send("OK");
+});
+
+app.post("/webhooks/customers/data_request", (req, res) => {
+  return res.status(200).send("OK");
+});
+
+// ------------------------------
+// Server
+// ------------------------------
+const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log(`MagicBank Backend corriendo en puerto ${PORT}`);
