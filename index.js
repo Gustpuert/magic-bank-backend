@@ -1,22 +1,32 @@
-import express from "express";
-import axios from "axios";
-import bodyParser from "body-parser";
+require("dotenv").config();
+const express = require("express");
+const axios = require("axios");
 
 const app = express();
-app.use(bodyParser.json());
-
 const PORT = process.env.PORT || 3000;
 
 const CLIENT_ID = process.env.CLIENT_ID;
 const CLIENT_SECRET = process.env.CLIENT_SECRET;
 
-app.get("/", (req, res) => {
-  res.status(200).send("MagicBank Backend OK");
+/**
+ * 1️⃣ ENDPOINT QUE INICIA EL OAUTH
+ * ESTE ES EL QUE DEBES ABRIR EN EL NAVEGADOR
+ */
+app.get("/auth/tiendanube", (req, res) => {
+  const redirectUri =
+    "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback";
+
+  const authUrl = `https://www.tiendanube.com/apps/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(
+    redirectUri
+  )}`;
+
+  return res.redirect(authUrl);
 });
 
+/**
+ * 2️⃣ CALLBACK - AQUÍ LLEGA EL CODE
+ */
 app.get("/auth/tiendanube/callback", async (req, res) => {
-  console.log("QUERY RECIBIDO:", req.query);
-
   const { code, store_id } = req.query;
 
   if (!code || !store_id) {
@@ -24,31 +34,36 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
   }
 
   try {
-    const response = await axios.post(
+    const tokenResponse = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
       {
         client_id: CLIENT_ID,
         client_secret: CLIENT_SECRET,
         grant_type: "authorization_code",
-        code: code
-      },
-      {
-        headers: {
-          "Content-Type": "application/json"
-        }
+        code
       }
     );
 
-    const { access_token } = response.data;
+    const accessToken = tokenResponse.data.access_token;
 
-    console.log("ACCESS TOKEN:", access_token);
+    console.log("ACCESS TOKEN:", accessToken);
     console.log("STORE ID:", store_id);
 
-    res.send("App instalada correctamente");
+    return res.send("OAuth OK – Token generado correctamente");
   } catch (error) {
-    console.error("OAuth error:", error.response?.data || error.message);
-    res.status(500).send("OAuth failed");
+    console.error(
+      "ERROR TOKEN:",
+      error.response?.data || error.message
+    );
+    return res.status(500).send("Error obteniendo access token");
   }
+});
+
+/**
+ * 3️⃣ HEALTH CHECK
+ */
+app.get("/", (req, res) => {
+  res.send("MagicBank Backend OK");
 });
 
 app.listen(PORT, () => {
