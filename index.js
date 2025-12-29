@@ -1,41 +1,47 @@
 import express from "express";
+import axios from "axios";
 
 const app = express();
-app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
+const CLIENT_ID = process.env.CLIENT_ID;
+const CLIENT_SECRET = process.env.CLIENT_SECRET;
 
-/* Health */
 app.get("/", (req, res) => {
   res.status(200).send("MagicBank Backend OK");
 });
 
-/* === GDPR WEBHOOKS (OBLIGATORIOS) === */
-
-app.post("/webhooks/store-redact", (req, res) => {
-  console.log("STORE REDACT:", req.body);
-  res.sendStatus(200);
-});
-
-app.post("/webhooks/customers-redact", (req, res) => {
-  console.log("CUSTOMER REDACT:", req.body);
-  res.sendStatus(200);
-});
-
-app.post("/webhooks/customers-data-request", (req, res) => {
-  console.log("CUSTOMER DATA REQUEST:", req.body);
-  res.sendStatus(200);
-});
-
-/* OAuth callback (ya lo tenías) */
-app.get("/auth/tiendanube/callback", (req, res) => {
+app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code, store_id } = req.query;
 
   if (!code || !store_id) {
     return res.status(400).send("Missing code or store_id");
   }
 
-  res.status(200).send("OAuth callback OK");
+  try {
+    const response = await axios.post(
+      "https://www.tiendanube.com/apps/authorize/token",
+      {
+        client_id: CLIENT_ID,
+        client_secret: CLIENT_SECRET,
+        grant_type: "authorization_code",
+        code
+      },
+      {
+        headers: { "Content-Type": "application/json" }
+      }
+    );
+
+    const { access_token } = response.data;
+
+    console.log("ACCESS TOKEN:", access_token);
+    console.log("STORE ID:", store_id);
+
+    res.send("App instalada correctamente");
+  } catch (error) {
+    console.error(error.response?.data || error.message);
+    res.status(500).send("OAuth failed");
+  }
 });
 
 app.listen(PORT, () => {
