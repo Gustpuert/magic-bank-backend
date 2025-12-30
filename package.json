@@ -2,10 +2,10 @@
   "name": "magicbank-backend",
   "version": "1.0.0",
   "description": "MagicBank Tienda Nube OAuth Backend",
-  "main": "index.cjs",
+  "main": "index.js",
   "type": "commonjs",
   "scripts": {
-    "start": "node index.cjs"
+    "start": "node index.js"
   },
   "dependencies": {
     "axios": "^1.6.7",
