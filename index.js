@@ -12,7 +12,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 /**
  * Health check
- * Sirve para verificar que el backend está vivo
  */
 app.get("/", (req, res) => {
   res.status(200).send("MagicBank Backend OK");
@@ -20,13 +19,14 @@ app.get("/", (req, res) => {
 
 /**
  * OAuth Callback Tiendanube / Nuvemshop
- * Tiendanube envía: ?code=XXXX&store_id=YYYY
+ * Tiendanube envía SOLO: ?code=XXXX
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
-  const { code, store_id } = req.query;
+  const { code } = req.query;
 
-  if (!code || !store_id) {
-    return res.status(400).send("Missing code or store_id");
+  // 🔴 CORRECCIÓN CLAVE: SOLO validar code
+  if (!code) {
+    return res.status(400).send("Missing code");
   }
 
   try {
@@ -47,9 +47,8 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 
     const accessToken = tokenResponse.data.access_token;
 
-    // LOGS DE CONFIRMACIÓN
-    console.log("✅ TIENDANUBE INSTALADA");
-    console.log("STORE ID:", store_id);
+    // LOGS CLAROS
+    console.log("✅ TIENDANUBE INSTALADA CORRECTAMENTE");
     console.log("ACCESS TOKEN:", accessToken);
 
     res
