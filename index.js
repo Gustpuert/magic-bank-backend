@@ -1,37 +1,38 @@
+require("dotenv").config();
+
 const express = require("express");
 const axios = require("axios");
 const bodyParser = require("body-parser");
 
 const app = express();
-app.use(bodyParser.json());
-
 const PORT = process.env.PORT || 3000;
 
-const CLIENT_ID = process.env.CLIENT_ID;
-const CLIENT_SECRET = process.env.CLIENT_SECRET;
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 
+/**
+ * Health check
+ */
 app.get("/", (req, res) => {
   res.status(200).send("MagicBank Backend OK");
 });
 
 /**
- * CALLBACK DE OAUTH TIENDA NUBE
+ * Tienda Nube OAuth Callback
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
-  const { code } = req.query;
+  const { code, store_id } = req.query;
 
-  if (!code) {
-    console.error("Callback recibido sin code:", req.query);
-    return res.status(400).send("Missing code");
+  if (!code || !store_id) {
+    return res.status(400).send("Missing code or store_id");
   }
 
   try {
-    // Intercambiar code por access_token
     const tokenResponse = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
       {
-        client_id: CLIENT_ID,
-        client_secret: CLIENT_SECRET,
+        client_id: process.env.TIENDANUBE_CLIENT_ID,
+        client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
         grant_type: "authorization_code",
         code: code
       },
@@ -42,34 +43,19 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       }
     );
 
-    const { access_token } = tokenResponse.data;
+    const accessToken = tokenResponse.data.access_token;
 
-    console.log("ACCESS TOKEN OBTENIDO:", access_token);
+    /**
+     * AQUÍ puedes guardar el token y el store_id en DB si quieres
+     */
+    console.log("STORE ID:", store_id);
+    console.log("ACCESS TOKEN:", accessToken);
 
-    // Obtener datos de la tienda (incluye store_id)
-    const storeResponse = await axios.get(
-      "https://api.tiendanube.com/v1/my/store",
-      {
-        headers: {
-          Authentication: `bearer ${access_token}`,
-          "User-Agent": "MagicBank App (soporte@magicbank.org)"
-        }
-      }
-    );
-
-    const store = storeResponse.data;
-
-    console.log("STORE ID:", store.id);
-    console.log("STORE NAME:", store.name);
-
-    res.status(200).send("App instalada correctamente en Tienda Nube");
+    res.status(200).send("App instalada correctamente en MagicBank");
 
   } catch (error) {
-    console.error(
-      "OAuth error:",
-      error.response?.data || error.message
-    );
-    res.status(500).send("OAuth failed");
+    console.error("OAuth Error:", error.response?.data || error.message);
+    res.status(500).send("Error exchanging code for token");
   }
 });
 
