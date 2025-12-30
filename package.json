@@ -1,7 +1,7 @@
 {
   "name": "magicbank-backend",
   "version": "1.0.0",
-  "description": "MagicBank Tiendanube OAuth Backend",
+  "description": "MagicBank Tienda Nube OAuth Backend",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
