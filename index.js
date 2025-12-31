@@ -19,14 +19,16 @@ app.get("/", (req, res) => {
 
 /**
  * OAuth Callback Tiendanube / Nuvemshop
- * Tiendanube envía SOLO: ?code=XXXX
+ * Tiendanube envía: ?code=XXXX
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
 
-  // 🔴 CORRECCIÓN CLAVE: SOLO validar code
+  // 🔥 CORRECCIÓN CLAVE:
+  // NO se exige store_id porque OAuth no lo garantiza
   if (!code) {
-    return res.status(400).send("Missing code");
+    console.error("❌ Missing authorization code");
+    return res.status(400).send("Missing authorization code");
   }
 
   try {
@@ -47,9 +49,16 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 
     const accessToken = tokenResponse.data.access_token;
 
-    // LOGS CLAROS
+    // LOGS DE CONFIRMACIÓN
     console.log("✅ TIENDANUBE INSTALADA CORRECTAMENTE");
     console.log("ACCESS TOKEN:", accessToken);
+
+    /**
+     * 👉 Aquí luego puedes:
+     * - Consultar la API /store con el accessToken
+     * - Obtener store_id, nombre, email, etc.
+     * - Guardar todo en tu base de datos
+     */
 
     res
       .status(200)
