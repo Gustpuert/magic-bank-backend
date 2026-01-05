@@ -5,7 +5,7 @@ const axios = require("axios");
 const bodyParser = require("body-parser");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 8080;
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -19,12 +19,11 @@ app.get("/", (req, res) => {
 
 /**
  * OAuth Callback Tiendanube / Nuvemshop
- * Tiendanube redirige aquí con ?code=XXXX
+ * Tiendanube envía: ?code=XXXX
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
 
-  // Validación mínima
   if (!code) {
     console.error("❌ Missing authorization code");
     return res.status(400).send("Missing authorization code");
@@ -50,40 +49,36 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
     );
 
     const accessToken = tokenResponse.data.access_token;
-    console.log("✅ ACCESS TOKEN OBTENIDO");
+
+    console.log("✅ TIENDANUBE INSTALADA CORRECTAMENTE");
+    console.log("ACCESS TOKEN:", accessToken);
 
     /**
-     * 2️⃣ Obtener datos de la tienda
+     * 2️⃣ Obtener datos de la tienda (store_id)
      */
     const storeResponse = await axios.get(
       "https://api.tiendanube.com/v1/store",
       {
         headers: {
           Authorization: `Bearer ${accessToken}`,
-          "User-Agent": process.env.EMAIL_USER || "MagicBank"
+          "User-Agent": process.env.TIENDANUBE_USER_AGENT || "magicbankia@gmail.com"
         }
       }
     );
 
-    const store = storeResponse.data;
+    const storeData = storeResponse.data;
+
+    console.log("🏪 STORE OBTENIDA");
+    console.log("STORE ID:", storeData.id);
+    console.log("STORE NAME:", storeData.name);
+    console.log("STORE EMAIL:", storeData.email);
 
     /**
-     * 3️⃣ Datos finales de la tienda
-     */
-    const storeData = {
-      store_id: store.id,
-      name: store.name,
-      email: store.email,
-      domain: store.domain,
-      access_token: accessToken
-    };
-
-    console.log("🏪 TIENDA CONECTADA CORRECTAMENTE:");
-    console.log(storeData);
-
-    /**
-     * 👉 En el próximo paso:
-     * guardar storeData en la base de datos
+     * 3️⃣ AQUÍ es donde luego guardarás en BD:
+     * - storeData.id
+     * - accessToken
+     *
+     * Por ahora solo lo confirmamos en logs (correcto para esta etapa)
      */
 
     res
@@ -95,7 +90,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       "❌ OAuth Error:",
       error.response?.data || error.message
     );
-    res.status(500).send("Error during OAuth process");
+    res.status(500).send("Error during Tiendanube OAuth process");
   }
 });
 
