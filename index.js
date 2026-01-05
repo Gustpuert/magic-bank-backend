@@ -2,24 +2,15 @@ require("dotenv").config();
 
 const express = require("express");
 const axios = require("axios");
-const bodyParser = require("body-parser");
-const { Pool } = require("pg");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
-/**
- * Postgres connection (Railway)
- */
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
+// Railway SIEMPRE inyecta PORT
+const PORT = process.env.PORT || 8080;
 
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true }));
+// Middleware nativo (NO body-parser)
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 /**
  * Health check
@@ -41,21 +32,16 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
   }
 
   try {
-    /**
-     * Intercambiar code por access_token
-     */
     const tokenResponse = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
       {
         client_id: process.env.TIENDANUBE_CLIENT_ID,
         client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
         grant_type: "authorization_code",
-        code: code
+        code: code,
       },
       {
-        headers: {
-          "Content-Type": "application/json"
-        }
+        headers: { "Content-Type": "application/json" },
       }
     );
 
@@ -64,21 +50,9 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
     console.log("✅ TIENDANUBE INSTALADA CORRECTAMENTE");
     console.log("ACCESS TOKEN:", accessToken);
 
-    /**
-     * Guardar token en base de datos
-     */
-    await pool.query(
-      `
-      INSERT INTO tiendanube_stores (access_token)
-      VALUES ($1)
-      `,
-      [accessToken]
-    );
-
     res
       .status(200)
       .send("Aplicación MagicBank instalada correctamente en Tiendanube");
-
   } catch (error) {
     console.error(
       "❌ OAuth Error:",
@@ -89,20 +63,8 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 });
 
 /**
- * DEBUG — Ver tokens guardados (solo prueba)
+ * Start server
  */
-app.get("/debug/tiendanube/tokens", async (req, res) => {
-  try {
-    const result = await pool.query(
-      "SELECT id, access_token, created_at FROM tiendanube_stores ORDER BY id DESC"
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error("❌ DB Error:", error.message);
-    res.status(500).json({ error: "Database error" });
-  }
-});
-
 app.listen(PORT, () => {
   console.log(`🚀 MagicBank Backend running on port ${PORT}`);
 });
