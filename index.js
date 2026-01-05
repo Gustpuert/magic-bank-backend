@@ -3,9 +3,18 @@ require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
 const bodyParser = require("body-parser");
+const { Pool } = require("pg");
 
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT || 3000;
+
+/**
+ * Conexión a Postgres (Railway)
+ */
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
+});
 
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -18,8 +27,7 @@ app.get("/", (req, res) => {
 });
 
 /**
- * OAuth Callback Tiendanube / Nuvemshop
- * Tiendanube envía: ?code=XXXX
+ * OAuth Callback Tiendanube
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
@@ -42,55 +50,32 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
         code: code
       },
       {
-        headers: {
-          "Content-Type": "application/json"
-        }
+        headers: { "Content-Type": "application/json" }
       }
     );
 
     const accessToken = tokenResponse.data.access_token;
 
-    console.log("✅ TIENDANUBE INSTALADA CORRECTAMENTE");
+    console.log("✅ TIENDANUBE INSTALADA");
     console.log("ACCESS TOKEN:", accessToken);
 
     /**
-     * 2️⃣ Obtener datos de la tienda (store_id)
+     * 2️⃣ Guardar token en Postgres
      */
-    const storeResponse = await axios.get(
-      "https://api.tiendanube.com/v1/store",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "User-Agent": process.env.TIENDANUBE_USER_AGENT || "magicbankia@gmail.com"
-        }
-      }
+    await pool.query(
+      "INSERT INTO tiendanube_stores (access_token) VALUES ($1)",
+      [accessToken]
     );
 
-    const storeData = storeResponse.data;
-
-    console.log("🏪 STORE OBTENIDA");
-    console.log("STORE ID:", storeData.id);
-    console.log("STORE NAME:", storeData.name);
-    console.log("STORE EMAIL:", storeData.email);
-
-    /**
-     * 3️⃣ AQUÍ es donde luego guardarás en BD:
-     * - storeData.id
-     * - accessToken
-     *
-     * Por ahora solo lo confirmamos en logs (correcto para esta etapa)
-     */
+    console.log("💾 Token guardado en la base de datos");
 
     res
       .status(200)
-      .send("Aplicación MagicBank instalada correctamente en Tiendanube");
+      .send("Aplicación MagicBank instalada correctamente");
 
   } catch (error) {
-    console.error(
-      "❌ OAuth Error:",
-      error.response?.data || error.message
-    );
-    res.status(500).send("Error during Tiendanube OAuth process");
+    console.error("❌ OAuth Error:", error.response?.data || error.message);
+    res.status(500).send("Error en instalación");
   }
 });
 
