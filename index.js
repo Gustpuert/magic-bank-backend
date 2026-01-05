@@ -9,11 +9,13 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 /**
- * Conexión a Postgres (Railway)
+ * Postgres connection (Railway)
  */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
 app.use(bodyParser.json());
@@ -27,7 +29,8 @@ app.get("/", (req, res) => {
 });
 
 /**
- * OAuth Callback Tiendanube
+ * OAuth Callback Tiendanube / Nuvemshop
+ * Tiendanube envía: ?code=XXXX
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
@@ -39,7 +42,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 
   try {
     /**
-     * 1️⃣ Intercambiar code por access_token
+     * Intercambiar code por access_token
      */
     const tokenResponse = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
@@ -50,32 +53,53 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
         code: code
       },
       {
-        headers: { "Content-Type": "application/json" }
+        headers: {
+          "Content-Type": "application/json"
+        }
       }
     );
 
     const accessToken = tokenResponse.data.access_token;
 
-    console.log("✅ TIENDANUBE INSTALADA");
+    console.log("✅ TIENDANUBE INSTALADA CORRECTAMENTE");
     console.log("ACCESS TOKEN:", accessToken);
 
     /**
-     * 2️⃣ Guardar token en Postgres
+     * Guardar token en base de datos
      */
     await pool.query(
-      "INSERT INTO tiendanube_stores (access_token) VALUES ($1)",
+      `
+      INSERT INTO tiendanube_stores (access_token)
+      VALUES ($1)
+      `,
       [accessToken]
     );
 
-    console.log("💾 Token guardado en la base de datos");
-
     res
       .status(200)
-      .send("Aplicación MagicBank instalada correctamente");
+      .send("Aplicación MagicBank instalada correctamente en Tiendanube");
 
   } catch (error) {
-    console.error("❌ OAuth Error:", error.response?.data || error.message);
-    res.status(500).send("Error en instalación");
+    console.error(
+      "❌ OAuth Error:",
+      error.response?.data || error.message
+    );
+    res.status(500).send("Error exchanging code for token");
+  }
+});
+
+/**
+ * DEBUG — Ver tokens guardados (solo prueba)
+ */
+app.get("/debug/tiendanube/tokens", async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT id, access_token, created_at FROM tiendanube_stores ORDER BY id DESC"
+    );
+    res.json(result.rows);
+  } catch (error) {
+    console.error("❌ DB Error:", error.message);
+    res.status(500).json({ error: "Database error" });
   }
 });
 
