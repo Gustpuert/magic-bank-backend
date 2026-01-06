@@ -18,7 +18,6 @@ app.use(express.urlencoded({ extended: true }));
 /**
  * =========================
  * POSTGRES CONNECTION
- * Railway inyecta DATABASE_URL
  * =========================
  */
 const pool = new Pool({
@@ -28,35 +27,35 @@ const pool = new Pool({
 
 /**
  * =========================
- * INIT DATABASE (CREA TABLAS)
+ * AUTO-CREATE TABLES
+ * (evita manipulación humana)
  * =========================
  */
-async function initDatabase() {
-  try {
-    // Tabla de tiendas Tiendanube
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS tiendanube_stores (
-        store_id BIGINT PRIMARY KEY,
-        access_token TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tiendanube_stores (
+      id SERIAL PRIMARY KEY,
+      store_id BIGINT UNIQUE NOT NULL,
+      access_token TEXT NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
 
-    // Tabla de órdenes procesadas
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS processed_orders (
-        order_id BIGINT PRIMARY KEY,
-        raw_order JSONB,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS processed_orders (
+      id SERIAL PRIMARY KEY,
+      order_id BIGINT UNIQUE NOT NULL,
+      raw_order JSONB,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
 
-    console.log("✅ Tablas verificadas / creadas correctamente");
-  } catch (error) {
-    console.error("❌ Error inicializando base de datos:", error.message);
-    process.exit(1);
-  }
+  console.log("✅ Tablas verificadas / creadas correctamente");
 }
+
+initDB().catch((err) => {
+  console.error("❌ Error inicializando DB:", err.message);
+});
 
 /**
  * =========================
@@ -69,7 +68,8 @@ app.get("/", (req, res) => {
 
 /**
  * =========================
- * OAUTH CALLBACK (SOLO INSTALACIÓN)
+ * OAUTH CALLBACK
+ * (solo al instalar la app)
  * =========================
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
@@ -92,7 +92,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
     );
 
     const accessToken = tokenResponse.data.access_token;
-    const storeId = tokenResponse.data.user_id; // ID REAL DE LA TIENDA
+    const storeId = tokenResponse.data.user_id;
 
     await pool.query(
       `
@@ -104,11 +104,9 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       [storeId, accessToken]
     );
 
-    console.log("✅ Tienda guardada / actualizada:", storeId);
-
     res.send("MagicBank instalada correctamente en Tiendanube");
   } catch (error) {
-    console.error("❌ OAuth error:", error.response?.data || error.message);
+    console.error("OAuth error:", error.response?.data || error.message);
     res.status(500).send("OAuth error");
   }
 });
@@ -116,7 +114,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 /**
  * =========================
  * CRON ENDPOINT
- * CONSULTA ÓRDENES PAGADAS
+ * Consulta órdenes pagadas
  * =========================
  */
 app.get("/cron/check-orders", async (req, res) => {
@@ -137,7 +135,7 @@ app.get("/cron/check-orders", async (req, res) => {
       `https://api.tiendanube.com/v1/${store_id}/orders?status=paid`,
       {
         headers: {
-          Authentication: `bearer ${access_token}`,
+          Authorization: `Bearer ${access_token}`, // 🔑 CORRECTO
           "User-Agent": "MagicBank (magicbankia@gmail.com)",
         },
       }
@@ -149,7 +147,7 @@ app.get("/cron/check-orders", async (req, res) => {
     for (const order of orders) {
       const orderId = order.id;
 
-      // 3. Verificar si ya fue procesada
+      // 3. Evitar reprocesar órdenes
       const exists = await pool.query(
         `SELECT 1 FROM processed_orders WHERE order_id = $1`,
         [orderId]
@@ -168,12 +166,12 @@ app.get("/cron/check-orders", async (req, res) => {
 
       /**
        * =========================
-       * AQUÍ VA LA LÓGICA DE NEGOCIO
-       * (SIGUIENTE PASO)
+       * AQUÍ VA LA LÓGICA MAGICBANK
        * =========================
-       * - Detectar producto por ID
-       * - Activar University / Academy / Fábrica
-       * - Enviar acceso automático
+       * - Leer product_id
+       * - Mapear a University / Academy / Fábrica
+       * - Crear acceso automático
+       * - Enviar credenciales
        */
 
       processed++;
@@ -198,7 +196,6 @@ app.get("/cron/check-orders", async (req, res) => {
  * START SERVER
  * =========================
  */
-app.listen(PORT, async () => {
-  await initDatabase();
+app.listen(PORT, () => {
   console.log(`🚀 MagicBank Backend running on port ${PORT}`);
 });
