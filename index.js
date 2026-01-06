@@ -23,15 +23,18 @@ const pool = new Pool({
 });
 
 /**
- * Health check
+ * =========================
+ * HEALTH CHECK
+ * =========================
  */
 app.get("/", (req, res) => {
   res.status(200).send("MagicBank Backend OK");
 });
 
 /**
- * OAuth Callback Tiendanube
- * Se usa SOLO cuando se instala la app
+ * =========================
+ * OAUTH CALLBACK (SOLO INSTALL)
+ * =========================
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
@@ -49,15 +52,12 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
         grant_type: "authorization_code",
         code,
       },
-      {
-        headers: { "Content-Type": "application/json" },
-      }
+      { headers: { "Content-Type": "application/json" } }
     );
 
     const accessToken = tokenResponse.data.access_token;
-    const storeId = tokenResponse.data.user_id; // ID REAL DE LA TIENDA
+    const storeId = tokenResponse.data.user_id;
 
-    // Guardar o actualizar token
     await pool.query(
       `
       INSERT INTO tiendanube_stores (store_id, access_token)
@@ -68,7 +68,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       [storeId, accessToken]
     );
 
-    res.send("MagicBank instalada correctamente");
+    res.send("MagicBank instalada correctamente en Tiendanube");
   } catch (error) {
     console.error("OAuth error:", error.response?.data || error.message);
     res.status(500).send("OAuth error");
@@ -76,72 +76,91 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 });
 
 /**
- * GET /store
- * Devuelve información de la tienda usando el token guardado
+ * =========================
+ * CRON ENDPOINT
+ * CONSULTA ÓRDENES PAGADAS
+ * =========================
+ * 👉 ESTE ENDPOINT ES EL CORAZÓN DE LA AUTOMATIZACIÓN
  */
-app.get("/store", async (req, res) => {
+app.get("/cron/check-orders", async (req, res) => {
   try {
-    const result = await pool.query(
-      `
-      SELECT store_id, access_token
-      FROM tiendanube_stores
-      ORDER BY created_at DESC
-      LIMIT 1
-      `
+    // 1. Obtener tienda + token
+    const storeResult = await pool.query(
+      `SELECT store_id, access_token FROM tiendanube_stores LIMIT 1`
     );
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: "No store found in database" });
+    if (storeResult.rows.length === 0) {
+      return res.status(404).json({ error: "No store configured" });
     }
 
-    const { store_id, access_token } = result.rows[0];
+    const { store_id, access_token } = storeResult.rows[0];
 
-    const storeResponse = await axios.get(
-      `https://api.tiendanube.com/v1/${store_id}/store`,
+    // 2. Consultar órdenes pagadas
+    const ordersResponse = await axios.get(
+      `https://api.tiendanube.com/v1/${store_id}/orders?status=paid`,
       {
         headers: {
           Authentication: `bearer ${access_token}`,
-          "User-Agent": "MagicBank (contacto@magicbank.com)",
+          "User-Agent": "MagicBank (magicbankia@gmail.com)",
         },
       }
     );
 
-    res.json(storeResponse.data);
+    const orders = ordersResponse.data;
+
+    let processed = 0;
+
+    for (const order of orders) {
+      const orderId = order.id;
+
+      // 3. Verificar si ya fue procesada
+      const exists = await pool.query(
+        `SELECT 1 FROM processed_orders WHERE order_id = $1`,
+        [orderId]
+      );
+
+      if (exists.rows.length > 0) {
+        continue;
+      }
+
+      // 4. Registrar orden como procesada
+      await pool.query(
+        `
+        INSERT INTO processed_orders (order_id, raw_order)
+        VALUES ($1, $2)
+        `,
+        [orderId, order]
+      );
+
+      /**
+       * 5. AQUÍ VA LA LÓGICA DE NEGOCIO
+       * --------------------------------
+       * - Identificar producto
+       * - Activar tutor University / Academy / Fábrica
+       * - Enviar email / acceso / token
+       */
+
+      processed++;
+    }
+
+    res.json({
+      status: "OK",
+      orders_found: orders.length,
+      orders_processed: processed,
+    });
   } catch (error) {
-    console.error("Store fetch error:", error.response?.data || error.message);
-    res.status(500).json({ error: "Failed to fetch store data" });
+    console.error(
+      "Order check error:",
+      error.response?.data || error.message
+    );
+    res.status(500).json({ error: "Failed to check orders" });
   }
 });
 
 /**
- * Webhook Tiendanube - Orden pagada
- * ESTE es el corazón de la automatización
- */
-app.post("/webhooks/order-paid", async (req, res) => {
-  try {
-    const payload = req.body;
-
-    console.log("📦 Webhook recibido: ORDEN PAGADA");
-    console.log(JSON.stringify(payload, null, 2));
-
-    /**
-     * Próximos pasos (luego):
-     * - Validar que esté pagada
-     * - Identificar producto / curso
-     * - Crear acceso al curso
-     * - Asignar tutor IA
-     */
-
-    // Respuesta obligatoria a Tiendanube
-    res.status(200).json({ ok: true });
-  } catch (error) {
-    console.error("❌ Error en webhook:", error);
-    res.status(500).json({ error: "Webhook error" });
-  }
-});
-
-/**
- * Start server
+ * =========================
+ * START SERVER
+ * =========================
  */
 app.listen(PORT, () => {
   console.log(`🚀 MagicBank Backend running on port ${PORT}`);
