@@ -5,23 +5,22 @@ const axios = require("axios");
 const { Pool } = require("pg");
 
 const app = express();
+
+// Railway siempre inyecta PORT
 const PORT = process.env.PORT || 8080;
 
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 /**
- * PostgreSQL connection (Railway)
+ * PostgreSQL Pool (Railway)
+ * DATABASE_URL debe estar en Variables de Entorno
  */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production"
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: { rejectUnauthorized: false },
 });
-
-/**
- * Middleware
- */
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 /**
  * Health check
@@ -31,8 +30,8 @@ app.get("/", (req, res) => {
 });
 
 /**
- * OAuth Callback – Tiendanube / Nuvemshop
- * Recibe ?code=XXXX
+ * OAuth Callback Tiendanube / Nuvemshop
+ * Recibe: ?code=XXXX
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
@@ -43,9 +42,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
   }
 
   try {
-    /**
-     * 1️⃣ Exchange code for access token
-     */
+    // Intercambio code → access_token
     const tokenResponse = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
       {
@@ -59,67 +56,65 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       }
     );
 
-    const { access_token, user_id } = tokenResponse.data;
+    const accessToken = tokenResponse.data.access_token;
 
     console.log("✅ TIENDANUBE INSTALADA CORRECTAMENTE");
-    console.log("STORE ID:", user_id);
-    console.log("ACCESS TOKEN:", access_token);
+    console.log("ACCESS TOKEN RECIBIDO");
 
-    /**
-     * 2️⃣ Save token in Postgres (UPSERT)
-     * No duplica tiendas
-     */
+    // Guardar access_token en Postgres
     await pool.query(
       `
-      INSERT INTO tiendanube_stores (store_id, access_token)
-      VALUES ($1, $2)
-      ON CONFLICT (store_id)
-      DO UPDATE SET
-        access_token = EXCLUDED.access_token,
-        created_at = NOW();
+      INSERT INTO tiendanube_tokens (access_token)
+      VALUES ($1)
       `,
-      [user_id.toString(), access_token]
+      [accessToken]
     );
 
-    /**
-     * 3️⃣ Final response
-     */
     res
       .status(200)
-      .send("Aplicación MagicBank instalada correctamente");
-
+      .send("Aplicación MagicBank instalada correctamente en Tiendanube");
   } catch (error) {
     console.error(
       "❌ OAuth Error:",
       error.response?.data || error.message
     );
-    res.status(500).send("OAuth error");
+    res.status(500).send("Error exchanging code for token");
   }
 });
 
 /**
- * Endpoint para verificar tienda instalada (opcional pero útil)
+ * TEST REAL — Obtener información de la tienda
+ * CONFIRMA que el access_token sirve
  */
-app.get("/stores/:store_id", async (req, res) => {
-  const { store_id } = req.params;
-
+app.get("/tiendanube/store", async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT store_id, created_at FROM tiendanube_stores WHERE store_id = $1",
-      [store_id]
+      "SELECT access_token FROM tiendanube_tokens ORDER BY created_at DESC LIMIT 1"
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ installed: false });
+      return res.status(404).json({ error: "No access token found" });
     }
 
-    res.json({
-      installed: true,
-      store: result.rows[0],
-    });
+    const accessToken = result.rows[0].access_token;
+
+    const response = await axios.get(
+      "https://api.tiendanube.com/v1/my/store",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "User-Agent": "MagicBank App (magicbankia@gmail.com)",
+        },
+      }
+    );
+
+    res.status(200).json(response.data);
   } catch (error) {
-    console.error("❌ DB Error:", error.message);
-    res.status(500).json({ error: "Database error" });
+    console.error(
+      "❌ Error fetching store data:",
+      error.response?.data || error.message
+    );
+    res.status(500).json({ error: "Failed to fetch store data" });
   }
 });
 
