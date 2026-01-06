@@ -5,19 +5,21 @@ const axios = require("axios");
 const { Pool } = require("pg");
 
 const app = express();
-
-// Railway SIEMPRE inyecta PORT
 const PORT = process.env.PORT || 8080;
 
-// PostgreSQL connection (Railway)
+/**
+ * PostgreSQL connection (Railway)
+ */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL.includes("localhost")
-    ? false
-    : { rejectUnauthorized: false },
+  ssl: process.env.NODE_ENV === "production"
+    ? { rejectUnauthorized: false }
+    : false,
 });
 
-// Middleware
+/**
+ * Middleware
+ */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -29,30 +31,11 @@ app.get("/", (req, res) => {
 });
 
 /**
- * Ensure table exists (runs once safely)
- */
-async function ensureTable() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS tiendanube_stores (
-      id SERIAL PRIMARY KEY,
-      store_id VARCHAR(255),
-      access_token TEXT,
-      created_at TIMESTAMP DEFAULT now()
-    );
-  `);
-}
-
-// Create table on startup
-ensureTable()
-  .then(() => console.log("✅ Table tiendanube_stores ready"))
-  .catch((err) => console.error("❌ Table init error", err));
-
-/**
- * OAuth Callback Tiendanube / Nuvemshop
- * Tiendanube envía: ?code=XXXX&store_id=XXXX
+ * OAuth Callback – Tiendanube / Nuvemshop
+ * Recibe ?code=XXXX
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
-  const { code, store_id } = req.query;
+  const { code } = req.query;
 
   if (!code) {
     console.error("❌ Missing authorization code");
@@ -60,7 +43,9 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
   }
 
   try {
-    // Exchange code for access token
+    /**
+     * 1️⃣ Exchange code for access token
+     */
     const tokenResponse = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
       {
@@ -74,29 +59,67 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       }
     );
 
-    const accessToken = tokenResponse.data.access_token;
+    const { access_token, user_id } = tokenResponse.data;
 
     console.log("✅ TIENDANUBE INSTALADA CORRECTAMENTE");
-    console.log("ACCESS TOKEN:", accessToken);
+    console.log("STORE ID:", user_id);
+    console.log("ACCESS TOKEN:", access_token);
 
-    // Save token in database
+    /**
+     * 2️⃣ Save token in Postgres (UPSERT)
+     * No duplica tiendas
+     */
     await pool.query(
       `
       INSERT INTO tiendanube_stores (store_id, access_token)
       VALUES ($1, $2)
+      ON CONFLICT (store_id)
+      DO UPDATE SET
+        access_token = EXCLUDED.access_token,
+        created_at = NOW();
       `,
-      [store_id || null, accessToken]
+      [user_id.toString(), access_token]
     );
 
+    /**
+     * 3️⃣ Final response
+     */
     res
       .status(200)
-      .send("Aplicación MagicBank instalada correctamente en Tiendanube");
+      .send("Aplicación MagicBank instalada correctamente");
+
   } catch (error) {
     console.error(
       "❌ OAuth Error:",
       error.response?.data || error.message
     );
-    res.status(500).send("Error exchanging code for token");
+    res.status(500).send("OAuth error");
+  }
+});
+
+/**
+ * Endpoint para verificar tienda instalada (opcional pero útil)
+ */
+app.get("/stores/:store_id", async (req, res) => {
+  const { store_id } = req.params;
+
+  try {
+    const result = await pool.query(
+      "SELECT store_id, created_at FROM tiendanube_stores WHERE store_id = $1",
+      [store_id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ installed: false });
+    }
+
+    res.json({
+      installed: true,
+      store: result.rows[0],
+    });
+  } catch (error) {
+    console.error("❌ DB Error:", error.message);
+    res.status(500).json({ error: "Database error" });
   }
 });
 
