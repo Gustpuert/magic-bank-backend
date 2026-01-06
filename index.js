@@ -1,4 +1,5 @@
 require("dotenv").config();
+
 const express = require("express");
 const axios = require("axios");
 const { Pool } = require("pg");
@@ -6,30 +7,40 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// PostgreSQL
+/**
+ * Middleware
+ */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/**
+ * Postgres connection
+ * Railway inyecta DATABASE_URL
+ */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 
-// Health check
+/**
+ * Health check
+ */
 app.get("/", (req, res) => {
-  res.send("MagicBank Backend OK");
+  res.status(200).send("MagicBank Backend OK");
 });
 
 /**
- * OAuth callback Tiendanube
- * ESTE ENDPOINT ES CLAVE
+ * OAuth Callback Tiendanube
+ * Se usa SOLO cuando se instala la app
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
-  const { code, store_id } = req.query;
+  const { code } = req.query;
 
-  if (!code || !store_id) {
-    return res.status(400).json({ error: "Missing code or store_id" });
+  if (!code) {
+    return res.status(400).send("Missing authorization code");
   }
 
   try {
-    // Intercambio code → access_token
     const tokenResponse = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
       {
@@ -44,8 +55,9 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
     );
 
     const accessToken = tokenResponse.data.access_token;
+    const storeId = tokenResponse.data.user_id; // ID REAL DE LA TIENDA
 
-    // Guardar o actualizar en DB
+    // Guardar o actualizar token
     await pool.query(
       `
       INSERT INTO tiendanube_stores (store_id, access_token)
@@ -53,39 +65,58 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       ON CONFLICT (store_id)
       DO UPDATE SET access_token = EXCLUDED.access_token
       `,
-      [store_id, accessToken]
+      [storeId, accessToken]
     );
 
-    res.send("✅ MagicBank autorizado y token guardado");
+    res.send("MagicBank instalada correctamente");
   } catch (error) {
     console.error("OAuth error:", error.response?.data || error.message);
-    res.status(500).json({ error: "OAuth failed" });
+    res.status(500).send("OAuth error");
   }
 });
 
 /**
- * Debug: ver si hay token guardado
+ * GET /store
+ * Devuelve información de la tienda usando el token guardado
  */
-app.get("/debug/token", async (req, res) => {
+app.get("/store", async (req, res) => {
   try {
+    // Tomamos el último token guardado
     const result = await pool.query(
-      `SELECT store_id, access_token, created_at
-       FROM tiendanube_stores
-       ORDER BY created_at DESC
-       LIMIT 1`
+      `
+      SELECT store_id, access_token
+      FROM tiendanube_stores
+      ORDER BY created_at DESC
+      LIMIT 1
+      `
     );
 
     if (result.rows.length === 0) {
-      return res.json({ error: "No store found in database" });
+      return res.status(404).json({ error: "No store found in database" });
     }
 
-    res.json(result.rows[0]);
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "DB error" });
+    const { store_id, access_token } = result.rows[0];
+
+    const storeResponse = await axios.get(
+      `https://api.tiendanube.com/v1/${store_id}/store`,
+      {
+        headers: {
+          Authentication: `bearer ${access_token}`,
+          "User-Agent": "MagicBank (contacto@magicbank.com)",
+        },
+      }
+    );
+
+    res.json(storeResponse.data);
+  } catch (error) {
+    console.error("Store fetch error:", error.response?.data || error.message);
+    res.status(500).json({ error: "Failed to fetch store data" });
   }
 });
 
+/**
+ * Start server
+ */
 app.listen(PORT, () => {
   console.log(`🚀 MagicBank Backend running on port ${PORT}`);
 });
