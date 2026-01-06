@@ -5,10 +5,10 @@ const axios = require("axios");
 
 const app = express();
 
-// Railway SIEMPRE inyecta PORT
+// Railway siempre inyecta PORT
 const PORT = process.env.PORT || 8080;
 
-// Middleware nativo (NO body-parser)
+// Middlewares nativos
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -32,6 +32,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
   }
 
   try {
+    // 1️⃣ Intercambiar code por access token
     const tokenResponse = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
       {
@@ -41,7 +42,9 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
         code: code,
       },
       {
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
       }
     );
 
@@ -50,9 +53,26 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
     console.log("✅ TIENDANUBE INSTALADA CORRECTAMENTE");
     console.log("ACCESS TOKEN:", accessToken);
 
+    // 2️⃣ Obtener datos reales de la tienda
+    const storeResponse = await axios.get(
+      "https://api.tiendanube.com/v1/store",
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          "User-Agent": "magicbankia@gmail.com",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    console.log("🏪 DATOS DE LA TIENDA:");
+    console.log(storeResponse.data);
+
+    // 3️⃣ Respuesta final al navegador
     res
       .status(200)
       .send("Aplicación MagicBank instalada correctamente en Tiendanube");
+
   } catch (error) {
     console.error(
       "❌ OAuth Error:",
