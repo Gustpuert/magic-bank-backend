@@ -31,7 +31,7 @@ app.get("/", (req, res) => {
 
 /**
  * OAuth Callback Tiendanube
- * SOLO se usa al instalar la app
+ * Se usa SOLO cuando se instala la app
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
@@ -49,12 +49,15 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
         grant_type: "authorization_code",
         code,
       },
-      { headers: { "Content-Type": "application/json" } }
+      {
+        headers: { "Content-Type": "application/json" },
+      }
     );
 
     const accessToken = tokenResponse.data.access_token;
-    const storeId = tokenResponse.data.user_id;
+    const storeId = tokenResponse.data.user_id; // ID REAL DE LA TIENDA
 
+    // Guardar o actualizar token
     await pool.query(
       `
       INSERT INTO tiendanube_stores (store_id, access_token)
@@ -65,7 +68,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       [storeId, accessToken]
     );
 
-    res.send("MagicBank instalada correctamente en Tiendanube");
+    res.send("MagicBank instalada correctamente");
   } catch (error) {
     console.error("OAuth error:", error.response?.data || error.message);
     res.status(500).send("OAuth error");
@@ -73,26 +76,67 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 });
 
 /**
- * 🔔 WEBHOOK: Orden pagada
- * Tiendanube enviará aquí los pagos confirmados
+ * GET /store
+ * Devuelve información de la tienda usando el token guardado
+ */
+app.get("/store", async (req, res) => {
+  try {
+    const result = await pool.query(
+      `
+      SELECT store_id, access_token
+      FROM tiendanube_stores
+      ORDER BY created_at DESC
+      LIMIT 1
+      `
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "No store found in database" });
+    }
+
+    const { store_id, access_token } = result.rows[0];
+
+    const storeResponse = await axios.get(
+      `https://api.tiendanube.com/v1/${store_id}/store`,
+      {
+        headers: {
+          Authentication: `bearer ${access_token}`,
+          "User-Agent": "MagicBank (contacto@magicbank.com)",
+        },
+      }
+    );
+
+    res.json(storeResponse.data);
+  } catch (error) {
+    console.error("Store fetch error:", error.response?.data || error.message);
+    res.status(500).json({ error: "Failed to fetch store data" });
+  }
+});
+
+/**
+ * Webhook Tiendanube - Orden pagada
+ * ESTE es el corazón de la automatización
  */
 app.post("/webhooks/order-paid", async (req, res) => {
   try {
-    const order = req.body;
+    const payload = req.body;
 
-    console.log("💰 NUEVO PAGO RECIBIDO");
-    console.log("Order ID:", order.id);
-    console.log("Email:", order.contact_email);
-    console.log("Total:", order.total);
-    console.log("Items:", order.products);
+    console.log("📦 Webhook recibido: ORDEN PAGADA");
+    console.log(JSON.stringify(payload, null, 2));
 
-    // (Por ahora solo registramos el evento)
-    // Luego aquí activaremos accesos automáticamente
+    /**
+     * Próximos pasos (luego):
+     * - Validar que esté pagada
+     * - Identificar producto / curso
+     * - Crear acceso al curso
+     * - Asignar tutor IA
+     */
 
-    res.status(200).send("Webhook recibido correctamente");
+    // Respuesta obligatoria a Tiendanube
+    res.status(200).json({ ok: true });
   } catch (error) {
-    console.error("Webhook error:", error.message);
-    res.status(500).send("Webhook processing error");
+    console.error("❌ Error en webhook:", error);
+    res.status(500).json({ error: "Webhook error" });
   }
 });
 
