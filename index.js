@@ -4,6 +4,7 @@ const express = require("express");
 const axios = require("axios");
 const { Pool } = require("pg");
 const nodemailer = require("nodemailer");
+const crypto = require("crypto");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -11,21 +12,17 @@ const PORT = process.env.PORT || 8080;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/**
- * =========================
- * POSTGRES
- * =========================
- */
+/* =========================
+   DATABASE
+========================= */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 
-/**
- * =========================
- * PRODUCTOS CANÓNICOS
- * =========================
- */
+/* =========================
+   PRODUCT MAP
+========================= */
 const PRODUCT_MAP = {
   315058790: { area: "university", name: "Administración y Negocios" },
   315062639: { area: "university", name: "Marketing" },
@@ -48,11 +45,9 @@ const PRODUCT_MAP = {
   310401409: { area: "factory", name: "Tutor Personalizado" },
 };
 
-/**
- * =========================
- * EMAIL TRANSPORT
- * =========================
- */
+/* =========================
+   EMAIL
+========================= */
 const mailer = nodemailer.createTransport({
   service: "gmail",
   auth: {
@@ -61,106 +56,94 @@ const mailer = nodemailer.createTransport({
   },
 });
 
-/**
- * =========================
- * HEALTH
- * =========================
- */
-app.get("/", (req, res) => {
-  res.send("MagicBank Backend OK");
-});
+/* =========================
+   HEALTH
+========================= */
+app.get("/", (_, res) => res.send("MagicBank Backend OK"));
 
-/**
- * =========================
- * CRON — CHECK ORDERS
- * =========================
- */
-app.get("/cron/check-orders", async (req, res) => {
+/* =========================
+   CRON — CHECK ORDERS
+========================= */
+app.get("/cron/check-orders", async (_, res) => {
   try {
-    const storeResult = await pool.query(
+    const storeRes = await pool.query(
       `SELECT store_id, access_token FROM tiendanube_stores LIMIT 1`
     );
-
-    if (storeResult.rows.length === 0) {
+    if (!storeRes.rows.length) {
       return res.status(404).json({ error: "Store not configured" });
     }
 
-    const { store_id, access_token } = storeResult.rows[0];
+    const { store_id, access_token } = storeRes.rows[0];
 
-    const ordersResponse = await axios.get(
+    const ordersRes = await axios.get(
       `https://api.tiendanube.com/v1/${store_id}/orders?status=paid`,
       {
         headers: {
           Authentication: `bearer ${access_token}`,
-          "User-Agent": "MagicBank (magicbankia@gmail.com)",
+          "User-Agent": "MagicBank",
         },
       }
     );
 
-    const orders = ordersResponse.data;
     let processed = 0;
 
-    for (const order of orders) {
-      const orderId = order.id;
-
+    for (const order of ordersRes.data) {
       const exists = await pool.query(
-        `SELECT 1 FROM processed_orders WHERE order_id = $1`,
-        [orderId]
+        `SELECT 1 FROM processed_orders WHERE order_id=$1`,
+        [order.id]
       );
-      if (exists.rows.length > 0) continue;
-
-      const buyerEmail = order.contact_email;
-      let productsText = "";
+      if (exists.rows.length) continue;
 
       for (const item of order.products) {
         const product = PRODUCT_MAP[item.product_id];
-        if (product) {
-          productsText += `• ${product.name} (${product.area})\n`;
-        }
-      }
+        if (!product) continue;
 
-      // 📧 ENVÍO DE CORREO
-      await mailer.sendMail({
-        from: `"MagicBank" <${process.env.EMAIL_USER}>`,
-        to: buyerEmail,
-        subject: "Acceso confirmado — MagicBank",
-        text: `
-Gracias por tu compra en MagicBank.
+        const token = crypto.randomBytes(8).toString("hex");
+        const accessLink = `https://magicbank.org/acceso?token=${token}`;
 
-Has adquirido:
-${productsText}
+        await pool.query(
+          `
+          INSERT INTO access_tokens (email, product_id, area, token)
+          VALUES ($1, $2, $3, $4)
+          `,
+          [order.contact_email, item.product_id, product.area, token]
+        );
 
-Accesos:
-University → https://gustpuert.github.io/university.magicbank.org/
-Academy → https://academy.magicbank.org
-Fábrica de Tutores → https://magicbank.org/fabrica-de-tutores.html
+        await mailer.sendMail({
+          from: `"MagicBank" <${process.env.EMAIL_USER}>`,
+          to: order.contact_email,
+          subject: "Tu acceso privado a MagicBank",
+          text: `
+Bienvenido a MagicBank.
 
-Próximamente recibirás instrucciones personalizadas.
+Has adquirido: ${product.name}
+
+Accede usando este enlace privado:
+${accessLink}
+
+Este acceso es personal y no transferible.
 
 Equipo MagicBank
-        `,
-      });
+          `,
+        });
+      }
 
       await pool.query(
         `INSERT INTO processed_orders (order_id, raw_order)
          VALUES ($1, $2)`,
-        [orderId, order]
+        [order.id, order]
       );
 
       processed++;
     }
 
-    res.json({
-      status: "OK",
-      orders_found: orders.length,
-      orders_processed: processed,
-    });
+    res.json({ status: "OK", processed });
   } catch (err) {
-    console.error("CRON error:", err.message);
-    res.status(500).json({ error: "Cron failed" });
+    console.error(err);
+    res.status(500).json({ error: "Cron error" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 MagicBank Backend running on port ${PORT}`);
-});
+app.listen(PORT, () =>
+  console.log(`🚀 MagicBank Backend running on port ${PORT}`)
+);
