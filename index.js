@@ -8,19 +8,53 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 /**
- * Middleware
+ * =========================
+ * MIDDLEWARE
+ * =========================
  */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /**
- * Postgres connection
- * Railway inyecta DATABASE_URL
+ * =========================
+ * POSTGRES (Railway)
+ * =========================
  */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
+
+/**
+ * =========================
+ * PRODUCTOS CANÓNICOS MAGICBANK
+ * =========================
+ * NUNCA SE MODIFICAN SIN CURADURÍA
+ */
+const PRODUCT_MAP = {
+  // MAGICBANK UNIVERSITY
+  315058790: { area: "university", name: "Administración y Negocios" },
+  315062639: { area: "university", name: "Marketing" },
+  315061516: { area: "university", name: "Contaduría" },
+  315061240: { area: "university", name: "Derecho" },
+  315062968: { area: "university", name: "Desarrollo de Software" },
+
+  // MAGICBANK ACADEMY
+  310596602: { area: "academy", name: "Cocina" },
+  310593279: { area: "academy", name: "Nutrición Inteligente" },
+  310561138: { area: "academy", name: "Curso Avanzado de ChatGPT" },
+  310587272: { area: "academy", name: "Inglés" },
+  315067695: { area: "academy", name: "Portugués" },
+  310589317: { area: "academy", name: "Francés" },
+  315067943: { area: "academy", name: "Italiano" },
+  315067066: { area: "academy", name: "Alemán" },
+  315067368: { area: "academy", name: "Chino" },
+  314360954: { area: "academy", name: "Artes y Oficios" },
+  308900626: { area: "academy", name: "Pensiones Mágicas" },
+
+  // FÁBRICA DE TUTORES
+  310401409: { area: "factory", name: "Tutor Personalizado" },
+};
 
 /**
  * =========================
@@ -33,15 +67,12 @@ app.get("/", (req, res) => {
 
 /**
  * =========================
- * OAUTH CALLBACK (SOLO INSTALL)
+ * OAUTH CALLBACK (SOLO INSTALACIÓN)
  * =========================
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
-
-  if (!code) {
-    return res.status(400).send("Missing authorization code");
-  }
+  if (!code) return res.status(400).send("Missing authorization code");
 
   try {
     const tokenResponse = await axios.post(
@@ -69,33 +100,30 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
     );
 
     res.send("MagicBank instalada correctamente en Tiendanube");
-  } catch (error) {
-    console.error("OAuth error:", error.response?.data || error.message);
+  } catch (err) {
+    console.error("OAuth error:", err.response?.data || err.message);
     res.status(500).send("OAuth error");
   }
 });
 
 /**
  * =========================
- * CRON ENDPOINT
- * CONSULTA ÓRDENES PAGADAS
+ * CRON — CONSULTA ÓRDENES PAGADAS
  * =========================
- * 👉 ESTE ENDPOINT ES EL CORAZÓN DE LA AUTOMATIZACIÓN
+ * ESTE ENDPOINT SE EJECUTA CADA 5 MINUTOS
  */
 app.get("/cron/check-orders", async (req, res) => {
   try {
-    // 1. Obtener tienda + token
     const storeResult = await pool.query(
       `SELECT store_id, access_token FROM tiendanube_stores LIMIT 1`
     );
 
     if (storeResult.rows.length === 0) {
-      return res.status(404).json({ error: "No store configured" });
+      return res.status(404).json({ error: "Store not configured" });
     }
 
     const { store_id, access_token } = storeResult.rows[0];
 
-    // 2. Consultar órdenes pagadas
     const ordersResponse = await axios.get(
       `https://api.tiendanube.com/v1/${store_id}/orders?status=paid`,
       {
@@ -107,23 +135,39 @@ app.get("/cron/check-orders", async (req, res) => {
     );
 
     const orders = ordersResponse.data;
-
     let processed = 0;
 
     for (const order of orders) {
       const orderId = order.id;
 
-      // 3. Verificar si ya fue procesada
       const exists = await pool.query(
         `SELECT 1 FROM processed_orders WHERE order_id = $1`,
         [orderId]
       );
+      if (exists.rows.length > 0) continue;
 
-      if (exists.rows.length > 0) {
-        continue;
+      for (const item of order.products) {
+        const productId = item.product_id;
+        const product = PRODUCT_MAP[productId];
+
+        if (!product) {
+          console.warn("Producto NO reconocido:", productId);
+          continue;
+        }
+
+        // AQUÍ SE ACTIVA EL ACCESO
+        console.log(
+          `ACTIVAR → ${product.area.toUpperCase()} | ${product.name}`
+        );
+
+        /**
+         * FUTURO:
+         * - Crear acceso
+         * - Enviar email
+         * - Generar token privado
+         */
       }
 
-      // 4. Registrar orden como procesada
       await pool.query(
         `
         INSERT INTO processed_orders (order_id, raw_order)
@@ -131,14 +175,6 @@ app.get("/cron/check-orders", async (req, res) => {
         `,
         [orderId, order]
       );
-
-      /**
-       * 5. AQUÍ VA LA LÓGICA DE NEGOCIO
-       * --------------------------------
-       * - Identificar producto
-       * - Activar tutor University / Academy / Fábrica
-       * - Enviar email / acceso / token
-       */
 
       processed++;
     }
@@ -148,12 +184,9 @@ app.get("/cron/check-orders", async (req, res) => {
       orders_found: orders.length,
       orders_processed: processed,
     });
-  } catch (error) {
-    console.error(
-      "Order check error:",
-      error.response?.data || error.message
-    );
-    res.status(500).json({ error: "Failed to check orders" });
+  } catch (err) {
+    console.error("CRON error:", err.response?.data || err.message);
+    res.status(500).json({ error: "Cron failed" });
   }
 });
 
