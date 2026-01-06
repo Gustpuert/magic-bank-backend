@@ -27,8 +27,37 @@ const pool = new Pool({
 
 /**
  * =========================
- * AUTO-CREATE TABLES
- * (evita manipulación humana)
+ * PRODUCT MAP (CEREBRO MAGICBANK)
+ * =========================
+ * 👉 AQUÍ SE DEFINE TODO EL NEGOCIO
+ */
+const PRODUCT_MAP = {
+  // ACADEMY
+  315067943: { type: "academy", name: "italiano" },
+  315067695: { type: "academy", name: "portugues" },
+  315067368: { type: "academy", name: "chino" },
+  315067066: { type: "academy", name: "aleman" },
+  310587272: { type: "academy", name: "ingles" },
+  310589317: { type: "academy", name: "frances" },
+  310596602: { type: "academy", name: "cocina" },
+  310593279: { type: "academy", name: "nutricion_inteligente" },
+  310561138: { type: "academy", name: "chatgpt_avanzado" },
+  314360954: { type: "academy", name: "artes_y_oficios" },
+
+  // UNIVERSITY
+  315062968: { type: "university", faculty: "software" },
+  315062639: { type: "university", faculty: "marketing" },
+  315061516: { type: "university", faculty: "contaduria" },
+  315061240: { type: "university", faculty: "derecho" },
+  315058790: { type: "university", faculty: "administracion_y_negocios" },
+
+  // TUTOR FACTORY
+  310401409: { type: "tutor_factory", service: "personalizado" },
+};
+
+/**
+ * =========================
+ * INIT DATABASE (AUTO)
  * =========================
  */
 async function initDB() {
@@ -45,17 +74,13 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS processed_orders (
       id SERIAL PRIMARY KEY,
       order_id BIGINT UNIQUE NOT NULL,
-      raw_order JSONB,
-      created_at TIMESTAMP DEFAULT NOW()
+      raw_order JSONB NOT NULL,
+      processed_at TIMESTAMP DEFAULT NOW()
     );
   `);
 
   console.log("✅ Tablas verificadas / creadas correctamente");
 }
-
-initDB().catch((err) => {
-  console.error("❌ Error inicializando DB:", err.message);
-});
 
 /**
  * =========================
@@ -63,21 +88,18 @@ initDB().catch((err) => {
  * =========================
  */
 app.get("/", (req, res) => {
-  res.status(200).send("MagicBank Backend OK");
+  res.send("MagicBank Backend OK");
 });
 
 /**
  * =========================
- * OAUTH CALLBACK
- * (solo al instalar la app)
+ * OAUTH CALLBACK (INSTALL ONLY)
  * =========================
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
 
-  if (!code) {
-    return res.status(400).send("Missing authorization code");
-  }
+  if (!code) return res.status(400).send("Missing code");
 
   try {
     const tokenResponse = await axios.post(
@@ -104,9 +126,9 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       [storeId, accessToken]
     );
 
-    res.send("MagicBank instalada correctamente en Tiendanube");
-  } catch (error) {
-    console.error("OAuth error:", error.response?.data || error.message);
+    res.send("MagicBank instalada correctamente");
+  } catch (err) {
+    console.error(err.response?.data || err.message);
     res.status(500).send("OAuth error");
   }
 });
@@ -114,79 +136,66 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 /**
  * =========================
  * CRON ENDPOINT
- * Consulta órdenes pagadas
  * =========================
  */
 app.get("/cron/check-orders", async (req, res) => {
   try {
-    // 1. Obtener tienda y token
-    const storeResult = await pool.query(
+    const storeRes = await pool.query(
       `SELECT store_id, access_token FROM tiendanube_stores LIMIT 1`
     );
 
-    if (storeResult.rows.length === 0) {
-      return res.status(404).json({ error: "No store configured" });
+    if (storeRes.rows.length === 0) {
+      return res.status(404).json({ error: "Store not configured" });
     }
 
-    const { store_id, access_token } = storeResult.rows[0];
+    const { store_id, access_token } = storeRes.rows[0];
 
-    // 2. Consultar órdenes pagadas
-    const ordersResponse = await axios.get(
+    const ordersRes = await axios.get(
       `https://api.tiendanube.com/v1/${store_id}/orders?status=paid`,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`, // 🔑 CORRECTO
+          Authentication: `bearer ${access_token}`,
           "User-Agent": "MagicBank (magicbankia@gmail.com)",
         },
       }
     );
 
-    const orders = ordersResponse.data;
     let processed = 0;
 
-    for (const order of orders) {
-      const orderId = order.id;
-
-      // 3. Evitar reprocesar órdenes
+    for (const order of ordersRes.data) {
       const exists = await pool.query(
         `SELECT 1 FROM processed_orders WHERE order_id = $1`,
-        [orderId]
+        [order.id]
       );
 
       if (exists.rows.length > 0) continue;
 
-      // 4. Guardar orden
       await pool.query(
-        `
-        INSERT INTO processed_orders (order_id, raw_order)
-        VALUES ($1, $2)
-        `,
-        [orderId, order]
+        `INSERT INTO processed_orders (order_id, raw_order) VALUES ($1, $2)`,
+        [order.id, order]
       );
 
-      /**
-       * =========================
-       * AQUÍ VA LA LÓGICA MAGICBANK
-       * =========================
-       * - Leer product_id
-       * - Mapear a University / Academy / Fábrica
-       * - Crear acceso automático
-       * - Enviar credenciales
-       */
+      for (const item of order.products) {
+        const product = PRODUCT_MAP[item.product_id];
+
+        if (!product) continue;
+
+        console.log("🎯 ORDEN:", order.id);
+        console.log("📦 PRODUCTO:", product);
+
+        // AQUÍ VA LA AUTOMATIZACIÓN REAL MÁS ADELANTE
+      }
 
       processed++;
     }
 
     res.json({
       status: "OK",
-      orders_found: orders.length,
+      orders_found: ordersRes.data.length,
       orders_processed: processed,
     });
-  } catch (error) {
-    console.error(
-      "❌ Order check error:",
-      error.response?.data || error.message
-    );
+  } catch (err) {
+    console.error(err.response?.data || err.message);
     res.status(500).json({ error: "Failed to check orders" });
   }
 });
@@ -196,6 +205,8 @@ app.get("/cron/check-orders", async (req, res) => {
  * START SERVER
  * =========================
  */
-app.listen(PORT, () => {
-  console.log(`🚀 MagicBank Backend running on port ${PORT}`);
+initDB().then(() => {
+  app.listen(PORT, () => {
+    console.log(`🚀 MagicBank Backend running on port ${PORT}`);
+  });
 });
