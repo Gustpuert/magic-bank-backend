@@ -1,4 +1,3 @@
-// index.js
 require("dotenv").config();
 
 const express = require("express");
@@ -6,105 +5,125 @@ const axios = require("axios");
 const { Pool } = require("pg");
 
 const app = express();
-app.use(express.json());
-
-// =========================
-// CONFIG
-// =========================
 const PORT = process.env.PORT || 8080;
 
-// PostgreSQL (Railway usa DATABASE_URL)
+/**
+ * =========================
+ * MIDDLEWARE
+ * =========================
+ */
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+/**
+ * =========================
+ * POSTGRES CONNECTION
+ * Railway inyecta DATABASE_URL
+ * =========================
+ */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL?.includes("railway")
-    ? { rejectUnauthorized: false }
-    : false,
+  ssl: { rejectUnauthorized: false },
 });
 
-// =========================
-// DB INIT (solo una vez)
-// =========================
-async function initDatabase() {
-  const client = await pool.connect();
-  try {
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS academy_enrollments (
-        id SERIAL PRIMARY KEY,
-        order_id BIGINT NOT NULL,
-        product_id BIGINT NOT NULL,
-        product_name TEXT NOT NULL,
-        customer_email TEXT NOT NULL,
-        created_at TIMESTAMP DEFAULT NOW(),
-        UNIQUE(order_id, product_id)
-      );
-    `);
+/**
+ * =========================
+ * CATÁLOGO OFICIAL
+ * FÁBRICA DE TUTORES MAGICBANK
+ * =========================
+ * ⚠️ FUENTE CANÓNICA
+ * ⚠️ NO MODIFICAR IDs SIN CONTROL
+ */
+const FABRICA_TUTORES = {
+  316763604: "TAP Empresas",
+  316682295: "TAP Derecho",
+  316683598: "TAP Administración Pública",
+  316681661: "TAP Salud",
+  316682798: "TAP Ingeniería",
+  316683199: "TAP Educación",
+  316686073: "Sensei",
+  316684646: "Supertraductor",
+  316685090: "BienestarTutor Pro",
+  316685729: "MagicBank Council",
+  316193327: "Tutores Personalizados",
+};
 
-    console.log("✅ Tablas verificadas / creadas correctamente");
-  } catch (err) {
-    console.error("❌ Error creando tablas:", err.message);
-  } finally {
-    client.release();
-  }
-}
-
-// =========================
-// HEALTHCHECK
-// =========================
+/**
+ * =========================
+ * HEALTH CHECK
+ * =========================
+ */
 app.get("/", (req, res) => {
-  res.json({
-    status: "ok",
-    service: "MagicBank Backend",
-    timestamp: new Date().toISOString(),
-  });
+  res.status(200).send("MagicBank Backend OK");
 });
 
-// =========================
-// ENDPOINT PRINCIPAL (manual / webhook)
-// =========================
-app.post("/academy/process-order", async (req, res) => {
-  const { order_id, product_id, product_name, customer_email } = req.body;
+/**
+ * =========================
+ * OAUTH CALLBACK TIENDANUBE
+ * ⚠️ SOLO SE USA AL INSTALAR LA APP
+ * =========================
+ */
+app.get("/auth/tiendanube/callback", async (req, res) => {
+  const { code } = req.query;
 
-  if (!order_id || !product_id || !product_name || !customer_email) {
-    return res.status(400).json({
-      error: "Faltan datos obligatorios",
-    });
+  if (!code) {
+    return res.status(400).send("Missing authorization code");
   }
 
   try {
-    const query = `
-      INSERT INTO academy_enrollments
-      (order_id, product_id, product_name, customer_email)
-      VALUES ($1, $2, $3, $4)
-      ON CONFLICT (order_id, product_id) DO NOTHING
-      RETURNING id;
-    `;
+    const tokenResponse = await axios.post(
+      "https://www.tiendanube.com/apps/authorize/token",
+      {
+        client_id: process.env.TIENDANUBE_CLIENT_ID,
+        client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
+        grant_type: "authorization_code",
+        code,
+      },
+      {
+        headers: { "Content-Type": "application/json" },
+      }
+    );
 
-    const values = [
-      order_id,
-      product_id,
-      product_name,
-      customer_email,
-    ];
+    const accessToken = tokenResponse.data.access_token;
+    const storeId = tokenResponse.data.user_id;
 
-    const result = await pool.query(query, values);
+    await pool.query(
+      `
+      INSERT INTO tiendanube_stores (store_id, access_token)
+      VALUES ($1, $2)
+      ON CONFLICT (store_id)
+      DO UPDATE SET access_token = EXCLUDED.access_token
+      `,
+      [storeId, accessToken]
+    );
 
-    return res.json({
-      status: "ok",
-      enrollment_created: result.rowCount === 1,
-    });
-  } catch (err) {
-    console.error("❌ Error procesando orden:", err.message);
-    return res.status(500).json({ error: "Error interno" });
+    res.send("MagicBank instalada correctamente en Tiendanube");
+  } catch (error) {
+    console.error("OAuth error:", error.response?.data || error.message);
+    res.status(500).send("OAuth error");
   }
 });
 
-// =========================
-// START SERVER
-// =========================
-(async () => {
-  await initDatabase();
-
-  app.listen(PORT, () => {
-    console.log(`🚀 MagicBank Backend running on port ${PORT}`);
+/**
+ * =========================
+ * ENDPOINT DE CONSULTA LOCAL
+ * CATÁLOGO FÁBRICA DE TUTORES
+ * =========================
+ * 👉 SOLO PARA VERIFICACIÓN
+ * 👉 NO ES AUTOMATIZACIÓN AÚN
+ */
+app.get("/catalogo/fabrica-tutores", (req, res) => {
+  res.json({
+    total: Object.keys(FABRICA_TUTORES).length,
+    tutores: FABRICA_TUTORES,
   });
-})();
+});
+
+/**
+ * =========================
+ * START SERVER
+ * =========================
+ */
+app.listen(PORT, () => {
+  console.log(`🚀 MagicBank Backend running on port ${PORT}`);
+});
