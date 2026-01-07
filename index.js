@@ -28,26 +28,6 @@ const pool = new Pool({
 
 /**
  * =========================
- * PRODUCTOS ACADEMY
- * =========================
- */
-const ACADEMY_PRODUCTS = {
-  315067943: "Curso de Italiano",
-  315067695: "Curso de Portugués",
-  315067368: "Curso de Chino",
-  315067066: "Curso de Alemán",
-  310587272: "Curso de Inglés",
-  310589317: "Curso de Francés",
-  310561138: "Curso Avanzado de ChatGPT",
-  310593279: "Curso de Nutrición Inteligente",
-  310596602: "Curso de Cocina",
-  314360954: "Artes y Oficios",
-  308900626: "Pensiones Mágicas",
-  310401409: "Curso Personalizado"
-};
-
-/**
- * =========================
  * PRODUCTOS UNIVERSITY
  * =========================
  */
@@ -56,12 +36,12 @@ const UNIVERSITY_PRODUCTS = {
   315062639: "Facultad de Marketing",
   315061516: "Facultad de Contaduría",
   315061240: "Facultad de Derecho",
-  315058790: "Facultad de Administración y Negocios"
+  315058790: "Facultad de Administración y Negocios",
 };
 
 /**
  * =========================
- * EMAIL (YA CONFIGURADO)
+ * EMAIL CONFIG
  * =========================
  */
 const transporter = nodemailer.createTransport({
@@ -79,17 +59,6 @@ const transporter = nodemailer.createTransport({
  */
 async function initDB() {
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS academy_access (
-      id SERIAL PRIMARY KEY,
-      order_id BIGINT UNIQUE,
-      product_id BIGINT,
-      product_name TEXT,
-      customer_email TEXT,
-      created_at TIMESTAMP DEFAULT NOW()
-    );
-  `);
-
-  await pool.query(`
     CREATE TABLE IF NOT EXISTS university_access (
       id SERIAL PRIMARY KEY,
       order_id BIGINT UNIQUE,
@@ -100,7 +69,7 @@ async function initDB() {
     );
   `);
 
-  console.log("✅ Tablas Academy y University listas");
+  console.log("✅ Tabla university_access lista");
 }
 initDB();
 
@@ -132,9 +101,7 @@ app.get("/cron/check-orders", async (req, res) => {
     );
 
     const orders = ordersResponse.data;
-
-    let academyActivated = 0;
-    let universityActivated = 0;
+    let universityEmailsSent = 0;
 
     for (const order of orders) {
       const email = order.customer?.email;
@@ -143,32 +110,14 @@ app.get("/cron/check-orders", async (req, res) => {
       for (const item of order.products) {
         const productId = item.product_id;
 
-        /* ================= ACADEMY ================= */
-        if (ACADEMY_PRODUCTS[productId]) {
-          const exists = await pool.query(
-            `SELECT 1 FROM academy_access WHERE order_id = $1`,
-            [order.id]
-          );
-          if (exists.rows.length === 0) {
-            await pool.query(
-              `
-              INSERT INTO academy_access
-              (order_id, product_id, product_name, customer_email)
-              VALUES ($1, $2, $3, $4)
-              `,
-              [order.id, productId, ACADEMY_PRODUCTS[productId], email]
-            );
-            academyActivated++;
-          }
-        }
-
-        /* ================= UNIVERSITY ================= */
         if (UNIVERSITY_PRODUCTS[productId]) {
           const exists = await pool.query(
             `SELECT 1 FROM university_access WHERE order_id = $1`,
             [order.id]
           );
+
           if (exists.rows.length === 0) {
+            // Guardar acceso
             await pool.query(
               `
               INSERT INTO university_access
@@ -177,7 +126,38 @@ app.get("/cron/check-orders", async (req, res) => {
               `,
               [order.id, productId, UNIVERSITY_PRODUCTS[productId], email]
             );
-            universityActivated++;
+
+            // 📧 ENVIAR EMAIL UNIVERSITY
+            await transporter.sendMail({
+              from: `"MagicBank University" <${process.env.EMAIL_USER}>`,
+              to: email,
+              subject: "Acceso confirmado a MagicBank University",
+              html: `
+                <h2>Bienvenido a MagicBank University</h2>
+                <p>
+                  Tu acceso a <strong>${UNIVERSITY_PRODUCTS[productId]}</strong>
+                  ha sido confirmado correctamente.
+                </p>
+                <p>
+                  En MagicBank University recibirás formación rigurosa,
+                  acompañada por tutores especializados guiados por
+                  Inteligencia Artificial, con evaluación real y progresiva.
+                </p>
+                <p>
+                  👉 Accede aquí:
+                  <br>
+                  <a href="https://gustpuert.github.io/tutores.university.magicbank.org/">
+                    Entrar a MagicBank University
+                  </a>
+                </p>
+                <p>
+                  Este correo confirma tu acceso académico.
+                  Conserva este mensaje.
+                </p>
+              `,
+            });
+
+            universityEmailsSent++;
           }
         }
       }
@@ -185,13 +165,11 @@ app.get("/cron/check-orders", async (req, res) => {
 
     res.json({
       status: "OK",
-      academyActivated,
-      universityActivated,
+      universityEmailsSent,
     });
-
   } catch (error) {
-    console.error("Automation error:", error.message);
-    res.status(500).json({ error: "Automation failed" });
+    console.error("University automation error:", error.message);
+    res.status(500).json({ error: "University automation failed" });
   }
 });
 
