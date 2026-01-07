@@ -28,37 +28,24 @@ const pool = new Pool({
 
 /**
  * =========================
- * PRODUCTOS MAGICBANK
+ * PRODUCTOS MAGICBANK ACADEMY
+ * ID → Nombre humano (solo informativo)
  * =========================
  */
-
-/** MAGICBANK UNIVERSITY */
-const UNIVERSITY_PRODUCTS = [
-  315058790, // Administración y Negocios
-  315061240, // Derecho
-  315061516, // Contaduría
-  315062639, // Marketing
-  315062968, // Desarrollo de Software
-];
-
-/** MAGICBANK ACADEMY */
-const ACADEMY_PRODUCTS = [
-  310596602, // Cocina
-  310593279, // Nutrición Inteligente
-  310561138, // ChatGPT Avanzado
-  310587272, // Inglés
-  310589317, // Francés
-  315067695, // Portugués
-  315067066, // Alemán
-  315067368, // Chino
-  314360954, // Artes y Oficios
-];
-
-/** FÁBRICA DE TUTORES (SE PUEDE EDITAR DESPUÉS SIN PROBLEMA) */
-const FACTORY_PRODUCTS = [
-  310401409, // Curso Personalizado / Fábrica base
-  // AQUÍ SE AGREGAN MÁS IDs CUANDO EXISTAN
-];
+const ACADEMY_PRODUCTS = {
+  315067943: "Curso de Italiano",
+  315067695: "Curso de Portugués",
+  315067368: "Curso de Chino",
+  315067066: "Curso de Alemán",
+  310587272: "Curso de Inglés",
+  310589317: "Curso de Francés",
+  310561138: "Curso Avanzado de ChatGPT",
+  310593279: "Curso de Nutrición Inteligente",
+  310596602: "Curso de Cocina",
+  314360954: "Artes y Oficios",
+  308900626: "Pensiones Mágicas",
+  310401409: "Curso Personalizado"
+};
 
 /**
  * =========================
@@ -71,8 +58,7 @@ app.get("/", (req, res) => {
 
 /**
  * =========================
- * OAUTH CALLBACK
- * SOLO SE USA CUANDO SE INSTALA LA APP
+ * OAUTH CALLBACK (SOLO INSTALACIÓN)
  * =========================
  */
 app.get("/auth/tiendanube/callback", async (req, res) => {
@@ -116,10 +102,9 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 
 /**
  * =========================
- * CRON ENDPOINT
- * CONSULTA ÓRDENES PAGADAS
+ * CRON – CHECK ORDERS (ACADEMY)
+ * Este endpoint lo llama el cron cada 5 minutos
  * =========================
- * ESTE ENDPOINT ES LLAMADO CADA 5 MINUTOS DESDE RAILWAY
  */
 app.get("/cron/check-orders", async (req, res) => {
   try {
@@ -151,7 +136,7 @@ app.get("/cron/check-orders", async (req, res) => {
     for (const order of orders) {
       const orderId = order.id;
 
-      // 3. Evitar reprocesar
+      // 3. Evitar reprocesar órdenes
       const exists = await pool.query(
         `SELECT 1 FROM processed_orders WHERE order_id = $1`,
         [orderId]
@@ -159,28 +144,31 @@ app.get("/cron/check-orders", async (req, res) => {
 
       if (exists.rows.length > 0) continue;
 
-      // 4. Identificar producto
+      // 4. Procesar productos de la orden
       for (const item of order.products) {
         const productId = item.product_id;
-        let productType = "unknown";
 
-        if (UNIVERSITY_PRODUCTS.includes(productId)) {
-          productType = "university";
-        } else if (ACADEMY_PRODUCTS.includes(productId)) {
-          productType = "academy";
-        } else if (FACTORY_PRODUCTS.includes(productId)) {
-          productType = "factory";
+        if (ACADEMY_PRODUCTS[productId]) {
+          const productName = ACADEMY_PRODUCTS[productId];
+
+          // 👉 AQUÍ VA LA ACTIVACIÓN AUTOMÁTICA
+          // - Crear acceso Academy
+          // - Enviar email
+          // - Redirigir al tutor correspondiente
+          console.log(
+            `🎓 ACADEMY | Orden ${orderId} → ${productName} (${productId})`
+          );
         }
-
-        // 5. Guardar orden
-        await pool.query(
-          `
-          INSERT INTO processed_orders (order_id, product_id, product_type, raw_order)
-          VALUES ($1, $2, $3, $4)
-          `,
-          [orderId, productId, productType, order]
-        );
       }
+
+      // 5. Marcar orden como procesada
+      await pool.query(
+        `
+        INSERT INTO processed_orders (order_id, raw_order)
+        VALUES ($1, $2)
+        `,
+        [orderId, order]
+      );
 
       processed++;
     }
@@ -191,7 +179,10 @@ app.get("/cron/check-orders", async (req, res) => {
       orders_processed: processed,
     });
   } catch (error) {
-    console.error("Order check error:", error.response?.data || error.message);
+    console.error(
+      "Order check error:",
+      error.response?.data || error.message
+    );
     res.status(500).json({ error: "Failed to check orders" });
   }
 });
