@@ -1,66 +1,44 @@
-/**
- * MagicBank Backend – Tiendanube Webhooks
- * Academy + University + Fábrica de Tutores
- * Activación automática de accesos
- */
+require("dotenv").config();
+const express = require("express");
+const axios = require("axios");
+const { Pool } = require("pg");
 
-import express from "express";
-import pkg from "pg";
-import fetch from "node-fetch";
-
-const { Pool } = pkg;
 const app = express();
 app.use(express.json());
 
-// ===============================
-// ENV
-// ===============================
-const {
-  DATABASE_URL,
-  TIENDANUBE_ACCESS_TOKEN,
-  TIENDANUBE_STORE_ID,
-  PORT = 8080
-} = process.env;
-
-// ===============================
-// DB
-// ===============================
+/* =========================
+   PostgreSQL
+========================= */
 const pool = new Pool({
-  connectionString: DATABASE_URL,
+  connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// ===============================
-// PRODUCTOS → TIPO / NOMBRE
-// ===============================
+/* =========================
+   PRODUCTOS
+========================= */
 const PRODUCTS_MAP = {
-  // =========================
-  // ACADEMY – CURSOS
-  // =========================
+  // ===== ACADEMY =====
   315067943: { type: "academy", name: "Curso de Italiano" },
   315067695: { type: "academy", name: "Curso de Portugués" },
   315067368: { type: "academy", name: "Curso de Chino" },
   315067066: { type: "academy", name: "Curso de Alemán" },
+  310587272: { type: "academy", name: "Curso de Inglés" },
+  310589317: { type: "academy", name: "Curso de Francés" },
   310596602: { type: "academy", name: "Curso de Cocina" },
   310593279: { type: "academy", name: "Curso de Nutrición Inteligente" },
   310561138: { type: "academy", name: "Curso Avanzado de ChatGPT" },
-  310587272: { type: "academy", name: "Curso de Inglés" },
-  310589317: { type: "academy", name: "Curso de Francés" },
   314360954: { type: "academy", name: "Artes y Oficios" },
   310401409: { type: "academy", name: "Curso Personalizado" },
 
-  // =========================
-  // UNIVERSITY – FACULTADES
-  // =========================
-  315062968: { type: "university", name: "Facultad Desarrollo de Software" },
+  // ===== UNIVERSITY =====
+  315062968: { type: "university", name: "Facultad de Desarrollo de Software" },
   315062639: { type: "university", name: "Facultad de Marketing" },
   315061516: { type: "university", name: "Facultad de Contaduría" },
   315061240: { type: "university", name: "Facultad de Derecho" },
   315058790: { type: "university", name: "Facultad de Administración y Negocios" },
 
-  // =========================
-  // FÁBRICA DE TUTORES
-  // =========================
+  // ===== FÁBRICA DE TUTORES =====
   316763604: { type: "tutor_factory", name: "TAP Empresas" },
   316682295: { type: "tutor_factory", name: "TAP Derecho" },
   316683598: { type: "tutor_factory", name: "TAP Administración Pública" },
@@ -74,114 +52,134 @@ const PRODUCTS_MAP = {
   316193327: { type: "tutor_factory", name: "Tutores Personalizados" }
 };
 
-// ===============================
-// INIT DB
-// ===============================
-async function initDB() {
+/* =========================
+   CREACIÓN DE TABLAS
+========================= */
+async function createTables() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS enrollments (
       id SERIAL PRIMARY KEY,
-      order_id BIGINT NOT NULL,
-      product_id BIGINT NOT NULL,
-      product_type TEXT NOT NULL,
-      product_name TEXT NOT NULL,
-      customer_email TEXT NOT NULL,
+      order_id BIGINT,
+      product_id BIGINT,
+      product_type TEXT,
+      product_name TEXT,
+      customer_email TEXT,
       created_at TIMESTAMP DEFAULT NOW(),
       UNIQUE(order_id, product_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS academy_access (
+      id SERIAL PRIMARY KEY,
+      email TEXT,
+      course_id BIGINT,
+      course_name TEXT,
+      activated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(email, course_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS university_access (
+      id SERIAL PRIMARY KEY,
+      email TEXT,
+      faculty_id BIGINT,
+      faculty_name TEXT,
+      activated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(email, faculty_id)
+    );
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tutor_factory_access (
+      id SERIAL PRIMARY KEY,
+      email TEXT,
+      tutor_id BIGINT,
+      tutor_name TEXT,
+      activated_at TIMESTAMP DEFAULT NOW(),
+      UNIQUE(email, tutor_id)
     );
   `);
 
   console.log("✅ Tablas verificadas / creadas correctamente");
 }
 
-// ===============================
-// TIENDANUBE API
-// ===============================
-async function getOrder(orderId) {
-  const res = await fetch(
-    `https://api.tiendanube.com/v1/${TIENDANUBE_STORE_ID}/orders/${orderId}`,
-    {
-      headers: {
-        "Authentication": `bearer ${TIENDANUBE_ACCESS_TOKEN}`,
-        "User-Agent": "MagicBank-App"
-      }
-    }
+/* =========================
+   ACTIVADORES
+========================= */
+async function activateAcademy(email, id, name) {
+  await pool.query(
+    `INSERT INTO academy_access (email, course_id, course_name)
+     VALUES ($1, $2, $3)
+     ON CONFLICT DO NOTHING`,
+    [email, id, name]
   );
-
-  if (!res.ok) {
-    throw new Error("Error obteniendo orden Tiendanube");
-  }
-
-  return res.json();
 }
 
-// ===============================
-// WEBHOOK
-// ===============================
-app.post("/webhooks/tiendanube", async (req, res) => {
+async function activateUniversity(email, id, name) {
+  await pool.query(
+    `INSERT INTO university_access (email, faculty_id, faculty_name)
+     VALUES ($1, $2, $3)
+     ON CONFLICT DO NOTHING`,
+    [email, id, name]
+  );
+}
+
+async function activateTutorFactory(email, id, name) {
+  await pool.query(
+    `INSERT INTO tutor_factory_access (email, tutor_id, tutor_name)
+     VALUES ($1, $2, $3)
+     ON CONFLICT DO NOTHING`,
+    [email, id, name]
+  );
+}
+
+/* =========================
+   WEBHOOK TIENDANUBE
+========================= */
+app.post("/webhooks/order-paid", async (req, res) => {
   try {
-    const { event, id: orderId } = req.body;
-
-    if (event !== "order.paid") {
-      return res.json({ status: "ignored" });
-    }
-
-    const order = await getOrder(orderId);
+    const order = req.body;
+    const orderId = order.id;
     const email = order.customer?.email;
-
-    if (!email) {
-      throw new Error("Email no encontrado");
-    }
-
-    let created = 0;
+    if (!email) return res.sendStatus(200);
 
     for (const item of order.products) {
       const map = PRODUCTS_MAP[item.product_id];
       if (!map) continue;
 
       await pool.query(
-        `
-        INSERT INTO enrollments
-          (order_id, product_id, product_type, product_name, customer_email)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT DO NOTHING
-        `,
-        [
-          orderId,
-          item.product_id,
-          map.type,
-          map.name,
-          email
-        ]
+        `INSERT INTO enrollments
+         (order_id, product_id, product_type, product_name, customer_email)
+         VALUES ($1,$2,$3,$4,$5)
+         ON CONFLICT DO NOTHING`,
+        [orderId, item.product_id, map.type, map.name, email]
       );
 
-      created++;
+      if (map.type === "academy")
+        await activateAcademy(email, item.product_id, map.name);
+
+      if (map.type === "university")
+        await activateUniversity(email, item.product_id, map.name);
+
+      if (map.type === "tutor_factory")
+        await activateTutorFactory(email, item.product_id, map.name);
     }
 
-    res.json({
-      status: "OK",
-      order_id: orderId,
-      enrollments_created: created
-    });
-
+    res.sendStatus(200);
   } catch (err) {
-    console.error("❌ Webhook error:", err.message);
-    res.status(500).json({ error: "internal_error" });
+    console.error("❌ Webhook error:", err);
+    res.sendStatus(500);
   }
 });
 
-// ===============================
-// HEALTHCHECK
-// ===============================
-app.get("/", (_, res) => {
-  res.send("🚀 MagicBank Backend running");
-});
+/* =========================
+   START
+========================= */
+const PORT = process.env.PORT || 8080;
 
-// ===============================
-// START
-// ===============================
-initDB().then(() => {
-  app.listen(PORT, () => {
-    console.log(`🚀 MagicBank Backend running on port ${PORT}`);
-  });
+app.listen(PORT, async () => {
+  await createTables();
+  console.log(`🚀 MagicBank Backend running on port ${PORT}`);
 });
