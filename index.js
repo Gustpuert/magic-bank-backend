@@ -8,95 +8,36 @@ const { Pool } = require("pg");
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-/**
- * =========================
- * MIDDLEWARE
- * =========================
- */
+/* =========================
+   MIDDLEWARE
+========================= */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-/**
- * =========================
- * POSTGRES (Railway)
- * =========================
- */
+/* =========================
+   POSTGRES
+========================= */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
 
-/**
- * =========================
- * HEALTH CHECK
- * =========================
- */
+/* =========================
+   HEALTH CHECK
+========================= */
 app.get("/", (req, res) => {
-  res.status(200).send("MagicBank Backend OK");
+  res.send("MagicBank Backend OK");
 });
 
-/**
- * =========================
- * PRODUCTOS MAGICBANK
- * =========================
- */
-
-/**
- * UNIVERSITY – FACULTADES
- */
-const UNIVERSITY_PRODUCTS = {
-  315058790: { name: "Administración y Negocios", type: "university" },
-  315061240: { name: "Derecho", type: "university" },
-  315061516: { name: "Contaduría", type: "university" },
-  315062639: { name: "Marketing", type: "university" },
-  315062968: { name: "Desarrollo de Software", type: "university" },
-};
-
-/**
- * ACADEMY – CURSOS
- */
-const ACADEMY_PRODUCTS = {
-  310596602: { name: "Cocina", type: "academy" },
-  310593279: { name: "Nutrición Inteligente", type: "academy" },
-  310561138: { name: "ChatGPT Avanzado", type: "academy" },
-  310587272: { name: "Inglés", type: "academy" },
-  315067695: { name: "Portugués", type: "academy" },
-  310589317: { name: "Francés", type: "academy" },
-  315067943: { name: "Italiano", type: "academy" },
-  315067066: { name: "Alemán", type: "academy" },
-  315067368: { name: "Chino", type: "academy" },
-  314360954: { name: "Artes y Oficios", type: "academy" },
-  308900626: { name: "Pensiones Mágicas", type: "academy" },
-};
-
-/**
- * FÁBRICA DE TUTORES
- */
-const FACTORY_PRODUCTS = {
-  316681661: { name: "TAP Salud", type: "factory" },
-  316683199: { name: "TAP Educación", type: "factory" },
-  316683598: { name: "TAP Administración Pública", type: "factory" },
-  316682295: { name: "TAP Derecho", type: "factory" },
-  316682798: { name: "TAP Ingeniería", type: "factory" },
-  316763604: { name: "TAP Empresas", type: "factory" },
-  316684646: { name: "SuperTraductor", type: "factory" },
-  316685090: { name: "BienestarTutor Pro", type: "factory" },
-  316685729: { name: "MagicBank Council", type: "factory" },
-  316686073: { name: "Sensei", type: "factory" },
-  316193327: { name: "Tutor Personalizado", type: "factory" },
-};
-
-/**
- * =========================
- * OAUTH CALLBACK (SOLO INSTALACIÓN)
- * =========================
- */
+/* =========================
+   OAUTH CALLBACK (SOLO INSTALACIÓN APP)
+========================= */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).send("Missing code");
 
   try {
-    const tokenResponse = await axios.post(
+    const tokenRes = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
       {
         client_id: process.env.TIENDANUBE_CLIENT_ID,
@@ -107,8 +48,8 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       { headers: { "Content-Type": "application/json" } }
     );
 
-    const accessToken = tokenResponse.data.access_token;
-    const storeId = tokenResponse.data.user_id;
+    const accessToken = tokenRes.data.access_token;
+    const storeId = tokenRes.data.user_id;
 
     await pool.query(
       `
@@ -120,108 +61,113 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       [storeId, accessToken]
     );
 
-    res.send("MagicBank instalada correctamente");
+    res.send("MagicBank instalada correctamente en Tiendanube");
   } catch (err) {
-    console.error(err);
+    console.error(err.response?.data || err.message);
     res.status(500).send("OAuth error");
   }
 });
 
-/**
- * =========================
- * CREAR TOKEN DE ACCESO (POST-PAGO)
- * =========================
- */
-app.post("/access/create", async (req, res) => {
-  const { product_id, user_email } = req.body;
+/* =========================
+   MAPA CANÓNICO DE PRODUCTOS
+========================= */
+const PRODUCT_MAP = {
+  // ===== ACADEMY =====
+  310596602: { tipo: "academy", nombre: "Cocina" },
+  310593279: { tipo: "academy", nombre: "Nutrición Inteligente" },
+  310561138: { tipo: "academy", nombre: "ChatGPT Avanzado" },
+  310587272: { tipo: "academy", nombre: "Inglés" },
+  310589317: { tipo: "academy", nombre: "Francés" },
+  315067695: { tipo: "academy", nombre: "Portugués" },
+  315067943: { tipo: "academy", nombre: "Italiano" },
+  315067066: { tipo: "academy", nombre: "Alemán" },
+  315067368: { tipo: "academy", nombre: "Chino Mandarín" },
+  314360954: { tipo: "academy", nombre: "Artes y Oficios" },
 
-  const product =
-    UNIVERSITY_PRODUCTS[product_id] ||
-    ACADEMY_PRODUCTS[product_id] ||
-    FACTORY_PRODUCTS[product_id];
+  // ===== UNIVERSITY =====
+  315058790: { tipo: "university", nombre: "Administración y Negocios" },
+  315062639: { tipo: "university", nombre: "Marketing" },
+  315061516: { tipo: "university", nombre: "Contaduría" },
+  315061240: { tipo: "university", nombre: "Derecho" },
+  315062968: { tipo: "university", nombre: "Desarrollo de Software" },
 
-  if (!product) {
-    return res.status(400).json({ error: "Producto no reconocido" });
+  // ===== FÁBRICA DE TUTORES =====
+  316763604: { tipo: "tutor", nombre: "TAP Empresas" },
+  316682295: { tipo: "tutor", nombre: "TAP Derecho" },
+  316683598: { tipo: "tutor", nombre: "TAP Administración Pública" },
+  316681661: { tipo: "tutor", nombre: "TAP Salud" },
+  316682798: { tipo: "tutor", nombre: "TAP Ingeniería" },
+  316683199: { tipo: "tutor", nombre: "TAP Educación" },
+  316686073: { tipo: "tutor", nombre: "Sensei" },
+  316684646: { tipo: "tutor", nombre: "SuperTraductor" },
+  316685090: { tipo: "tutor", nombre: "BienestarTutor Pro" },
+  316685729: { tipo: "tutor", nombre: "MagicBank Council" },
+  316193327: { tipo: "tutor", nombre: "Tutor Personalizado" },
+};
+
+/* =========================
+   PAYMENT SUCCESS (CORAZÓN)
+========================= */
+app.get("/payment/success", async (req, res) => {
+  const { order_id } = req.query;
+  if (!order_id) return res.status(400).send("Missing order_id");
+
+  try {
+    // 1. Obtener tienda
+    const storeRes = await pool.query(
+      `SELECT store_id, access_token FROM tiendanube_stores LIMIT 1`
+    );
+    const { store_id, access_token } = storeRes.rows[0];
+
+    // 2. Obtener orden
+    const orderRes = await axios.get(
+      `https://api.tiendanube.com/v1/${store_id}/orders/${order_id}`,
+      {
+        headers: {
+          Authentication: `bearer ${access_token}`,
+          "User-Agent": "MagicBank (magicbankia@gmail.com)",
+        },
+      }
+    );
+
+    const order = orderRes.data;
+    const buyerEmail = order.contact_email;
+    const item = order.products[0];
+    const productId = item.product_id;
+
+    const producto = PRODUCT_MAP[productId];
+    if (!producto) {
+      return res.status(400).send("Producto no reconocido");
+    }
+
+    // 3. Crear token único
+    const token = crypto.randomBytes(32).toString("hex");
+
+    await pool.query(
+      `
+      INSERT INTO access_tokens (token, email, product_id, product_name, product_type)
+      VALUES ($1, $2, $3, $4, $5)
+      `,
+      [token, buyerEmail, productId, producto.nombre, producto.tipo]
+    );
+
+    // 4. Mostrar acceso
+    res.send(`
+      <h1>Acceso activado</h1>
+      <p><strong>${producto.nombre}</strong></p>
+      <a href="https://magicbank.org/access/${token}">
+        Entrar ahora
+      </a>
+    `);
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).send("Error procesando el pago");
   }
-
-  const token = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date();
-  expiresAt.setMonth(expiresAt.getMonth() + 1); // membresía mensual
-
-  await pool.query(
-    `
-    INSERT INTO user_access
-    (access_token, product_id, product_name, product_type, email, expires_at)
-    VALUES ($1, $2, $3, $4, $5, $6)
-    `,
-    [
-      token,
-      product_id,
-      product.name,
-      product.type,
-      user_email,
-      expiresAt,
-    ]
-  );
-
-  res.json({
-    access_link: `https://magicbank.org/access/${token}`,
-    product: product.name,
-  });
 });
 
-/**
- * =========================
- * VALIDAR ACCESO (TOKEN ÚNICO)
- * =========================
- */
-app.get("/access/:token", async (req, res) => {
-  const { token } = req.params;
-
-  const result = await pool.query(
-    `SELECT * FROM user_access WHERE access_token = $1`,
-    [token]
-  );
-
-  if (result.rows.length === 0)
-    return res.status(403).send("Acceso inválido");
-
-  const access = result.rows[0];
-
-  if (new Date(access.expires_at) < new Date())
-    return res.status(403).send("Acceso vencido");
-
-  if (access.session_active)
-    return res.status(403).send("Acceso en uso en otro dispositivo");
-
-  await pool.query(
-    `
-    UPDATE user_access
-    SET session_active = true, session_started_at = NOW()
-    WHERE id = $1
-    `,
-    [access.id]
-  );
-
-  let redirect = "";
-
-  if (access.product_type === "university")
-    redirect = "https://gustpuert.github.io/university.magicbank.org/";
-
-  if (access.product_type === "academy")
-    redirect = "https://academy.magicbank.org";
-
-  if (access.product_type === "factory")
-    redirect = "https://magicbank.org/fabrica-de-tutores.html";
-
-  res.redirect(redirect);
-});
-
-/**
- * =========================
- * START SERVER
- * =========================
- */
+/* =========================
+   START SERVER
+========================= */
 app.listen(PORT, () => {
   console.log(`🚀 MagicBank Backend running on port ${PORT}`);
 });
