@@ -8,37 +8,22 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 
 /**
- * Middleware
+ * =========================
+ * MIDDLEWARE
+ * =========================
  */
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 /**
- * Postgres (Railway)
+ * =========================
+ * POSTGRES (Railway)
+ * =========================
  */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
-
-/**
- * =========================
- * PRODUCTOS ACADEMY (IDs)
- * =========================
- */
-const ACADEMY_PRODUCTS = {
-  315067943: "Italiano",
-  315067695: "Portugués",
-  315067368: "Chino",
-  315067066: "Alemán",
-  310587272: "Inglés",
-  310589317: "Francés",
-  310596602: "Cocina",
-  310593279: "Nutrición Inteligente",
-  310561138: "ChatGPT Avanzado",
-  314360954: "Artes y Oficios",
-  310401409: "Curso Personalizado",
-};
 
 /**
  * =========================
@@ -51,48 +36,50 @@ app.get("/", (req, res) => {
 
 /**
  * =========================
- * INIT DB (AUTOMÁTICO)
+ * OAUTH CALLBACK (solo instalación)
  * =========================
  */
-async function initDB() {
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS tiendanube_stores (
-      id SERIAL PRIMARY KEY,
-      store_id BIGINT UNIQUE NOT NULL,
-      access_token TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
+app.get("/auth/tiendanube/callback", async (req, res) => {
+  const { code } = req.query;
+  if (!code) return res.status(400).send("Missing code");
+
+  try {
+    const tokenResponse = await axios.post(
+      "https://www.tiendanube.com/apps/authorize/token",
+      {
+        client_id: process.env.TIENDANUBE_CLIENT_ID,
+        client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
+        grant_type: "authorization_code",
+        code,
+      },
+      { headers: { "Content-Type": "application/json" } }
     );
-  `);
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS processed_orders (
-      id SERIAL PRIMARY KEY,
-      order_id BIGINT UNIQUE NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
+    const accessToken = tokenResponse.data.access_token;
+    const storeId = tokenResponse.data.user_id;
+
+    await pool.query(
+      `
+      INSERT INTO tiendanube_stores (store_id, access_token)
+      VALUES ($1, $2)
+      ON CONFLICT (store_id)
+      DO UPDATE SET access_token = EXCLUDED.access_token
+      `,
+      [storeId, accessToken]
     );
-  `);
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS academy_enrollments (
-      id SERIAL PRIMARY KEY,
-      order_id BIGINT NOT NULL,
-      product_id BIGINT NOT NULL,
-      course_name TEXT NOT NULL,
-      customer_email TEXT NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW(),
-      UNIQUE (order_id, product_id)
-    );
-  `);
-
-  console.log("✅ Tablas verificadas / creadas correctamente");
-}
-
-initDB();
+    res.send("MagicBank instalada correctamente");
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).send("OAuth error");
+  }
+});
 
 /**
  * =========================
  * CRON – CHECK ORDERS
  * =========================
+ * Este endpoint lo llama Railway cada 5 minutos
  */
 app.get("/cron/check-orders", async (req, res) => {
   try {
@@ -102,14 +89,14 @@ app.get("/cron/check-orders", async (req, res) => {
     );
 
     if (storeResult.rows.length === 0) {
-      return res.status(400).json({ error: "No store configured" });
+      return res.status(404).json({ error: "Store not configured" });
     }
 
     const { store_id, access_token } = storeResult.rows[0];
 
-    // 2. Consultar órdenes pagadas
+    // 2. Obtener TODAS las órdenes (sin filtro incorrecto)
     const ordersResponse = await axios.get(
-      `https://api.tiendanube.com/v1/${store_id}/orders?status=paid`,
+      `https://api.tiendanube.com/v1/${store_id}/orders`,
       {
         headers: {
           Authentication: `bearer ${access_token}`,
@@ -119,60 +106,64 @@ app.get("/cron/check-orders", async (req, res) => {
     );
 
     const orders = ordersResponse.data;
-    let enrollments = 0;
+
+    let inserted = 0;
 
     for (const order of orders) {
-      const orderId = order.id;
+      // 3. Solo órdenes pagadas
+      if (order.payment_status !== "paid") continue;
 
-      // Evitar reprocesar orden
-      const existsOrder = await pool.query(
-        "SELECT 1 FROM processed_orders WHERE order_id = $1",
-        [orderId]
-      );
-
-      if (existsOrder.rows.length > 0) continue;
-
-      const email = order.customer?.email;
-      if (!email) continue;
-
-      // 3. Revisar productos
       for (const item of order.products) {
-        const productId = item.product_id;
+        // 4. Solo productos Academy (por ID)
+        const academyProductIds = [
+          315067943, // Italiano
+          315067695, // Portugués
+          315067368, // Chino
+          315067066, // Alemán
+          310596602, // Cocina
+          310593279, // Nutrición
+          310561138, // ChatGPT
+          310587272, // Inglés
+          310589317, // Francés
+          314360954, // Artes y oficios
+        ];
 
-        if (ACADEMY_PRODUCTS[productId]) {
-          await pool.query(
-            `
-            INSERT INTO academy_enrollments
-            (order_id, product_id, course_name, customer_email)
-            VALUES ($1, $2, $3, $4)
-            ON CONFLICT DO NOTHING
-            `,
-            [
-              orderId,
-              productId,
-              ACADEMY_PRODUCTS[productId],
-              email,
-            ]
-          );
+        if (!academyProductIds.includes(item.product_id)) continue;
 
-          enrollments++;
-        }
+        // 5. Evitar duplicados
+        const exists = await pool.query(
+          "SELECT 1 FROM academy_enrollments WHERE order_id = $1",
+          [order.id]
+        );
+
+        if (exists.rows.length > 0) continue;
+
+        // 6. Insertar inscripción
+        await pool.query(
+          `
+          INSERT INTO academy_enrollments
+          (order_id, product_id, product_name, customer_email)
+          VALUES ($1, $2, $3, $4)
+          `,
+          [
+            order.id,
+            item.product_id,
+            item.name,
+            order.customer.email,
+          ]
+        );
+
+        inserted++;
       }
-
-      // Marcar orden como procesada
-      await pool.query(
-        "INSERT INTO processed_orders (order_id) VALUES ($1) ON CONFLICT DO NOTHING",
-        [orderId]
-      );
     }
 
     res.json({
       status: "OK",
       orders_checked: orders.length,
-      academy_enrollments_created: enrollments,
+      academy_enrollments_created: inserted,
     });
-  } catch (error) {
-    console.error("❌ Cron error:", error.response?.data || error.message);
+  } catch (err) {
+    console.error(err.response?.data || err.message);
     res.status(500).json({ error: "Failed to check orders" });
   }
 });
