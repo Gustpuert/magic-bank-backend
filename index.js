@@ -48,7 +48,20 @@ const ACADEMY_PRODUCTS = {
 
 /**
  * =========================
- * EMAIL TRANSPORTER
+ * PRODUCTOS UNIVERSITY
+ * =========================
+ */
+const UNIVERSITY_PRODUCTS = {
+  315062968: "Facultad de Desarrollo de Software",
+  315062639: "Facultad de Marketing",
+  315061516: "Facultad de Contaduría",
+  315061240: "Facultad de Derecho",
+  315058790: "Facultad de Administración y Negocios"
+};
+
+/**
+ * =========================
+ * EMAIL (YA CONFIGURADO)
  * =========================
  */
 const transporter = nodemailer.createTransport({
@@ -75,47 +88,21 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
-  console.log("✅ Tabla academy_access lista");
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS university_access (
+      id SERIAL PRIMARY KEY,
+      order_id BIGINT UNIQUE,
+      product_id BIGINT,
+      product_name TEXT,
+      customer_email TEXT,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+
+  console.log("✅ Tablas Academy y University listas");
 }
 initDB();
-
-/**
- * =========================
- * EMAIL FUNCTION
- * =========================
- */
-async function sendAcademyEmail(email, productName) {
-  const mailOptions = {
-    from: `"MagicBank Academy" <${process.env.EMAIL_USER}>`,
-    to: email,
-    subject: "Acceso confirmado — MagicBank Academy",
-    html: `
-      <h2>Bienvenido a MagicBank Academy</h2>
-      <p>Tu acceso ha sido activado correctamente.</p>
-      <p><strong>Curso adquirido:</strong> ${productName}</p>
-
-      <p>
-        En MagicBank no avanzas si no comprendes.
-        Tu tutor te acompañará paso a paso.
-      </p>
-
-      <p>
-        Próximos pasos:<br>
-        1. Guarda este correo<br>
-        2. Nuestro equipo te contactará si es necesario<br>
-        3. Puedes escribirnos en cualquier momento
-      </p>
-
-      <hr>
-      <p>
-        📩 magicbankia@gmail.com<br>
-        📱 WhatsApp +57 311 271 1772
-      </p>
-    `,
-  };
-
-  await transporter.sendMail(mailOptions);
-}
 
 /**
  * =========================
@@ -145,47 +132,66 @@ app.get("/cron/check-orders", async (req, res) => {
     );
 
     const orders = ordersResponse.data;
-    let emailsSent = 0;
+
+    let academyActivated = 0;
+    let universityActivated = 0;
 
     for (const order of orders) {
+      const email = order.customer?.email;
+      if (!email) continue;
+
       for (const item of order.products) {
         const productId = item.product_id;
 
+        /* ================= ACADEMY ================= */
         if (ACADEMY_PRODUCTS[productId]) {
-          const productName = ACADEMY_PRODUCTS[productId];
-          const email = order.customer?.email;
-
-          if (!email) continue;
-
           const exists = await pool.query(
             `SELECT 1 FROM academy_access WHERE order_id = $1`,
             [order.id]
           );
+          if (exists.rows.length === 0) {
+            await pool.query(
+              `
+              INSERT INTO academy_access
+              (order_id, product_id, product_name, customer_email)
+              VALUES ($1, $2, $3, $4)
+              `,
+              [order.id, productId, ACADEMY_PRODUCTS[productId], email]
+            );
+            academyActivated++;
+          }
+        }
 
-          if (exists.rows.length > 0) continue;
-
-          await pool.query(
-            `
-            INSERT INTO academy_access
-            (order_id, product_id, product_name, customer_email)
-            VALUES ($1, $2, $3, $4)
-            `,
-            [order.id, productId, productName, email]
+        /* ================= UNIVERSITY ================= */
+        if (UNIVERSITY_PRODUCTS[productId]) {
+          const exists = await pool.query(
+            `SELECT 1 FROM university_access WHERE order_id = $1`,
+            [order.id]
           );
-
-          await sendAcademyEmail(email, productName);
-
-          console.log(`📧 Email enviado → ${email} | ${productName}`);
-          emailsSent++;
+          if (exists.rows.length === 0) {
+            await pool.query(
+              `
+              INSERT INTO university_access
+              (order_id, product_id, product_name, customer_email)
+              VALUES ($1, $2, $3, $4)
+              `,
+              [order.id, productId, UNIVERSITY_PRODUCTS[productId], email]
+            );
+            universityActivated++;
+          }
         }
       }
     }
 
-    res.json({ status: "OK", emailsSent });
+    res.json({
+      status: "OK",
+      academyActivated,
+      universityActivated,
+    });
 
   } catch (error) {
-    console.error("Email automation error:", error.message);
-    res.status(500).json({ error: "Email automation failed" });
+    console.error("Automation error:", error.message);
+    res.status(500).json({ error: "Automation failed" });
   }
 });
 
