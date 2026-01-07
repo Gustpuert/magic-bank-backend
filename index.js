@@ -28,7 +28,7 @@ const pool = new Pool({
 
 /**
  * =========================
- * UNIVERSITY PRODUCTS → TUTORS
+ * UNIVERSITY MAP
  * =========================
  */
 const UNIVERSITY_MAP = {
@@ -56,7 +56,63 @@ const UNIVERSITY_MAP = {
 
 /**
  * =========================
- * EMAIL CONFIG
+ * ACADEMY MAP
+ * =========================
+ */
+const ACADEMY_MAP = {
+  310596602: {
+    name: "Cocina",
+    tutor: "https://chatgpt.com/g/g-6925b1e4cff88191a3e46165e9ab7824-elchef",
+  },
+  310593279: {
+    name: "Nutrición Inteligente",
+    tutor: "https://chatgpt.com/g/g-694ffee00bb88191b8a708c68b13a0e1-nutricion-inteligente-tutor-pro",
+  },
+  310561138: {
+    name: "ChatGPT Avanzado",
+    tutor: "https://chatgpt.com/g/g-6925338f45d88191b5c5c2b3080e553a-tutor-especializado",
+  },
+  310587272: {
+    name: "Inglés",
+    tutor: "https://chatgpt.com/g/g-69269540618c8191ad2fcc7a5a86b622-tutor-de-ingles-magicbank",
+  },
+  310589317: {
+    name: "Francés",
+    tutor: "https://chatgpt.com/g/g-692b740a32a08191b53be9f92bede4c3-scarlet-french-magic-tutor",
+  },
+  315067943: {
+    name: "Italiano",
+    tutor: "https://chatgpt.com/g/g-694ff655ce908191871b8656228b5971-profesor-de-italiano",
+  },
+  315067695: {
+    name: "Portugués",
+    tutor: "https://chatgpt.com/g/g-694ff45ee8a88191b72cd536885b0876-profesor-de-portugues",
+  },
+  315067066: {
+    name: "Alemán",
+    tutor: "https://chatgpt.com/g/g-694ff6db1224819184d471e770ab7bf4-profesor-de-aleman",
+  },
+  315067368: {
+    name: "Chino Mandarín",
+    tutor: "https://chatgpt.com/g/g-694fec2d35c88191833aa2af7d92fce0-maestro-de-chino-mandarin",
+  },
+  314360954: {
+    name: "Artes y Oficios",
+    tutor: "https://chatgpt.com/g/g-69482335eefc81918355d1df644de6d0-artesyoficios-tutor-pro",
+  },
+  308900626: {
+    name: "Pensiones Mágicas",
+    tutor: "https://chatgpt.com/g/g-6927e4527ac881919cf2697da6dd674b-tutor-oficial-de-pensiones-magicas-magicbank",
+  },
+  310401409: {
+    name: "Curso Personalizado",
+    tutor: "https://magicbank.org/fabrica-de-tutores.html",
+  },
+};
+
+/**
+ * =========================
+ * EMAIL
  * =========================
  */
 const transporter = nodemailer.createTransport({
@@ -69,16 +125,7 @@ const transporter = nodemailer.createTransport({
 
 /**
  * =========================
- * HEALTH CHECK
- * =========================
- */
-app.get("/", (req, res) => {
-  res.status(200).send("MagicBank Backend OK");
-});
-
-/**
- * =========================
- * CRON – CHECK ORDERS
+ * CRON CHECK ORDERS
  * =========================
  */
 app.get("/cron/check-orders", async (req, res) => {
@@ -110,44 +157,35 @@ app.get("/cron/check-orders", async (req, res) => {
       if (!email) continue;
 
       for (const item of order.products) {
-        const faculty = UNIVERSITY_MAP[item.product_id];
-        if (!faculty) continue;
+        const product =
+          UNIVERSITY_MAP[item.product_id] ||
+          ACADEMY_MAP[item.product_id];
+
+        if (!product) continue;
 
         const exists = await pool.query(
-          `SELECT 1 FROM university_access WHERE order_id = $1`,
+          `SELECT 1 FROM processed_orders WHERE order_id = $1`,
           [order.id]
         );
 
         if (exists.rows.length === 0) {
           await pool.query(
-            `
-            INSERT INTO university_access
-            (order_id, product_id, product_name, customer_email)
-            VALUES ($1, $2, $3, $4)
-            `,
-            [order.id, item.product_id, faculty.name, email]
+            `INSERT INTO processed_orders (order_id) VALUES ($1)`,
+            [order.id]
           );
 
           await transporter.sendMail({
-            from: `"MagicBank University" <${process.env.EMAIL_USER}>`,
+            from: `"MagicBank" <${process.env.EMAIL_USER}>`,
             to: email,
-            subject: `Acceso confirmado – ${faculty.name}`,
+            subject: `Acceso confirmado – ${product.name}`,
             html: `
               <h2>Acceso confirmado</h2>
+              <p>Has adquirido <strong>${product.name}</strong>.</p>
+              <p>Tu tutor ya está disponible:</p>
               <p>
-                Has adquirido <strong>${faculty.name}</strong>.
-              </p>
-              <p>
-                Tu tutor especializado ya está disponible.
-              </p>
-              <p>
-                👉 <a href="${faculty.tutor}">
-                  Entrar directamente a tu Tutor
+                👉 <a href="${product.tutor}">
+                  Entrar directamente al Tutor
                 </a>
-              </p>
-              <p>
-                MagicBank University aplica evaluación real,
-                acompañamiento continuo y avance solo por dominio.
               </p>
             `,
           });
@@ -160,15 +198,10 @@ app.get("/cron/check-orders", async (req, res) => {
     res.json({ status: "OK", emailsSent });
   } catch (error) {
     console.error(error.message);
-    res.status(500).json({ error: "University automation failed" });
+    res.status(500).json({ error: "Automation failed" });
   }
 });
 
-/**
- * =========================
- * START SERVER
- * =========================
- */
 app.listen(PORT, () => {
   console.log(`🚀 MagicBank Backend running on port ${PORT}`);
 });
