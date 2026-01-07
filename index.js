@@ -3,6 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const axios = require("axios");
 const { Pool } = require("pg");
+const nodemailer = require("nodemailer");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
@@ -17,7 +18,7 @@ app.use(express.urlencoded({ extended: true }));
 
 /**
  * =========================
- * POSTGRES CONNECTION
+ * POSTGRES
  * =========================
  */
 const pool = new Pool({
@@ -27,7 +28,7 @@ const pool = new Pool({
 
 /**
  * =========================
- * PRODUCTOS MAGICBANK ACADEMY
+ * PRODUCTOS ACADEMY
  * =========================
  */
 const ACADEMY_PRODUCTS = {
@@ -47,7 +48,20 @@ const ACADEMY_PRODUCTS = {
 
 /**
  * =========================
- * INIT DB (SOLO CREA TABLAS)
+ * EMAIL TRANSPORTER
+ * =========================
+ */
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
+});
+
+/**
+ * =========================
+ * INIT DB
  * =========================
  */
 async function initDB() {
@@ -61,24 +75,51 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
-
   console.log("✅ Tabla academy_access lista");
 }
-
 initDB();
 
 /**
  * =========================
- * HEALTH CHECK
+ * EMAIL FUNCTION
  * =========================
  */
-app.get("/", (req, res) => {
-  res.status(200).send("MagicBank Backend OK");
-});
+async function sendAcademyEmail(email, productName) {
+  const mailOptions = {
+    from: `"MagicBank Academy" <${process.env.EMAIL_USER}>`,
+    to: email,
+    subject: "Acceso confirmado — MagicBank Academy",
+    html: `
+      <h2>Bienvenido a MagicBank Academy</h2>
+      <p>Tu acceso ha sido activado correctamente.</p>
+      <p><strong>Curso adquirido:</strong> ${productName}</p>
+
+      <p>
+        En MagicBank no avanzas si no comprendes.
+        Tu tutor te acompañará paso a paso.
+      </p>
+
+      <p>
+        Próximos pasos:<br>
+        1. Guarda este correo<br>
+        2. Nuestro equipo te contactará si es necesario<br>
+        3. Puedes escribirnos en cualquier momento
+      </p>
+
+      <hr>
+      <p>
+        📩 magicbankia@gmail.com<br>
+        📱 WhatsApp +57 311 271 1772
+      </p>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}
 
 /**
  * =========================
- * CRON – CHECK ORDERS (ACADEMY)
+ * CRON – CHECK ORDERS
  * =========================
  */
 app.get("/cron/check-orders", async (req, res) => {
@@ -104,7 +145,7 @@ app.get("/cron/check-orders", async (req, res) => {
     );
 
     const orders = ordersResponse.data;
-    let activated = 0;
+    let emailsSent = 0;
 
     for (const order of orders) {
       for (const item of order.products) {
@@ -112,9 +153,10 @@ app.get("/cron/check-orders", async (req, res) => {
 
         if (ACADEMY_PRODUCTS[productId]) {
           const productName = ACADEMY_PRODUCTS[productId];
-          const email = order.customer?.email || "no-email";
+          const email = order.customer?.email;
 
-          // Evitar duplicados
+          if (!email) continue;
+
           const exists = await pool.query(
             `SELECT 1 FROM academy_access WHERE order_id = $1`,
             [order.id]
@@ -131,23 +173,19 @@ app.get("/cron/check-orders", async (req, res) => {
             [order.id, productId, productName, email]
           );
 
-          console.log(
-            `🎓 ACADEMY ACTIVADO → ${productName} | ${email}`
-          );
+          await sendAcademyEmail(email, productName);
 
-          activated++;
+          console.log(`📧 Email enviado → ${email} | ${productName}`);
+          emailsSent++;
         }
       }
     }
 
-    res.json({
-      status: "OK",
-      academy_activations: activated,
-    });
+    res.json({ status: "OK", emailsSent });
 
   } catch (error) {
-    console.error("Academy error:", error.message);
-    res.status(500).json({ error: "Academy automation failed" });
+    console.error("Email automation error:", error.message);
+    res.status(500).json({ error: "Email automation failed" });
   }
 });
 
