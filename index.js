@@ -2,7 +2,6 @@ require("dotenv").config();
 
 const express = require("express");
 const axios = require("axios");
-const crypto = require("crypto");
 const { Pool } = require("pg");
 
 const app = express();
@@ -18,7 +17,8 @@ app.use(express.urlencoded({ extended: true }));
 
 /**
  * =========================
- * POSTGRES
+ * POSTGRES CONNECTION
+ * Railway inyecta DATABASE_URL
  * =========================
  */
 const pool = new Pool({
@@ -28,28 +28,36 @@ const pool = new Pool({
 
 /**
  * =========================
- * PRODUCTOS ACADEMY / UNIVERSITY
+ * PRODUCTOS MAGICBANK
  * =========================
  */
-const ACADEMY_PRODUCTS = [
-  315067943, // Italiano
-  315067695, // Portugues
-  315067368, // Chino
-  315067066, // Aleman
-  310596602, // Cocina
-  310593279, // Nutrición
-  310561138, // ChatGPT
-  310587272, // Inglés
-  310589317, // Francés
-  314360954, // Artes y oficios
+
+/** MAGICBANK UNIVERSITY */
+const UNIVERSITY_PRODUCTS = [
+  315058790, // Administración y Negocios
+  315061240, // Derecho
+  315061516, // Contaduría
+  315062639, // Marketing
+  315062968, // Desarrollo de Software
 ];
 
-const UNIVERSITY_PRODUCTS = [
-  315062968, // Desarrollo software
-  315062639, // Marketing
-  315061516, // Contaduría
-  315061240, // Derecho
-  315058790, // Administración y Negocios
+/** MAGICBANK ACADEMY */
+const ACADEMY_PRODUCTS = [
+  310596602, // Cocina
+  310593279, // Nutrición Inteligente
+  310561138, // ChatGPT Avanzado
+  310587272, // Inglés
+  310589317, // Francés
+  315067695, // Portugués
+  315067066, // Alemán
+  315067368, // Chino
+  314360954, // Artes y Oficios
+];
+
+/** FÁBRICA DE TUTORES (SE PUEDE EDITAR DESPUÉS SIN PROBLEMA) */
+const FACTORY_PRODUCTS = [
+  310401409, // Curso Personalizado / Fábrica base
+  // AQUÍ SE AGREGAN MÁS IDs CUANDO EXISTAN
 ];
 
 /**
@@ -58,26 +66,75 @@ const UNIVERSITY_PRODUCTS = [
  * =========================
  */
 app.get("/", (req, res) => {
-  res.send("MagicBank Backend OK");
+  res.status(200).send("MagicBank Backend OK");
 });
 
 /**
  * =========================
- * CRON – CHECK ORDERS
+ * OAUTH CALLBACK
+ * SOLO SE USA CUANDO SE INSTALA LA APP
  * =========================
+ */
+app.get("/auth/tiendanube/callback", async (req, res) => {
+  const { code } = req.query;
+
+  if (!code) {
+    return res.status(400).send("Missing authorization code");
+  }
+
+  try {
+    const tokenResponse = await axios.post(
+      "https://www.tiendanube.com/apps/authorize/token",
+      {
+        client_id: process.env.TIENDANUBE_CLIENT_ID,
+        client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
+        grant_type: "authorization_code",
+        code,
+      },
+      { headers: { "Content-Type": "application/json" } }
+    );
+
+    const accessToken = tokenResponse.data.access_token;
+    const storeId = tokenResponse.data.user_id;
+
+    await pool.query(
+      `
+      INSERT INTO tiendanube_stores (store_id, access_token)
+      VALUES ($1, $2)
+      ON CONFLICT (store_id)
+      DO UPDATE SET access_token = EXCLUDED.access_token
+      `,
+      [storeId, accessToken]
+    );
+
+    res.send("MagicBank instalada correctamente en Tiendanube");
+  } catch (error) {
+    console.error("OAuth error:", error.response?.data || error.message);
+    res.status(500).send("OAuth error");
+  }
+});
+
+/**
+ * =========================
+ * CRON ENDPOINT
+ * CONSULTA ÓRDENES PAGADAS
+ * =========================
+ * ESTE ENDPOINT ES LLAMADO CADA 5 MINUTOS DESDE RAILWAY
  */
 app.get("/cron/check-orders", async (req, res) => {
   try {
+    // 1. Obtener tienda y token
     const storeResult = await pool.query(
-      "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
+      `SELECT store_id, access_token FROM tiendanube_stores LIMIT 1`
     );
 
     if (storeResult.rows.length === 0) {
-      return res.status(404).json({ error: "Store not configured" });
+      return res.status(404).json({ error: "No store configured" });
     }
 
     const { store_id, access_token } = storeResult.rows[0];
 
+    // 2. Consultar órdenes pagadas
     const ordersResponse = await axios.get(
       `https://api.tiendanube.com/v1/${store_id}/orders?status=paid`,
       {
@@ -89,104 +146,53 @@ app.get("/cron/check-orders", async (req, res) => {
     );
 
     const orders = ordersResponse.data;
-    let academyEnrollments = 0;
-    let checked = 0;
+    let processed = 0;
 
     for (const order of orders) {
-      checked++;
       const orderId = order.id;
-      const email = order.customer.email;
 
+      // 3. Evitar reprocesar
+      const exists = await pool.query(
+        `SELECT 1 FROM processed_orders WHERE order_id = $1`,
+        [orderId]
+      );
+
+      if (exists.rows.length > 0) continue;
+
+      // 4. Identificar producto
       for (const item of order.products) {
         const productId = item.product_id;
-        const productName = item.name;
+        let productType = "unknown";
 
-        if (ACADEMY_PRODUCTS.includes(productId)) {
-          const exists = await pool.query(
-            "SELECT 1 FROM academy_enrollments WHERE order_id = $1 AND product_id = $2",
-            [orderId, productId]
-          );
-
-          if (exists.rows.length > 0) continue;
-
-          const enrollment = await pool.query(
-            `
-            INSERT INTO academy_enrollments
-            (order_id, product_id, product_name, customer_email)
-            VALUES ($1,$2,$3,$4)
-            RETURNING id
-            `,
-            [orderId, productId, productName, email]
-          );
-
-          const token = crypto.randomBytes(32).toString("hex");
-
-          await pool.query(
-            `
-            INSERT INTO access_tokens
-            (enrollment_type, enrollment_id, token, used)
-            VALUES ('academy', $1, $2, false)
-            `,
-            [enrollment.rows[0].id, token]
-          );
-
-          console.log("🔗 Link mágico:", `https://magicbank.app/access/${token}`);
-          academyEnrollments++;
+        if (UNIVERSITY_PRODUCTS.includes(productId)) {
+          productType = "university";
+        } else if (ACADEMY_PRODUCTS.includes(productId)) {
+          productType = "academy";
+        } else if (FACTORY_PRODUCTS.includes(productId)) {
+          productType = "factory";
         }
+
+        // 5. Guardar orden
+        await pool.query(
+          `
+          INSERT INTO processed_orders (order_id, product_id, product_type, raw_order)
+          VALUES ($1, $2, $3, $4)
+          `,
+          [orderId, productId, productType, order]
+        );
       }
+
+      processed++;
     }
 
     res.json({
       status: "OK",
-      orders_checked: checked,
-      academy_enrollments_created: academyEnrollments,
+      orders_found: orders.length,
+      orders_processed: processed,
     });
-  } catch (err) {
-    console.error("CRON ERROR:", err.message);
+  } catch (error) {
+    console.error("Order check error:", error.response?.data || error.message);
     res.status(500).json({ error: "Failed to check orders" });
-  }
-});
-
-/**
- * =========================
- * ACCESS LINK (MAGIC LINK)
- * =========================
- */
-app.get("/access/:token", async (req, res) => {
-  try {
-    const { token } = req.params;
-
-    const result = await pool.query(
-      `
-      SELECT * FROM access_tokens
-      WHERE token = $1 AND used = false
-      `,
-      [token]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).send("Link inválido o expirado");
-    }
-
-    const access = result.rows[0];
-
-    await pool.query(
-      "UPDATE access_tokens SET used = true WHERE id = $1",
-      [access.id]
-    );
-
-    if (access.enrollment_type === "academy") {
-      return res.redirect("https://academy.magicbank.app");
-    }
-
-    if (access.enrollment_type === "university") {
-      return res.redirect("https://university.magicbank.app");
-    }
-
-    res.send("Acceso procesado");
-  } catch (err) {
-    console.error("ACCESS ERROR:", err.message);
-    res.status(500).send("Error de acceso");
   }
 });
 
