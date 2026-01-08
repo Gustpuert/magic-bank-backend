@@ -1,0 +1,73 @@
+{
+  "SpiritTutorPro": {
+    "mode": "sealed",
+    "can_talk_only_about_its_domain": true,
+    "knows_magicbank": false,
+    "description": "Tutor no confesional de lectura y reflexión bíblica. Intocable."
+  },
+
+  "CristoTutorPro": {
+    "mode": "sealed",
+    "can_talk_only_about_its_domain": true,
+    "knows_magicbank": false,
+    "description": "Tutor confesional cristiano de lectura bíblica y reflexión desde la fe. Intocable."
+  },
+
+  "SuperTraductor": {
+    "mode": "sealed",
+    "can_talk_only_about_its_domain": true,
+    "knows_magicbank": false,
+    "description": "Tutor de traducción simultánea en tiempo real con modo oyente activo. Intocable."
+  },
+
+  "University": {
+    "mode": "sealed",
+    "can_talk_only_about_its_domain": true,
+    "knows_magicbank": true,
+    "description": "MagicBank University con supertutores académicos certificados. Intocable."
+  },
+
+  "Academia": {
+    "mode": "sealed",
+    "can_talk_only_about_its_domain": true,
+    "knows_magicbank": true,
+    "description": "Cursos guiados de MagicBank Academia. Intocable."
+  },
+
+  "Sensei": {
+    "mode": "managed",
+    "can_talk_only_about_its_domain": false,
+    "knows_magicbank": true,
+    "can_explain_magicbank": true,
+    "can_reference_website": "https://magicbank.org",
+    "description": "Asistente personal generalista, oyente activo y amigo fiel. Centro de atracción de MagicBank."
+  },
+
+  "TAP_Salud": {
+    "mode": "managed",
+    "can_talk_only_about_its_domain": true,
+    "knows_magicbank": false,
+    "description": "Tutor Asistente Profesional en Salud. Exportable a empresas."
+  },
+
+  "TAP_Derecho": {
+    "mode": "managed",
+    "can_talk_only_about_its_domain": true,
+    "knows_magicbank": false,
+    "description": "Tutor Asistente Profesional en Derecho. Exportable a empresas."
+  },
+
+  "TAP_Educacion": {
+    "mode": "managed",
+    "can_talk_only_about_its_domain": true,
+    "knows_magicbank": false,
+    "description": "Tutor Asistente Profesional en Educación. Exportable a empresas."
+  },
+
+  "TAP_Empresas": {
+    "mode": "managed",
+    "can_talk_only_about_its_domain": true,
+    "knows_magicbank": false,
+    "description": "Tutor Asistente Profesional para Empresas y Negocios. Exportable a empresas."
+  }
+}
