@@ -30,7 +30,7 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   OAUTH CALLBACK (SOLO INSTALACIÓN APP)
+   OAUTH CALLBACK (APP YA INSTALADA)
 ========================= */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
@@ -61,92 +61,109 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       [storeId, accessToken]
     );
 
-    res.send("MagicBank instalada correctamente en Tiendanube");
+    res.send("MagicBank instalada correctamente");
   } catch (err) {
-    console.error(err.message);
+    console.error(err.response?.data || err.message);
     res.status(500).send("OAuth error");
   }
 });
 
 /* =========================
-   MAPA CANÓNICO DE PRODUCTOS
+   PRODUCTOS CANÓNICOS
 ========================= */
-const PRODUCT_MAP = {
+const PRODUCTS = {
+  /* ===== ACADEMY ===== */
+  315067943: { area: "academy", nombre: "Italiano", url: "https://chatgpt.com/g/g-694ff655ce908191871b8656228b5971-tutor-de-italiano-mb" },
+  310587272: { area: "academy", nombre: "Inglés", url: "https://chatgpt.com/g/g-69269540618c8191ad2fcc7a5a86b622-tutor-de-ingles-magicbank" },
+  310589317: { area: "academy", nombre: "Francés", url: "https://chatgpt.com/g/g-692b740a32a08191b53be9f92bede4c3-scarlet-french-magic-tutor" },
+  315067066: { area: "academy", nombre: "Alemán", url: "https://chatgpt.com/g/g-694ff6db1224819184d471e770ab7bf4-tutor-de-aleman-mb" },
+  315067368: { area: "academy", nombre: "Chino", url: "https://chatgpt.com/g/g-694fec2d35c88191833aa2af7d92fce0-maestro-de-chino-mandarin" },
+  310561138: { area: "academy", nombre: "ChatGPT Avanzado", url: "https://chatgpt.com/g/g-6925338f45d88191b5c5c2b3080e553a-tutor-especializado" },
+  310596602: { area: "academy", nombre: "Cocina", url: "https://chatgpt.com/g/g-6925b1e4cff88191a3e46165e9ab7824-elchef" },
+  310593279: { area: "academy", nombre: "Nutrición Inteligente", url: "https://chatgpt.com/g/g-6927446749dc8191913af12801371ec9-tutor-experto-en-nutricion-inteligente" },
 
-  /* ========= ACADEMY ========= */
-  310593279: { tipo: "academy", nombre: "Nutrición Inteligente", url: "https://chatgpt.com/g/g-6927446749dc8191913af12801371ec9" },
-  310561138: { tipo: "academy", nombre: "ChatGPT Avanzado", url: "https://chatgpt.com/g/g-6925338f45d88191b5c5c2b3080e553a-tutor-especializado" },
-  310587272: { tipo: "academy", nombre: "Inglés", url: "https://chatgpt.com/g/g-69269540618c8191ad2fcc7a5a86b622" },
-  310596602: { tipo: "academy", nombre: "Cocina", url: "https://chatgpt.com/g/g-6925b1e4cff88191a3e46165e9ab7824" },
-  310589317: { tipo: "academy", nombre: "Francés", url: "https://chatgpt.com/g/g-692b740a32a08191b53be9f92bede4c3-scarlet-french-magic-tutor" },
-  315067066: { tipo: "academy", nombre: "Alemán", url: "https://chatgpt.com/g/g-694ff6db1224819184d471e770ab7bf4-tutor-de-aleman-mb" },
-  315067943: { tipo: "academy", nombre: "Italiano", url: "https://chatgpt.com/g/g-694ff655ce908191871b8656228b5971-tutor-de-italiano-mb" },
-  315067695: { tipo: "academy", nombre: "Portugués", url: "https://chatgpt.com/g/g-694ff45ee8a88191b72cd536885b0876-tutor-de-portugues-mb" },
-  315067368: { tipo: "academy", nombre: "Chino Mandarín", url: "https://chatgpt.com/g/g-694fec2d35c88191833aa2af7d92fce0-maestro-de-chino-mandarin" },
-  314360954: { tipo: "academy", nombre: "Artes y Oficios", url: "https://chatgpt.com/g/g-69482335eefc81918355d1df644de6d0-artesyoficios-tutor-pro" },
+  /* ===== UNIVERSITY ===== */
+  315061240: { area: "university", nombre: "Derecho", url: "https://chatgpt.com/g/g-69345443f0848191996abc2cf7cc9786-abogadus-magic-tutor-pro" },
+  315061516: { area: "university", nombre: "Contaduría", url: "https://chatgpt.com/g/g-6934af28002481919dd9799d7156869f-supercontador-magic-tutor-pro" },
+  315062639: { area: "university", nombre: "Marketing", url: "https://chatgpt.com/g/g-693703fa8a008191b91730375fcc4d64-supermarketer-magic-tutor-pro" },
+  315062968: { area: "university", nombre: "Desarrollo de Software", url: "https://chatgpt.com/g/g-69356a835d888191bf80e11a11e39e2e-super-desarrollador-magic-tutor-pro" },
+  315058790: { area: "university", nombre: "Administración y Negocios", url: "https://chatgpt.com/g/g-6934d1a2900c8191ab3aafa382225a65-superadministrador-magic-tutor-pro" },
 
-  /* ========= UNIVERSITY ========= */
-  315058790: { tipo: "university", nombre: "Administración y Negocios", url: "https://chatgpt.com/g/g-6934d1a2900c8191ab3aafa382225a65-superadministrador-magic-tutor-pro" },
-  315062639: { tipo: "university", nombre: "Marketing", url: "https://chatgpt.com/g/g-693703fa8a008191b91730375fcc4d64-supermarketer-magic-tutor-pro" },
-  315061516: { tipo: "university", nombre: "Contaduría", url: "https://chatgpt.com/g/g-6934af28002481919dd9799d7156869f-supercontador-magic-tutor-pro" },
-  315061240: { tipo: "university", nombre: "Derecho", url: "https://chatgpt.com/g/g-69345443f0848191996abc2cf7cc9786-abogadus-magic-tutor-pro" },
-  315062968: { tipo: "university", nombre: "Desarrollo de Software", url: "https://chatgpt.com/g/g-69356a835d888191bf80e11a11e39e2e-super-desarrollador-magic-tutor-pro" },
-
-  /* ========= FÁBRICA DE TUTORES ========= */
-  316763604: { tipo: "tutor", nombre: "TAP Empresas", url: "https://chatgpt.com/g/g-695947d7fe30819181bc53041e0c96d2-tap-empresas" },
-  316682295: { tipo: "tutor", nombre: "TAP Derecho", url: "https://chatgpt.com/g/g-695946138ec88191a7d55a83d238a968-tap-abogados" },
-  316683598: { tipo: "tutor", nombre: "TAP Administración Pública", url: "https://chatgpt.com/g/g-69594ab53b288191bd9ab50247e1a05c-tap-administracion-publica" },
-  316681661: { tipo: "tutor", nombre: "TAP Salud", url: "https://chatgpt.com/g/g-69593c44a6c08191accf43d956372325-tap-salud" },
-  316682798: { tipo: "tutor", nombre: "TAP Ingeniería", url: "https://chatgpt.com/g/g-695949c461208191b087fe103d72c0ce-tap-ingenieria" },
-  316683199: { tipo: "tutor", nombre: "TAP Educación", url: "https://chatgpt.com/g/g-6959471996e4819193965239320a5daa-tap-educacion" },
-  316686073: { tipo: "tutor", nombre: "Sensei", url: "https://chatgpt.com/g/g-69547fda3efc81918ba83ac2b0ec7af7-sensei-magic-tutor-pro" },
-  316684646: { tipo: "tutor", nombre: "SuperTraductor", url: "https://chatgpt.com/g/g-6936d30471708191b9ac5f00163d8605-supertraductor-magic-tutor-pro" },
-  316685090: { tipo: "tutor", nombre: "BienestarTutor Pro", url: "https://chatgpt.com/g/g-693e3bb199b881919ad636fff9084249-bienestartutor-pro" },
-  316685729: { tipo: "tutor", nombre: "MagicBank Council", url: "https://chatgpt.com/g/g-693b0820918c819199d3922ac8bfd57f-magicbank-council" },
+  /* ===== FÁBRICA DE TUTORES ===== */
+  316763604: { area: "tutor", nombre: "TAP Empresas", url: "https://chatgpt.com/g/g-695947d7fe30819181bc53041e0c96d2-tap-empresas" },
+  316682295: { area: "tutor", nombre: "TAP Derecho", url: "https://chatgpt.com/g/g-695946138ec88191a7d55a83d238a968-tap-abogados" },
+  316683598: { area: "tutor", nombre: "TAP Administración Pública", url: "https://chatgpt.com/g/g-69594ab53b288191bd9ab50247e1a05c-tap-administracion-publica" },
+  316681661: { area: "tutor", nombre: "TAP Salud", url: "https://chatgpt.com/g/g-69593c44a6c08191accf43d956372325-tap-salud" },
+  316682798: { area: "tutor", nombre: "TAP Ingeniería", url: "https://chatgpt.com/g/g-695949c461208191b087fe103d72c0ce-tap-ingenieria" },
+  316683199: { area: "tutor", nombre: "TAP Educación", url: "https://chatgpt.com/g/g-6959471996e4819193965239320a5daa-tap-educacion" },
+  316686073: { area: "tutor", nombre: "Sensei", url: "https://chatgpt.com/g/g-69547fda3efc81918ba83ac2b0ec7af7-sensei-magic-tutor-pro" },
+  316684646: { area: "tutor", nombre: "SuperTraductor", url: "https://chatgpt.com/g/g-6936d30471708191b9ac5f00163d8605-supertraductor-magic-tutor-pro" },
+  316685090: { area: "tutor", nombre: "BienestarTutor Pro", url: "https://chatgpt.com/g/g-693e3bb199b881919ad636fff9084249-bienestartutor-pro" },
+  316685729: { area: "tutor", nombre: "MagicBank Council", url: "https://chatgpt.com/g/g-693b0820918c819199d3922ac8bfd57f-magicbank-council" },
 };
 
 /* =========================
-   ACCESS ENDPOINT
+   WEBHOOK order.paid
 ========================= */
-app.get("/access/:token", async (req, res) => {
-  const { token } = req.params;
-  const ip = req.headers["x-forwarded-for"] || req.socket.remoteAddress;
-
+app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
   try {
-    const result = await pool.query(
-      `SELECT * FROM access_tokens WHERE token = $1`,
-      [token]
+    const { id: orderId } = req.body;
+    if (!orderId) return res.sendStatus(200);
+
+    const storeRes = await pool.query(`SELECT * FROM tiendanube_stores LIMIT 1`);
+    const { store_id, access_token } = storeRes.rows[0];
+
+    const orderRes = await axios.get(
+      `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
+      {
+        headers: {
+          Authentication: `bearer ${access_token}`,
+          "User-Agent": "MagicBank",
+        },
+      }
     );
 
-    if (result.rows.length === 0) {
-      return res.status(403).send("Acceso inválido");
-    }
+    const order = orderRes.data;
+    const email = order.contact_email;
+    const productId = order.products[0].product_id;
 
-    const access = result.rows[0];
+    const product = PRODUCTS[productId];
+    if (!product) return res.sendStatus(200);
 
-    if (new Date(access.expires_at) < new Date()) {
-      return res.status(403).send("Acceso expirado");
-    }
-
-    if (access.active && access.last_ip !== ip) {
-      return res.status(403).send("Acceso ya en uso en otro dispositivo");
-    }
+    const token = crypto.randomBytes(32).toString("hex");
+    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     await pool.query(
       `
-      UPDATE access_tokens
-      SET active = true, last_ip = $1
-      WHERE token = $2
+      INSERT INTO access_tokens (token, email, product_id, product_name, area, redirect_url, expires_at)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
       `,
-      [ip, token]
+      [token, email, productId, product.nombre, product.area, product.url, expiresAt]
     );
 
-    res.redirect(access.tutor_url);
-
+    res.sendStatus(200);
   } catch (err) {
     console.error(err.message);
-    res.status(500).send("Error de acceso");
+    res.sendStatus(200);
   }
+});
+
+/* =========================
+   ACCESS
+========================= */
+app.get("/access/:token", async (req, res) => {
+  const { token } = req.params;
+
+  const result = await pool.query(
+    `SELECT * FROM access_tokens WHERE token=$1 AND expires_at > NOW()`,
+    [token]
+  );
+
+  if (result.rowCount === 0) {
+    return res.status(403).send("Acceso inválido o expirado");
+  }
+
+  res.redirect(result.rows[0].redirect_url);
 });
 
 /* =========================
