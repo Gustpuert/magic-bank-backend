@@ -12,10 +12,9 @@ const PORT = process.env.PORT || 8080;
    MIDDLEWARE
 ========================= */
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 /* =========================
-   POSTGRES
+   DATABASE
 ========================= */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -23,53 +22,46 @@ const pool = new Pool({
 });
 
 /* =========================
-   HEALTH CHECK
+   HEALTH
 ========================= */
-app.get("/", (req, res) => {
+app.get("/", (_, res) => {
   res.send("MagicBank Backend OK");
 });
 
 /* =========================
-   OAUTH CALLBACK (APP YA INSTALADA)
+   OAUTH CALLBACK
 ========================= */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).send("Missing code");
 
-  try {
-    const tokenRes = await axios.post(
-      "https://www.tiendanube.com/apps/authorize/token",
-      {
-        client_id: process.env.TIENDANUBE_CLIENT_ID,
-        client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
-        grant_type: "authorization_code",
-        code,
-      },
-      { headers: { "Content-Type": "application/json" } }
-    );
+  const response = await axios.post(
+    "https://www.tiendanube.com/apps/authorize/token",
+    {
+      client_id: process.env.TIENDANUBE_CLIENT_ID,
+      client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
+      grant_type: "authorization_code",
+      code,
+    }
+  );
 
-    const accessToken = tokenRes.data.access_token;
-    const storeId = tokenRes.data.user_id;
+  const { access_token, user_id } = response.data;
 
-    await pool.query(
-      `
-      INSERT INTO tiendanube_stores (store_id, access_token)
-      VALUES ($1, $2)
-      ON CONFLICT (store_id)
-      DO UPDATE SET access_token = EXCLUDED.access_token
-      `,
-      [storeId, accessToken]
-    );
+  await pool.query(
+    `
+    INSERT INTO tiendanube_stores (store_id, access_token)
+    VALUES ($1,$2)
+    ON CONFLICT (store_id)
+    DO UPDATE SET access_token = EXCLUDED.access_token
+    `,
+    [user_id, access_token]
+  );
 
-    res.send("MagicBank instalada correctamente");
-  } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).send("OAuth error");
-  }
+  res.send("App instalada correctamente");
 });
 
 /* =========================
-   PRODUCTOS CANÓNICOS
+   CATÁLOGO CANÓNICO
 ========================= */
 const PRODUCTS = {
   /* ===== ACADEMY ===== */
@@ -78,7 +70,7 @@ const PRODUCTS = {
   310589317: { area: "academy", nombre: "Francés", url: "https://chatgpt.com/g/g-692b740a32a08191b53be9f92bede4c3-scarlet-french-magic-tutor" },
   315067066: { area: "academy", nombre: "Alemán", url: "https://chatgpt.com/g/g-694ff6db1224819184d471e770ab7bf4-tutor-de-aleman-mb" },
   315067368: { area: "academy", nombre: "Chino", url: "https://chatgpt.com/g/g-694fec2d35c88191833aa2af7d92fce0-maestro-de-chino-mandarin" },
-  310561138: { area: "academy", nombre: "ChatGPT Avanzado", url: "https://chatgpt.com/g/g-6925338f45d88191b5c5c2b3080e553a-tutor-especializado" },
+  310561138: { area: "academy", nombre: "ChatGPT", url: "https://chatgpt.com/g/g-6925338f45d88191b5c5c2b3080e553a-tutor-especializado" },
   310596602: { area: "academy", nombre: "Cocina", url: "https://chatgpt.com/g/g-6925b1e4cff88191a3e46165e9ab7824-elchef" },
   310593279: { area: "academy", nombre: "Nutrición Inteligente", url: "https://chatgpt.com/g/g-6927446749dc8191913af12801371ec9-tutor-experto-en-nutricion-inteligente" },
 
@@ -90,14 +82,13 @@ const PRODUCTS = {
   315058790: { area: "university", nombre: "Administración y Negocios", url: "https://chatgpt.com/g/g-6934d1a2900c8191ab3aafa382225a65-superadministrador-magic-tutor-pro" },
 
   /* ===== FÁBRICA DE TUTORES ===== */
-  316763604: { area: "tutor", nombre: "TAP Empresas", url: "https://chatgpt.com/g/g-695947d7fe30819181bc53041e0c96d2-tap-empresas" },
-  316682295: { area: "tutor", nombre: "TAP Derecho", url: "https://chatgpt.com/g/g-695946138ec88191a7d55a83d238a968-tap-abogados" },
   316683598: { area: "tutor", nombre: "TAP Administración Pública", url: "https://chatgpt.com/g/g-69594ab53b288191bd9ab50247e1a05c-tap-administracion-publica" },
-  316681661: { area: "tutor", nombre: "TAP Salud", url: "https://chatgpt.com/g/g-69593c44a6c08191accf43d956372325-tap-salud" },
   316682798: { area: "tutor", nombre: "TAP Ingeniería", url: "https://chatgpt.com/g/g-695949c461208191b087fe103d72c0ce-tap-ingenieria" },
+  316763604: { area: "tutor", nombre: "TAP Empresas", url: "https://chatgpt.com/g/g-695947d7fe30819181bc53041e0c96d2-tap-empresas" },
   316683199: { area: "tutor", nombre: "TAP Educación", url: "https://chatgpt.com/g/g-6959471996e4819193965239320a5daa-tap-educacion" },
+  316682295: { area: "tutor", nombre: "TAP Abogados", url: "https://chatgpt.com/g/g-695946138ec88191a7d55a83d238a968-tap-abogados" },
+  316681661: { area: "tutor", nombre: "TAP Salud", url: "https://chatgpt.com/g/g-69593c44a6c08191accf43d956372325-tap-salud" },
   316686073: { area: "tutor", nombre: "Sensei", url: "https://chatgpt.com/g/g-69547fda3efc81918ba83ac2b0ec7af7-sensei-magic-tutor-pro" },
-  316684646: { area: "tutor", nombre: "SuperTraductor", url: "https://chatgpt.com/g/g-6936d30471708191b9ac5f00163d8605-supertraductor-magic-tutor-pro" },
   316685090: { area: "tutor", nombre: "BienestarTutor Pro", url: "https://chatgpt.com/g/g-693e3bb199b881919ad636fff9084249-bienestartutor-pro" },
   316685729: { area: "tutor", nombre: "MagicBank Council", url: "https://chatgpt.com/g/g-693b0820918c819199d3922ac8bfd57f-magicbank-council" },
 };
@@ -107,17 +98,17 @@ const PRODUCTS = {
 ========================= */
 app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
   try {
-    const { id: orderId } = req.body;
+    const orderId = req.body.id;
     if (!orderId) return res.sendStatus(200);
 
-    const storeRes = await pool.query(`SELECT * FROM tiendanube_stores LIMIT 1`);
-    const { store_id, access_token } = storeRes.rows[0];
+    const store = await pool.query("SELECT * FROM tiendanube_stores LIMIT 1");
+    const { store_id, access_token } = store.rows[0];
 
     const orderRes = await axios.get(
       `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
       {
         headers: {
-          Authentication: `bearer ${access_token}`,
+          Authorization: `Bearer ${access_token}`,
           "User-Agent": "MagicBank",
         },
       }
@@ -131,19 +122,20 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
     if (!product) return res.sendStatus(200);
 
     const token = crypto.randomBytes(32).toString("hex");
-    const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
     await pool.query(
       `
-      INSERT INTO access_tokens (token, email, product_id, product_name, area, redirect_url, expires_at)
+      INSERT INTO access_tokens
+      (token,email,product_id,product_name,area,redirect_url,expires_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7)
       `,
-      [token, email, productId, product.nombre, product.area, product.url, expiresAt]
+      [token, email, productId, product.nombre, product.area, product.url, expires]
     );
 
     res.sendStatus(200);
-  } catch (err) {
-    console.error(err.message);
+  } catch (e) {
+    console.error(e.message);
     res.sendStatus(200);
   }
 });
@@ -152,14 +144,12 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
    ACCESS
 ========================= */
 app.get("/access/:token", async (req, res) => {
-  const { token } = req.params;
-
   const result = await pool.query(
-    `SELECT * FROM access_tokens WHERE token=$1 AND expires_at > NOW()`,
-    [token]
+    "SELECT redirect_url FROM access_tokens WHERE token=$1 AND expires_at > NOW()",
+    [req.params.token]
   );
 
-  if (result.rowCount === 0) {
+  if (!result.rowCount) {
     return res.status(403).send("Acceso inválido o expirado");
   }
 
@@ -170,5 +160,5 @@ app.get("/access/:token", async (req, res) => {
    START
 ========================= */
 app.listen(PORT, () => {
-  console.log(`🚀 MagicBank Backend running on port ${PORT}`);
+  console.log(`🚀 MagicBank Backend running on ${PORT}`);
 });
