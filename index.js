@@ -108,7 +108,7 @@ app.get("/setup/tiendanube/webhook", async (req, res) => {
       },
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authentication: `bearer ${access_token}`, // ✅ CORRECCIÓN CANÓNICA
           "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
           "Content-Type": "application/json",
           "X-Store-Id": store_id,
@@ -174,7 +174,7 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
       {
         headers: {
-          Authorization: `Bearer ${access_token}`,
+          Authentication: `bearer ${access_token}`, // ✅ CORRECCIÓN CANÓNICA
           "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
           "X-Store-Id": store_id,
         },
