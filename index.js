@@ -29,35 +29,61 @@ app.get("/", (_, res) => {
 });
 
 /* =========================
+   OAUTH START (CORRECCIÓN CANÓNICA)
+========================= */
+app.get("/auth/tiendanube", (req, res) => {
+  const redirectUrl =
+    `https://www.tiendanube.com/apps/authorize` +
+    `?client_id=${process.env.TIENDANUBE_CLIENT_ID}` +
+    `&redirect_uri=${encodeURIComponent(
+      "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback"
+    )}` +
+    `&response_type=code`;
+
+  res.redirect(redirectUrl);
+});
+
+/* =========================
    OAUTH CALLBACK
 ========================= */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).send("Missing code");
 
-  const response = await axios.post(
-    "https://www.tiendanube.com/apps/authorize/token",
-    {
-      client_id: process.env.TIENDANUBE_CLIENT_ID,
-      client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
-      grant_type: "authorization_code",
-      code,
-    }
-  );
+  try {
+    const response = await axios.post(
+      "https://www.tiendanube.com/apps/authorize/token",
+      {
+        client_id: process.env.TIENDANUBE_CLIENT_ID,
+        client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
+        grant_type: "authorization_code",
+        code,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
+        },
+      }
+    );
 
-  const { access_token, user_id } = response.data;
+    const { access_token, user_id } = response.data;
 
-  await pool.query(
-    `
-    INSERT INTO tiendanube_stores (store_id, access_token)
-    VALUES ($1,$2)
-    ON CONFLICT (store_id)
-    DO UPDATE SET access_token = EXCLUDED.access_token
-    `,
-    [user_id, access_token]
-  );
+    await pool.query(
+      `
+      INSERT INTO tiendanube_stores (store_id, access_token)
+      VALUES ($1,$2)
+      ON CONFLICT (store_id)
+      DO UPDATE SET access_token = EXCLUDED.access_token
+      `,
+      [user_id, access_token]
+    );
 
-  res.send("App instalada correctamente");
+    res.send("App instalada correctamente");
+  } catch (err) {
+    console.error("OAuth error:", err.response?.data || err.message);
+    res.status(500).send("Error Auth Tiendanube");
+  }
 });
 
 /* =========================
