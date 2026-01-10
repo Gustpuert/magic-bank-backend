@@ -29,28 +29,30 @@ app.get("/", (_, res) => {
 });
 
 /* =========================
-   OAUTH START (CORRECCIÓN CANÓNICA)
+   OAUTH START (INSTALACIÓN)
 ========================= */
 app.get("/auth/tiendanube", (req, res) => {
-  const redirectUrl =
-    `https://www.tiendanube.com/apps/authorize` +
-    `?client_id=${process.env.TIENDANUBE_CLIENT_ID}` +
-    `&redirect_uri=${encodeURIComponent(
-      "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback"
-    )}` +
-    `&response_type=code`;
+  const redirectUri =
+    "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback";
 
-  res.redirect(redirectUrl);
+  const url =
+    "https://www.tiendanube.com/apps/authorize" +
+    `?client_id=${process.env.TIENDANUBE_CLIENT_ID}` +
+    `&response_type=code` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&scope=read_orders,write_webhooks`;
+
+  res.redirect(url);
 });
 
 /* =========================
    OAUTH CALLBACK
 ========================= */
 app.get("/auth/tiendanube/callback", async (req, res) => {
-  const { code } = req.query;
-  if (!code) return res.status(400).send("Missing code");
-
   try {
+    const { code } = req.query;
+    if (!code) return res.status(400).send("Missing code");
+
     const response = await axios.post(
       "https://www.tiendanube.com/apps/authorize/token",
       {
@@ -60,10 +62,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
         code,
       },
       {
-        headers: {
-          "Content-Type": "application/json",
-          "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
-        },
+        headers: { "Content-Type": "application/json" },
       }
     );
 
@@ -79,7 +78,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
       [user_id, access_token]
     );
 
-    res.send("App instalada correctamente");
+    res.send("App instalada correctamente. Ya puedes cerrar esta ventana.");
   } catch (err) {
     console.error("OAuth error:", err.response?.data || err.message);
     res.status(500).send("Error Auth Tiendanube");
@@ -110,15 +109,16 @@ app.get("/setup/tiendanube/webhook", async (req, res) => {
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
-          "User-Agent": "MagicBank",
+          "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
           "Content-Type": "application/json",
+          "X-Store-Id": store_id,
         },
       }
     );
 
     res.send("Webhook order/paid creado correctamente");
   } catch (err) {
-    console.error(err.response?.data || err.message);
+    console.error("Webhook error:", err.response?.data || err.message);
     res.status(500).send("Error creando webhook");
   }
 });
@@ -164,7 +164,10 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
     const orderId = req.body.id;
     if (!orderId) return res.sendStatus(200);
 
-    const store = await pool.query("SELECT * FROM tiendanube_stores LIMIT 1");
+    const store = await pool.query(
+      "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
+    );
+
     const { store_id, access_token } = store.rows[0];
 
     const orderRes = await axios.get(
@@ -172,7 +175,8 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       {
         headers: {
           Authorization: `Bearer ${access_token}`,
-          "User-Agent": "MagicBank",
+          "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
+          "X-Store-Id": store_id,
         },
       }
     );
@@ -198,7 +202,7 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
 
     res.sendStatus(200);
   } catch (e) {
-    console.error(e.message);
+    console.error("order-paid error:", e.message);
     res.sendStatus(200);
   }
 });
