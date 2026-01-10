@@ -29,41 +29,65 @@ app.get("/", (_, res) => {
 });
 
 /* =========================
-   OAUTH CALLBACK
+   OAUTH CALLBACK (CORREGIDO)
 ========================= */
 app.get("/auth/tiendanube/callback", async (req, res) => {
   const { code } = req.query;
   if (!code) return res.status(400).send("Missing code");
 
-  const response = await axios.post(
-    "https://www.tiendanube.com/apps/authorize/token",
-    {
-      client_id: process.env.TIENDANUBE_CLIENT_ID,
-      client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
-      grant_type: "authorization_code",
-      code,
+  try {
+    const response = await axios.post(
+      "https://api.tiendanube.com/v1/oauth/token",
+      {
+        client_id: process.env.TIENDANUBE_CLIENT_ID,
+        client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
+        grant_type: "authorization_code",
+        code,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": "MagicBank",
+        },
+      }
+    );
+
+    const { access_token, user_id } = response.data;
+
+    if (!access_token || !user_id) {
+      console.error("OAuth response inválida:", response.data);
+      return res.status(500).send("OAuth inválido");
     }
-  );
 
-  const { access_token, user_id } = response.data;
+    // 🔥 BORRAR TOKEN VIEJO Y GUARDAR EL NUEVO
+    await pool.query("DELETE FROM tiendanube_stores WHERE store_id = $1", [
+      user_id,
+    ]);
 
-  await pool.query(
-    `
-    INSERT INTO tiendanube_stores (store_id, access_token)
-    VALUES ($1,$2)
-    ON CONFLICT (store_id)
-    DO UPDATE SET access_token = EXCLUDED.access_token
-    `,
-    [user_id, access_token]
-  );
+    await pool.query(
+      `
+      INSERT INTO tiendanube_stores (store_id, access_token)
+      VALUES ($1,$2)
+      `,
+      [user_id, access_token]
+    );
 
-  res.send("App instalada correctamente");
+    console.log("✅ Access token nuevo guardado para store:", user_id);
+
+    res.send("App instalada correctamente");
+  } catch (err) {
+    console.error(
+      "❌ Error OAuth:",
+      err.response?.data || err.message
+    );
+    res.status(500).send("Error OAuth Tiendanube");
+  }
 });
 
 /* =========================
-   SETUP WEBHOOK (USO ÚNICO)
+   SETUP WEBHOOK (MANUAL)
 ========================= */
-app.get("/setup/tiendanube/webhook", async (req, res) => {
+app.get("/setup/tiendanube/webhook", async (_, res) => {
   try {
     const store = await pool.query(
       "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
@@ -90,9 +114,14 @@ app.get("/setup/tiendanube/webhook", async (req, res) => {
       }
     );
 
+    console.log("✅ Webhook order/paid creado");
+
     res.send("Webhook order/paid creado correctamente");
   } catch (err) {
-    console.error(err.response?.data || err.message);
+    console.error(
+      "❌ Error creando webhook:",
+      err.response?.data || err.message
+    );
     res.status(500).send("Error creando webhook");
   }
 });
@@ -101,7 +130,6 @@ app.get("/setup/tiendanube/webhook", async (req, res) => {
    CATÁLOGO CANÓNICO
 ========================= */
 const PRODUCTS = {
-  /* ===== ACADEMY ===== */
   315067943: { area: "academy", nombre: "Italiano", url: "https://chatgpt.com/g/g-694ff655ce908191871b8656228b5971-tutor-de-italiano-mb" },
   310587272: { area: "academy", nombre: "Inglés", url: "https://chatgpt.com/g/g-69269540618c8191ad2fcc7a5a86b622-tutor-de-ingles-magicbank" },
   310589317: { area: "academy", nombre: "Francés", url: "https://chatgpt.com/g/g-692b740a32a08191b53be9f92bede4c3-scarlet-french-magic-tutor" },
@@ -111,23 +139,11 @@ const PRODUCTS = {
   310596602: { area: "academy", nombre: "Cocina", url: "https://chatgpt.com/g/g-6925b1e4cff88191a3e46165e9ab7824-elchef" },
   310593279: { area: "academy", nombre: "Nutrición Inteligente", url: "https://chatgpt.com/g/g-6927446749dc8191913af12801371ec9-tutor-experto-en-nutricion-inteligente" },
 
-  /* ===== UNIVERSITY ===== */
   315061240: { area: "university", nombre: "Derecho", url: "https://chatgpt.com/g/g-69345443f0848191996abc2cf7cc9786-abogadus-magic-tutor-pro" },
   315061516: { area: "university", nombre: "Contaduría", url: "https://chatgpt.com/g/g-6934af28002481919dd9799d7156869f-supercontador-magic-tutor-pro" },
   315062639: { area: "university", nombre: "Marketing", url: "https://chatgpt.com/g/g-693703fa8a008191b91730375fcc4d64-supermarketer-magic-tutor-pro" },
   315062968: { area: "university", nombre: "Desarrollo de Software", url: "https://chatgpt.com/g/g-69356a835d888191bf80e11a11e39e2e-super-desarrollador-magic-tutor-pro" },
   315058790: { area: "university", nombre: "Administración y Negocios", url: "https://chatgpt.com/g/g-6934d1a2900c8191ab3aafa382225a65-superadministrador-magic-tutor-pro" },
-
-  /* ===== FÁBRICA DE TUTORES ===== */
-  316683598: { area: "tutor", nombre: "TAP Administración Pública", url: "https://chatgpt.com/g/g-69594ab53b288191bd9ab50247e1a05c-tap-administracion-publica" },
-  316682798: { area: "tutor", nombre: "TAP Ingeniería", url: "https://chatgpt.com/g/g-695949c461208191b087fe103d72c0ce-tap-ingenieria" },
-  316763604: { area: "tutor", nombre: "TAP Empresas", url: "https://chatgpt.com/g/g-695947d7fe30819181bc53041e0c96d2-tap-empresas" },
-  316683199: { area: "tutor", nombre: "TAP Educación", url: "https://chatgpt.com/g/g-6959471996e4819193965239320a5daa-tap-educacion" },
-  316682295: { area: "tutor", nombre: "TAP Abogados", url: "https://chatgpt.com/g/g-695946138ec88191a7d55a83d238a968-tap-abogados" },
-  316681661: { area: "tutor", nombre: "TAP Salud", url: "https://chatgpt.com/g/g-69593c44a6c08191accf43d956372325-tap-salud" },
-  316686073: { area: "tutor", nombre: "Sensei", url: "https://chatgpt.com/g/g-69547fda3efc81918ba83ac2b0ec7af7-sensei-magic-tutor-pro" },
-  316685090: { area: "tutor", nombre: "BienestarTutor Pro", url: "https://chatgpt.com/g/g-693e3bb199b881919ad636fff9084249-bienestartutor-pro" },
-  316685729: { area: "tutor", nombre: "MagicBank Council", url: "https://chatgpt.com/g/g-693b0820918c819199d3922ac8bfd57f-magicbank-council" },
 };
 
 /* =========================
@@ -138,7 +154,9 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
     const orderId = req.body.id;
     if (!orderId) return res.sendStatus(200);
 
-    const store = await pool.query("SELECT * FROM tiendanube_stores LIMIT 1");
+    const store = await pool.query(
+      "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
+    );
     const { store_id, access_token } = store.rows[0];
 
     const orderRes = await axios.get(
@@ -153,7 +171,7 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
 
     const order = orderRes.data;
     const email = order.contact_email;
-    const productId = order.products[0].product_id;
+    const productId = order.products?.[0]?.product_id;
 
     const product = PRODUCTS[productId];
     if (!product) return res.sendStatus(200);
@@ -167,12 +185,22 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       (token,email,product_id,product_name,area,redirect_url,expires_at)
       VALUES ($1,$2,$3,$4,$5,$6,$7)
       `,
-      [token, email, productId, product.nombre, product.area, product.url, expires]
+      [
+        token,
+        email,
+        productId,
+        product.nombre,
+        product.area,
+        product.url,
+        expires,
+      ]
     );
+
+    console.log("🎟️ Token creado para", email);
 
     res.sendStatus(200);
   } catch (e) {
-    console.error(e.message);
+    console.error("❌ Webhook error:", e.message);
     res.sendStatus(200);
   }
 });
