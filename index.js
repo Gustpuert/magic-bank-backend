@@ -61,9 +61,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
         grant_type: "authorization_code",
         code,
       },
-      {
-        headers: { "Content-Type": "application/json" },
-      }
+      { headers: { "Content-Type": "application/json" } }
     );
 
     const { access_token, user_id } = response.data;
@@ -88,7 +86,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 /* =========================
    SETUP WEBHOOK (USO ÚNICO)
 ========================= */
-app.get("/setup/tiendanube/webhook", async (req, res) => {
+app.get("/setup/tiendanube/webhook", async (_, res) => {
   try {
     const store = await pool.query(
       "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
@@ -101,17 +99,17 @@ app.get("/setup/tiendanube/webhook", async (req, res) => {
     const { store_id, access_token } = store.rows[0];
 
     await axios.post(
-      `https://api.tiendanube.com/v1/${store_id}/webhooks`,
+      "https://api.tiendanube.com/2025-3/webhooks",
       {
         event: "order/paid",
         url: "https://magic-bank-backend-production-713e.up.railway.app/webhooks/tiendanube/order-paid",
+        store_id: store_id,
       },
       {
         headers: {
-          Authentication: `bearer ${access_token}`, // ✅ CORRECCIÓN CANÓNICA
+          Authorization: `Bearer ${access_token}`,
           "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
           "Content-Type": "application/json",
-          "X-Store-Id": store_id,
         },
       }
     );
@@ -174,9 +172,8 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
       {
         headers: {
-          Authentication: `bearer ${access_token}`, // ✅ CORRECCIÓN CANÓNICA
+          Authorization: `Bearer ${access_token}`,
           "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
-          "X-Store-Id": store_id,
         },
       }
     );
