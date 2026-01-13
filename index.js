@@ -199,23 +199,31 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
     );
 
     const order = orderRes.data;
+
+    const validPaymentStates = ["paid", "approved", "authorized", "confirmed"];
+    if (!validPaymentStates.includes(order.payment_status)) {
+      return res.sendStatus(200);
+    }
+
     const email = order.contact_email;
-    const productId = order.products[0].product_id;
 
-    const product = PRODUCTS[productId];
-    if (!product) return res.sendStatus(200);
+    for (const item of order.products || []) {
+      const productId = item.product_id;
+      const product = PRODUCTS[productId];
+      if (!product) continue;
 
-    const token = crypto.randomBytes(32).toString("hex");
-    const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      const token = crypto.randomBytes(32).toString("hex");
+      const expires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    await pool.query(
-      `
-      INSERT INTO access_tokens
-      (token,email,product_id,product_name,area,redirect_url,expires_at)
-      VALUES ($1,$2,$3,$4,$5,$6,$7)
-      `,
-      [token, email, productId, product.nombre, product.area, product.url, expires]
-    );
+      await pool.query(
+        `
+        INSERT INTO access_tokens
+        (token,email,product_id,product_name,area,redirect_url,expires_at)
+        VALUES ($1,$2,$3,$4,$5,$6,$7)
+        `,
+        [token, email, productId, product.nombre, product.area, product.url, expires]
+      );
+    }
 
     res.sendStatus(200);
   } catch (e) {
