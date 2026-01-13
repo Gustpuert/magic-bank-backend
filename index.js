@@ -22,6 +22,25 @@ const pool = new Pool({
 });
 
 /* =========================
+   INIT DB STRUCTURE (CANÓNICO)
+========================= */
+(async () => {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS access_tokens (
+      id SERIAL PRIMARY KEY,
+      token TEXT UNIQUE NOT NULL,
+      email TEXT NOT NULL,
+      product_id BIGINT NOT NULL,
+      product_name TEXT NOT NULL,
+      area TEXT NOT NULL,
+      redirect_url TEXT NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
+})();
+
+/* =========================
    HEALTH
 ========================= */
 app.get("/", (_, res) => {
