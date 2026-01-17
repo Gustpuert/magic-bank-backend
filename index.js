@@ -110,7 +110,7 @@ app.get("/setup/tiendanube/webhook", async (req, res) => {
       },
       {
         headers: {
-          Authorization: `bearer ${access_token}`, // ← CORRECCIÓN
+          Authentication: `bearer ${access_token}`, // ✅ CORRECTO
           "Content-Type": "application/json",
           "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
           "X-Store-Id": store_id,
@@ -129,7 +129,6 @@ app.get("/setup/tiendanube/webhook", async (req, res) => {
    CATÁLOGO CANÓNICO COMPLETO
 ========================= */
 const PRODUCTS = {
-  /* ===== ACADEMY ===== */
   315067943: { area: "academy", nombre: "Italiano", url: "https://chatgpt.com/g/g-694ff655ce908191871b8656228b5971-tutor-de-italiano-mb" },
   310587272: { area: "academy", nombre: "Inglés", url: "https://chatgpt.com/g/g-69269540618c8191ad2fcc7a5a86b622-tutor-de-ingles-magicbank" },
   310589317: { area: "academy", nombre: "Francés", url: "https://chatgpt.com/g/g-692b740a32a08191b53be9f92bede4c3-scarlet-french-magic-tutor" },
@@ -139,14 +138,12 @@ const PRODUCTS = {
   310596602: { area: "academy", nombre: "Cocina", url: "https://chatgpt.com/g/g-6925b1e4cff88191a3e46165e9ab7824-elchef" },
   310593279: { area: "academy", nombre: "Nutrición Inteligente", url: "https://chatgpt.com/g/g-6927446749dc8191913af12801371ec9-tutor-experto-en-nutricion-inteligente" },
 
-  /* ===== UNIVERSITY ===== */
   315061240: { area: "university", nombre: "Derecho", url: "https://chatgpt.com/g/g-69345443f0848191996abc2cf7cc9786-abogadus-magic-tutor-pro" },
   315061516: { area: "university", nombre: "Contaduría", url: "https://chatgpt.com/g/g-6934af28002481919dd9799d7156869f-supercontador-magic-tutor-pro" },
   315062639: { area: "university", nombre: "Marketing", url: "https://chatgpt.com/g/g-693703fa8a008191b91730375fcc4d64-supermarketer-magic-tutor-pro" },
   315062968: { area: "university", nombre: "Desarrollo de Software", url: "https://chatgpt.com/g/g-69356a835d888191bf80e11a11e39e2e-super-desarrollador-magic-tutor-pro" },
   315058790: { area: "university", nombre: "Administración y Negocios", url: "https://chatgpt.com/g/g-6934d1a2900c8191ab3aafa382225a65-superadministrador-magic-tutor-pro" },
 
-  /* ===== FÁBRICA DE TUTORES ===== */
   316683598: { area: "tutor", nombre: "TAP Administración Pública", url: "https://chatgpt.com/g/g-69594ab53b288191bd9ab50247e1a05c-tap-administracion-publica" },
   316682798: { area: "tutor", nombre: "TAP Ingeniería", url: "https://chatgpt.com/g/g-695949c461208191b087fe103d72c0ce-tap-ingenieria" },
   316763604: { area: "tutor", nombre: "TAP Empresas", url: "https://chatgpt.com/g/g-695947d7fe30819181bc53041e0c96d2-tap-empresas" },
@@ -163,8 +160,6 @@ const PRODUCTS = {
 ========================= */
 app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
   try {
-    console.log("Webhook recibido Tiendanube:", JSON.stringify(req.body));
-
     const orderId = req.body.order_id || req.body.id;
     if (!orderId) return res.sendStatus(200);
 
@@ -178,7 +173,7 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
       {
         headers: {
-          Authorization: `bearer ${access_token}`, // ← CORRECCIÓN
+          Authentication: `bearer ${access_token}`, // ✅ CORRECTO
           "User-Agent": "MagicBank (magicbank2.mitiendanube.com)",
           "X-Store-Id": store_id,
         },
