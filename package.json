@@ -4,6 +4,7 @@
   "description": "MagicBank Backend - Tienda Nube Webhooks",
   "main": "index.js",
   "type": "commonjs",
+  "private": true,
   "scripts": {
     "start": "node index.js"
   },
@@ -15,7 +16,6 @@
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "nodemailer": "^6.9.11",
-    "pg": "^8.11.5",
-    "crypto": "^1.0.1"
+    "pg": "^8.11.5"
   }
 }
