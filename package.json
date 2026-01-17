@@ -1,17 +1,15 @@
 {
-  "name": "magicbank-backend",
+  "name": "magic-bank-backend",
   "version": "1.0.0",
-  "description": "MagicBank Automation Backend",
   "main": "index.js",
-  "type": "commonjs",
   "scripts": {
     "start": "node index.js"
   },
   "dependencies": {
-    "axios": "^1.6.7",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "pg": "^8.11.5",
-    "nodemailer": "^6.9.11"
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "nodemailer": "^6.9.7",
+    "pg": "^8.11.3"
   }
 }
