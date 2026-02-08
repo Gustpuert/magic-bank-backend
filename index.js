@@ -201,9 +201,15 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
 
     if (order.data.payment_status !== "paid") return;
 
-    const email = order.data.contact_email;
-    const productId = order.data.products?.[0]?.product_id;
-    const product = PRODUCTS[productId];
+    const email =
+  order.data.contact_email ||
+  order.data.customer?.email ||
+  order.data.billing_address?.email;
+
+const productId =
+  order.data.order_products?.[0]?.product_id ||
+  order.data.products?.[0]?.product_id ||
+  order.data.line_items?.[0]?.product_id;
 
     if (!product) {
       console.log("Producto no mapeado:", productId);
