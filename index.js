@@ -190,14 +190,16 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
     const { store_id, access_token } = store.rows[0];
 
     const order = await axios.get(
-      `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
-      {
-        headers: {
-          Authentication: `bearer ${access_token}`,
-          "User-Agent": "MagicBank",
-        },
-      }
-    );
+  `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
+  {
+    headers: {
+      Authentication: `bearer ${access_token}`,
+      "User-Agent": "MagicBank",
+      "Content-Type": "application/json"
+    },
+    timeout: 20000
+  }
+);
 
     if (order.data.payment_status !== "paid") return;
 
