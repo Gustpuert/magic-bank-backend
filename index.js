@@ -50,13 +50,12 @@ app.get("/auth/tiendanube", (req, res) => {
     "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback";
 
   const url =
-    "https://www.tiendanube.com/apps/authorize" +
-    `?client_id=24551` +
-    `&response_type=code` +
-    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-    `&scope=read_orders,write_webhooks`;
+"https://www.tiendanube.com/apps/24551/authorize" +
+`?response_type=code` +
+`&redirect_uri=${encodeURIComponent(redirectUri)}` +
+`&scope=read_orders,write_webhooks`;
 
-  res.redirect(url);
+res.redirect(url);
 });
 
 app.get("/auth/tiendanube/callback", async (req, res) => {
