@@ -171,7 +171,9 @@ const PRODUCTS = {
 };
 
 /* =========================
-   WEBHOOK ORDER PAID
+   
+/* =========================
+   WEBHOOK ORDER PAID (DIAGNÓSTICO REAL)
 ========================= */
 app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
   console.log("📩 WEBHOOK RECIBIDO:", JSON.stringify(req.body, null, 2));
@@ -179,73 +181,66 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
 
   try {
     const orderId = req.body.id;
-    if (!orderId) return;
+    if (!orderId) {
+      console.log("❌ No orderId en webhook");
+      return;
+    }
+
+    console.log("🔎 Consultando orden real:", orderId);
 
     const store = await pool.query(
       "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
     );
 
-    if (!store.rowCount) return;
-
-    const { store_id, access_token } = store.rows[0];
-
-    const order = await axios.get(
-  `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
-  {
-    headers: {
-      Authentication: `bearer ${access_token}`,
-      "User-Agent": "MagicBank",
-      "Content-Type": "application/json"
-    },
-    timeout: 20000
-  }
-);
-
-    if (order.data.payment_status !== "paid") return;
-
-    const email =
-  order.data.contact_email ||
-  order.data.customer?.email ||
-  order.data.billing_address?.email;
-
-const productId =
-  order.data.order_products?.[0]?.product_id ||
-  order.data.products?.[0]?.product_id ||
-  order.data.line_items?.[0]?.product_id;
-
-    if (!product) {
-      console.log("Producto no mapeado:", productId);
+    if (!store.rowCount) {
+      console.log("❌ No store guardada en DB");
       return;
     }
 
-    const token = crypto.randomBytes(32).toString("hex");
+    const { store_id, access_token } = store.rows[0];
 
-    await pool.query(
-      `INSERT INTO access_tokens
-       (token,email,product_id,product_name,area,redirect_url,expires_at)
-       VALUES ($1,$2,$3,$4,$5,$6,NOW() + interval '30 days')`,
-      [token, email, productId, product.nombre, product.area, product.url]
+    console.log("🏪 Store:", store_id);
+
+    const order = await axios.get(
+      `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
+      {
+        headers: {
+          Authentication: `bearer ${access_token}`,
+          "User-Agent": "MagicBank",
+          "Content-Type": "application/json",
+        },
+        timeout: 20000,
+      }
     );
 
-    await transporter.sendMail({
-      from: `"MagicBank" <${process.env.SMTP_USER}>`,
-      to: email,
-      subject: "Acceso a tu curso",
-      html: `
-        <h2>Acceso a tu curso</h2>
-        <p><b>${product.nombre}</b></p>
-        <a href="https://magic-bank-backend-production-713e.up.railway.app/access/${token}">
-          ACCEDER AL CURSO
-        </a>
-      `,
-    });
+    console.log("📦 ORDEN COMPLETA TIENDANUBE:");
+    console.log(JSON.stringify(order.data, null, 2));
 
-    console.log("📧 Email enviado a:", email);
+    if (order.data.payment_status !== "paid") {
+      console.log("⏳ Orden aún no pagada");
+      return;
+    }
+
+    const email =
+      order.data.contact_email ||
+      order.data.customer?.email ||
+      order.data.billing_address?.email;
+
+    console.log("📧 EMAIL DETECTADO:", email);
+
+    const productId =
+      order.data.order_products?.[0]?.product_id ||
+      order.data.products?.[0]?.product_id ||
+      order.data.line_items?.[0]?.product_id;
+
+    console.log("🧾 PRODUCT_ID DETECTADO:", productId);
+
+    console.log("🧠 FIN DIAGNÓSTICO — NO ENVÍA MAIL AÚN");
+
   } catch (err) {
-    console.error("🔥 Webhook error:", err.message);
+    console.error("🔥 ERROR CONSULTANDO ORDEN:", err.response?.data || err.message);
   }
 });
-
 /* =========================
    ACCESS LINK
 ========================= */
