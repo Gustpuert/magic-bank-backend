@@ -257,22 +257,26 @@ app.get("/access/:token", async (req, res) => {
 });
 
 /* =========================
-   DEBUG: VER WEBHOOKS ACTIVOS
+
+/* =========================
+   DEBUG ORDEN REAL
 ========================= */
-app.get("/debug/webhooks", async (req, res) => {
+app.get("/debug/order/:id", async (req, res) => {
   try {
+    const orderId = req.params.id;
+
     const store = await pool.query(
       "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
     );
 
     if (!store.rowCount) {
-      return res.send("No store found");
+      return res.send("No store found in DB");
     }
 
     const { store_id, access_token } = store.rows[0];
 
     const response = await axios.get(
-      `https://api.tiendanube.com/v1/${store_id}/webhooks`,
+      `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
       {
         headers: {
           Authentication: `bearer ${access_token}`,
@@ -283,12 +287,12 @@ app.get("/debug/webhooks", async (req, res) => {
     );
 
     res.json(response.data);
+
   } catch (err) {
-    console.error(err.response?.data || err.message);
-    res.status(500).send("Error obteniendo webhooks");
+    console.error("DEBUG ORDER ERROR:", err.response?.data || err.message);
+    res.status(500).send(err.response?.data || err.message);
   }
 });
-
 /* =========================
    START SERVER
 ========================= */
