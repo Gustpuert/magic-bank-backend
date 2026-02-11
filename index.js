@@ -133,11 +133,11 @@ const CATALOGO = {
 /* =========================
    WEBHOOK
 ========================= */
-app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
-  console.log("WEBHOOK:", JSON.stringify(req.body,null,2));
+const webhookHandler = async (req,res)=>{
+  console.log("🔥 WEBHOOK RECIBIDO:", JSON.stringify(req.body,null,2));
   res.sendStatus(200);
 
-  try {
+  try{
     const orderId=req.body.id;
     if(!orderId) return;
 
@@ -151,61 +151,18 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       {headers:{Authentication:`bearer ${access_token}`,"User-Agent":"MagicBank","Content-Type":"application/json"}}
     );
 
-    if(order.data.payment_status!=="paid") return;
+    console.log("🧾 ORDER FULL:",JSON.stringify(order.data,null,2));
 
-    const email=
-      order.data.contact_email ||
-      order.data.customer?.email ||
-      order.data.billing_address?.email;
-
-    const productId=
-      order.data.order_products?.[0]?.product_id ||
-      order.data.products?.[0]?.product_id;
-
-    const variantId=
-      order.data.order_products?.[0]?.variant_id ||
-      order.data.products?.[0]?.variant_id;
-
-    let curso=CATALOGO[productId];
-
-    if(!curso){
-      for(const id in CATALOGO){
-        if(CATALOGO[id].variant==variantId){
-          curso=CATALOGO[id];
-          break;
-        }
-      }
-    }
-
-    if(!curso){
-      console.log("NO EN CATALOGO:",productId,variantId);
-      return;
-    }
-
-    const token=crypto.randomBytes(32).toString("hex");
-
-    await pool.query(
-      `INSERT INTO access_tokens
-      (token,email,product_id,product_name,area,redirect_url,expires_at)
-      VALUES ($1,$2,$3,$4,$5,$6,NOW()+interval '30 days')`,
-      [token,email,productId,curso.nombre,"magicbank",curso.url]
-    );
-
-    await transporter.sendMail({
-      from:`"MagicBank"<${process.env.SMTP_USER}>`,
-      to:email,
-      subject:"Acceso a tu curso MagicBank",
-      html:`<h2>${curso.nombre}</h2>
-      <a href="https://magic-bank-backend-production-713e.up.railway.app/access/${token}">
-      ACCEDER AL CURSO</a>`
-    });
-
-    console.log("EMAIL ENVIADO:",email);
-
-  } catch(err){
+  }catch(err){
     console.error("ERROR:",err.response?.data||err.message);
   }
-});
+};
+
+/* escuchar TODAS */
+app.post("/webhooks/tiendanube/order-paid", webhookHandler);
+app.post("/webhook/order-paid", webhookHandler);
+app.post("/order-paid", webhookHandler);
+app.post("/webhooks/order-paid", webhookHandler);
 
 /* =========================
    ACCESS TOKEN
