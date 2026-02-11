@@ -116,7 +116,43 @@ const CATALOGO = {
 1405073311:{nombre:"TAP Empresas",area:"tutor",url:"https://chatgpt.com/g/g-695947d7fe30819181bc53041e0c96d2"}
 
 };
+/* =========================
+   CREAR WEBHOOK (TEMPORAL)
+========================= */
+app.get("/crear-webhook", async (_, res) => {
+  try {
+    const store = await pool.query(
+      "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
+    );
 
+    if (!store.rowCount) {
+      return res.status(400).send("No hay store instalada");
+    }
+
+    const { store_id, access_token } = store.rows[0];
+
+    const response = await axios.post(
+      `https://api.tiendanube.com/v1/${store_id}/webhooks`,
+      {
+        event: "order/paid",
+        url: "https://magic-bank-backend-production-713e.up.railway.app/webhooks/tiendanube/order-paid"
+      },
+      {
+        headers: {
+          Authentication: `bearer ${access_token}`,
+          "User-Agent": "MagicBank",
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    res.send(response.data);
+
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).send("Error creando webhook");
+  }
+});
 /* =========================
    WEBHOOK ORDER PAID REAL
 ========================= */
