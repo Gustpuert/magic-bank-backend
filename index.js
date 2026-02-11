@@ -222,6 +222,6 @@ app.get("/access/:token", async (req,res)=>{
 /* =========================
    START
 ========================= */
-app.listen(PORT,()=>{
-  console.log("MAGICBANK BACKEND INVENCIBLE ACTIVO");
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("MAGICBANK BACKEND INVENCIBLE ACTIVO EN PUERTO", PORT);
 });
