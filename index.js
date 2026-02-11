@@ -177,6 +177,39 @@ app.get("/access/:token", async (req,res)=>{
 });
 
 /* =========================
+   CREAR WEBHOOK REAL TIENDANUBE
+========================= */
+app.get("/crear-webhook", async (req,res)=>{
+  try{
+    const store=await pool.query("SELECT store_id,access_token FROM tiendanube_stores LIMIT 1");
+    if(!store.rowCount) return res.send("❌ No hay store token");
+
+    const {store_id,access_token}=store.rows[0];
+
+    const r=await axios.post(
+      `https://api.tiendanube.com/v1/${store_id}/webhooks`,
+      {
+        event:"order/paid",
+        url:"https://magic-bank-backend-production-713e.up.railway.app/webhooks/tiendanube/order-paid"
+      },
+      {
+        headers:{
+          Authentication:`bearer ${access_token}`,
+          "User-Agent":"MagicBank",
+          "Content-Type":"application/json"
+        }
+      }
+    );
+
+    console.log("WEBHOOK CREADO:",r.data);
+    res.json(r.data);
+
+  }catch(err){
+    console.error("ERROR CREANDO WEBHOOK:",err.response?.data||err.message);
+    res.send(err.response?.data||err.message);
+  }
+});
+/* =========================
    START
 ========================= */
 app.listen(process.env.PORT, "0.0.0.0", () => {
