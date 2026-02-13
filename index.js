@@ -1,0 +1,269 @@
+import dotenv from "dotenv";
+dotenv.config();
+
+import express from "express";
+import axios from "axios";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
+import pkg from "pg";
+
+const { Pool } = pkg;
+
+const app = express();
+const PORT = process.env.PORT || 8080;
+
+app.use(express.json());
+
+/* =========================
+   DATABASE
+========================= */
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+});
+
+/* =========================
+   MAIL
+========================= */
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST,
+  port: Number(process.env.SMTP_PORT),
+  secure: false,
+  auth: {
+    user: process.env.SMTP_USER,
+    pass: process.env.SMTP_PASS,
+  },
+});
+
+/* =========================
+   HEALTHCHECK
+========================= */
+app.get("/", (_, res) => {
+  res.send("MagicBank Backend OK");
+});
+
+/* =========================
+   AUTH TIENDANUBE
+========================= */
+app.get("/auth/tiendanube", (req, res) => {
+  const redirectUri =
+    "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback";
+
+  const url =
+    "https://www.tiendanube.com/apps/24551/authorize" +
+    `?response_type=code` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+    `&scope=read_orders,write_webhooks`;
+
+  res.redirect(url);
+});
+
+app.get("/auth/tiendanube/callback", async (req, res) => {
+  try {
+    const { code } = req.query;
+
+    const response = await axios.post(
+      "https://www.tiendanube.com/apps/authorize/token",
+      {
+        client_id: 24551,
+        client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
+        grant_type: "authorization_code",
+        code,
+        redirect_uri:
+          "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback",
+      }
+    );
+
+    const { access_token, user_id } = response.data;
+
+    await pool.query(
+      `INSERT INTO tiendanube_stores (store_id, access_token)
+       VALUES ($1,$2)
+       ON CONFLICT (store_id)
+       DO UPDATE SET access_token = EXCLUDED.access_token`,
+      [user_id, access_token]
+    );
+
+    res.send("Aplicación instalada correctamente");
+  } catch (err) {
+    console.error("OAuth error:", err.response?.data || err.message);
+    res.status(500).send("OAuth error");
+  }
+});
+
+/* =========================
+   CATALOGO (NO TOCAR)
+========================= */
+const CATALOGO = {
+  1395732685:{nombre:"Italiano",area:"academy",url:"https://chatgpt.com/g/g-694ff655ce908191871b8656228b5971-tutor-de-italiano-mb"},
+  1395731561:{nombre:"Portugués",area:"academy",url:"https://chatgpt.com/g/g-694ff45ee8a88191b72cd536885b0876-tutor-de-portugues-mb"},
+  1395730081:{nombre:"Chino",area:"academy",url:"https://chatgpt.com/g/g-694fec2d35c88191833aa2af7d92fce0-maestro-de-chino-mandarin"},
+  1395728497:{nombre:"Alemán",area:"academy",url:"https://chatgpt.com/g/g-694ff6db1224819184d471e770ab7bf4-tutor-de-aleman-mb"},
+  1378551257:{nombre:"Inglés",area:"academy",url:"https://chatgpt.com/g/g-69269540618c8191ad2fcc7a5a86b622"},
+  1378561580:{nombre:"Francés",area:"academy",url:"https://chatgpt.com/g/g-692af8c0b460819197c6c780bb96aaed-french-tutor-tutor-de-frances"},
+  1395710455:{nombre:"Facultad Derecho",area:"university",url:"https://chatgpt.com/g/g-69345443f0848191996abc2cf7cc9786"},
+  1395711401:{nombre:"Facultad Contaduría",area:"university",url:"https://chatgpt.com/g/g-6934af28002481919dd9799d7156869f"},
+  1395718843:{nombre:"Marketing",area:"university",url:"https://chatgpt.com/g/g-693703fa8a008191b91730375fcc4d64"},
+  1395720099:{nombre:"Desarrollo software",area:"university",url:"https://chatgpt.com/g/g-69356a835d888191bf80e11a11e39e2e"},
+  1404599981:{nombre:"TAP Salud",area:"tutor",url:"https://chatgpt.com/g/g-69593c44a6c08191accf43d956372325"},
+  1404612037:{nombre:"TAP Educación",area:"tutor",url:"https://chatgpt.com/g/g-6959471996e4819193965239320a5daa"},
+  1404615645:{nombre:"TAP Administración",area:"tutor",url:"https://chatgpt.com/g/g-69594ab53b288191bd9ab50247e1a05c"},
+  1404604729:{nombre:"TAP Derecho",area:"tutor",url:"https://chatgpt.com/g/g-695946138ec88191a7d55a83d238a968"},
+  1404608913:{nombre:"TAP Ingeniería",area:"tutor",url:"https://chatgpt.com/g/g-695949c461208191b087fe103d72c0ce"},
+  1405073311:{nombre:"TAP Empresas",area:"tutor",url:"https://chatgpt.com/g/g-695947d7fe30819181bc53041e0c96d2"}
+};
+
+/* =========================
+   RETRY ORDEN TIENDANUBE
+========================= */
+async function obtenerOrdenConRetry(store_id, access_token, orderId) {
+  let intentos = 0;
+
+  while (intentos < 8) {
+    try {
+      const response = await axios.get(
+        `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
+        {
+          headers: {
+            Authentication: `bearer ${access_token}`,
+            "User-Agent": "MagicBank (magicbank.com)",
+            "Content-Type": "application/json",
+            Accept: "application/json"
+          },
+          timeout: 60000
+        }
+      );
+
+      return response.data;
+    } catch (err) {
+      intentos++;
+      console.log("Retry orden:", intentos);
+      await new Promise(r => setTimeout(r, intentos * 5000));
+    }
+  }
+
+  throw new Error("No se pudo obtener orden tras retries");
+}
+
+/* =========================
+   CREAR WEBHOOK
+========================= */
+app.get("/crear-webhook", async (_, res) => {
+  try {
+    const store = await pool.query(
+      "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
+    );
+
+    if (!store.rowCount) return res.status(400).send("No hay store instalada");
+
+    const { store_id, access_token } = store.rows[0];
+
+    const response = await axios.post(
+      `https://api.tiendanube.com/v1/${store_id}/webhooks`,
+      {
+        event: "order/paid",
+        url: "https://magic-bank-backend-production-713e.up.railway.app/webhooks/tiendanube/order-paid"
+      },
+      {
+        headers: {
+          Authentication: `bearer ${access_token}`,
+          "User-Agent": "MagicBank (magicbank.com)",
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        }
+      }
+    );
+
+    res.send(response.data);
+
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).send("Error creando webhook");
+  }
+});
+
+/* =========================
+   WEBHOOK ORDER PAID
+========================= */
+app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
+  res.sendStatus(200);
+
+  try {
+    const orderId = req.body.id;
+    if (!orderId) return;
+
+    const store = await pool.query(
+      "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
+    );
+    if (!store.rowCount) return;
+
+    const { store_id, access_token } = store.rows[0];
+
+    const orderData = await obtenerOrdenConRetry(store_id, access_token, orderId);
+
+    if (orderData.payment_status !== "paid") return;
+
+    const email =
+      orderData.contact_email ||
+      orderData.customer?.email ||
+      orderData.billing_address?.email;
+
+    const variantId =
+      orderData.order_products?.[0]?.variant_id ||
+      orderData.products?.[0]?.variant_id ||
+      orderData.line_items?.[0]?.variant_id;
+
+    const producto = CATALOGO[variantId];
+    if (!producto) return console.log("Producto no mapeado:", variantId);
+
+    const token = crypto.randomBytes(32).toString("hex");
+
+    await pool.query(
+      `INSERT INTO access_tokens
+       (token,email,product_id,product_name,area,redirect_url,expires_at)
+       VALUES ($1,$2,$3,$4,$5,$6,NOW() + interval '30 days')`,
+      [token, email, variantId, producto.nombre, producto.area, producto.url]
+    );
+
+    await transporter.sendMail({
+      from: `"MagicBank" <${process.env.SMTP_USER}>`,
+      to: email,
+      subject: "Acceso a tu curso",
+      html: `
+        <h2>Acceso a tu curso</h2>
+        <p><b>${producto.nombre}</b></p>
+        <a href="https://magic-bank-backend-production-713e.up.railway.app/access/${token}">
+          ACCEDER AL CURSO
+        </a>
+      `,
+    });
+
+    console.log("EMAIL ENVIADO:", email);
+
+  } catch (err) {
+    console.error("Webhook error:", err.response?.data || err.message);
+  }
+});
+
+/* =========================
+   ACCESS LINK
+========================= */
+app.get("/access/:token", async (req, res) => {
+  const result = await pool.query(
+    "SELECT redirect_url FROM access_tokens WHERE token=$1 AND expires_at > NOW()",
+    [req.params.token]
+  );
+
+  if (!result.rowCount) {
+    return res.status(403).send("Acceso inválido o expirado");
+  }
+
+  res.redirect(result.rows[0].redirect_url);
+});
+
+/* =========================
+   START
+========================= */
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("MAGICBANK BACKEND ACTIVO EN PUERTO", PORT);
+});
