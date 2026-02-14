@@ -60,7 +60,30 @@ async function enviarCorreo(destino, producto, token) {
 app.get("/", (_, res) => {
   res.send("MagicBank Backend OK");
 });
+app.get("/test-email", async (_, res) => {
+  try {
+    await axios.post(
+      "https://api.resend.com/emails",
+      {
+        from: "MagicBank <onboarding@resend.dev>",
+        to: process.env.SMTP_USER,
+        subject: "Prueba Resend",
+        html: "<h2>Correo de prueba OK</h2>",
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
+    res.send("Correo enviado correctamente");
+  } catch (err) {
+    console.error(err.response?.data || err.message);
+    res.status(500).send("Error enviando correo");
+  }
+});
 /* =========================
    AUTH TIENDANUBE
 ========================= */
