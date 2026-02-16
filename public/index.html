@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>MagicBank Tutor</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: auto;
+      padding: 30px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      border: none;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      background: #22c55e;
+      border: none;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #courses {
+      margin-top: 20px;
+    }
+
+    .course {
+      background: #1e293b;
+      padding: 15px;
+      margin-bottom: 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    #chat {
+      margin-top: 30px;
+      display: none;
+    }
+
+    #messages {
+      height: 300px;
+      overflow-y: auto;
+      background: #020617;
+      padding: 15px;
+      border-radius: 6px;
+      margin-bottom: 10px;
+    }
+
+    .msg-user { color:#38bdf8; }
+    .msg-ai { color:#22c55e; }
+  </style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <h1>MagicBank Tutor</h1>
+
+  <input id="token" placeholder="Ingresa tu código de acceso" />
+  <button onclick="cargarCursos()">Entrar</button>
+
+  <div id="courses"></div>
+
+  <div id="chat">
+    <h2 id="chat-title"></h2>
+    <div id="messages"></div>
+    <input id="message" placeholder="Escribe tu pregunta..." />
+    <button onclick="enviar()">Enviar</button>
+  </div>
+
+</div>
+
+<script>
+
+let TOKEN = "";
+let PRODUCT_ID = "";
+
+/* cargar cursos desde backend */
+async function cargarCursos() {
+
+  TOKEN = document.getElementById("token").value;
+
+  const res = await fetch(`/api/cursos/${TOKEN}`);
+  const data = await res.json();
+
+  if(!data.cursos){
+    alert("Token inválido");
+    return;
+  }
+
+  const cont = document.getElementById("courses");
+  cont.innerHTML = "";
+
+  data.cursos.forEach(curso => {
+    cont.innerHTML += `
+      <div class="course" onclick="abrirTutor('${curso.product_id}','${curso.nombre}')">
+        ${curso.nombre}
+      </div>
+    `;
+  });
+}
+
+function abrirTutor(productId,nombre){
+  PRODUCT_ID = productId;
+  document.getElementById("chat").style.display="block";
+  document.getElementById("chat-title").innerText = nombre;
+}
+
+async function enviar(){
+
+  const text = document.getElementById("message").value;
+  document.getElementById("messages").innerHTML += `<div class="msg-user">Tú: ${text}</div>`;
+  document.getElementById("message").value="";
+
+  const res = await fetch(`/api/chat/${PRODUCT_ID}`,{
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ token:TOKEN, message:text })
+  });
+
+  const data = await res.json();
+
+  document.getElementById("messages").innerHTML += `<div class="msg-ai">Tutor: ${data.reply}</div>`;
+}
+
+</script>
+
+</body>
+</html>
