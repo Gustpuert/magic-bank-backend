@@ -110,7 +110,33 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
     res.status(500).send("Error OAuth");
   }
 });
+/* =========================
+   TEST EMAIL RESEND
+========================= */
+app.get("/debug/send-test", async (_, res) => {
+  try {
 
+    const producto = {
+      nombre: "Prueba tutor MagicBank",
+      area: "test",
+      url: "https://chatgpt.com"
+    };
+
+    const token = "test123";
+
+    await enviarCorreo(
+      "gustavopuerta@yahoo.com",
+      producto,
+      token
+    );
+
+    res.send("Correo de prueba enviado");
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error enviando correo");
+  }
+});
 /* =========================
    CREAR WEBHOOK AUTOMATICO
 ========================= */
