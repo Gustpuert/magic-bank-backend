@@ -113,29 +113,36 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 /* =========================
    TEST EMAIL RESEND
 ========================= */
-app.get("/debug/send-test", async (_, res) => {
-  try {
+app.get("/debug/send-real", async (_, res) => {
 
-    const producto = {
-      nombre: "Prueba tutor MagicBank",
-      area: "test",
-      url: "https://chatgpt.com"
-    };
+  const producto = {
+    nombre: "Tutor real MagicBank",
+    area: "test",
+    url: "https://chatgpt.com"
+  };
 
-    const token = "test123";
+  const token = crypto.randomBytes(32).toString("hex");
 
-    await enviarCorreo(
-      "gustavopuerta@yahoo.com",
-      producto,
-      token
-    );
+  await pool.query(`
+    INSERT INTO access_tokens
+    (token,email,product_id,product_name,area,redirect_url,expires_at)
+    VALUES ($1,$2,$3,$4,$5,$6,NOW() + interval '30 days')
+  `, [
+    token,
+    "gustavopuerta@yahoo.com",
+    999,
+    producto.nombre,
+    producto.area,
+    producto.url
+  ]);
 
-    res.send("Correo de prueba enviado");
+  await enviarCorreo(
+    "gustavopuerta@yahoo.com",
+    producto,
+    token
+  );
 
-  } catch (err) {
-    console.error(err);
-    res.status(500).send("Error enviando correo");
-  }
+  res.send("Correo REAL enviado");
 });
 /* =========================
    CREAR WEBHOOK AUTOMATICO
