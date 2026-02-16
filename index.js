@@ -29,7 +29,7 @@ async function enviarCorreo(destino, producto, token) {
     await axios.post(
       "https://api.resend.com/emails",
       {
-        from: "MagicBank <onboarding@magicbank.org>",
+        from: "MagicBank <info@send.magicbank.org>",
         to: destino,
         subject: "Acceso a tu tutor MagicBank",
         html: `
