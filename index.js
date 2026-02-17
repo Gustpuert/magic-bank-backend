@@ -274,7 +274,31 @@ app.get("/access/:token", async (req, res) => {
     res.status(500).send("Error acceso tutor");
   }
 });
+/* =========================
+   CREAR TABLA ACCESS TOKENS (SETUP UNA SOLA VEZ)
+========================= */
+app.get("/setup/create-access-table", async (_, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS access_tokens (
+        id SERIAL PRIMARY KEY,
+        token TEXT UNIQUE NOT NULL,
+        email TEXT,
+        product_id BIGINT,
+        product_name TEXT,
+        area TEXT,
+        redirect_url TEXT,
+        created_at TIMESTAMP DEFAULT NOW(),
+        expires_at TIMESTAMP
+      );
+    `);
 
+    res.send("TABLA access_tokens OK");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send(err.message);
+  }
+});
 /* =========================
    START
 ========================= */
