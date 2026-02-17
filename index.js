@@ -243,16 +243,36 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
    LINK DE ACCESO (OCULTA CHATGPT)
 ========================= */
 app.get("/access/:token", async (req, res) => {
-  const result = await pool.query(
-    "SELECT redirect_url FROM access_tokens WHERE token=$1 AND expires_at > NOW()",
-    [req.params.token]
-  );
+  try {
 
-  if (!result.rowCount) {
-    return res.status(403).send("Acceso inválido o expirado");
+    const result = await pool.query(
+      `SELECT id, redirect_url 
+       FROM access_tokens 
+       WHERE token=$1 
+       AND expires_at > NOW()
+       AND used = false`,
+      [req.params.token]
+    );
+
+    if (!result.rowCount) {
+      return res.status(403).send("Acceso inválido o ya utilizado");
+    }
+
+    const { id, redirect_url } = result.rows[0];
+
+    // marcar token como usado
+    await pool.query(
+      "UPDATE access_tokens SET used=true WHERE id=$1",
+      [id]
+    );
+
+    // redirigir al tutor real
+    res.redirect(redirect_url);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error acceso tutor");
   }
-
-  res.redirect(result.rows[0].redirect_url);
 });
 
 /* =========================
