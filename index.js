@@ -233,9 +233,7 @@ app.get("/access/:token", async (req,res)=>{
 /* =========================
 START
 ========================= */
-app.listen(PORT, "0.0.0.0", async () => {
-  console.log("MAGICBANK BACKEND ACTIVO EN PUERTO", PORT);
 
-  await asegurarCatalogo();
-  await actualizarUrlsCatalogo();
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("MAGICBANK BACKEND ACTIVO EN PUERTO", PORT);
 });
