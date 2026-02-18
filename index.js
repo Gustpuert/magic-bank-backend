@@ -159,7 +159,7 @@ const CATALOGO = {
 
   1404604729:{ area:"tutor", nombre:"TAP Derecho", url:"https://chatgpt.com/g/g-695946138ec88191a7d55a83d238a968"},
   1404608913:{ area:"tutor", nombre:"TAP Ingeniería", url:"https://chatgpt.com/g/g-695949c461208191b087fe103d72c0ce"},
-  1404599981:{ area:"tutor", nombre:"TAP Salud", url:"https://chatgpt.com/g/g-69593c44a6c08191accf43d956372325"},
+  1403228132:{ area:"tutor", nombre:"TAP Salud", url:"https://chatgpt.com/g/g-69593c44a6c08191accf43d956372325"},
   1404612037:{ area:"tutor", nombre:"TAP Educación", url:"https://chatgpt.com/g/g-6959471996e4819193965239320a5daa"},
   1404615645:{ area:"tutor", nombre:"TAP Administración", url:"https://chatgpt.com/g/g-69594ab53b288191bd9ab50247e1a05c"},
   1405073311:{ area:"tutor", nombre:"TAP Empresas", url:"https://chatgpt.com/g/g-695947d7fe30819181bc53041e0c96d2"},
