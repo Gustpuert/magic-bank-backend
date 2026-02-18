@@ -147,7 +147,7 @@ app.get("/auth/tiendanube/callback", async (req, res) => {
 /* =========================
    CATÁLOGO COMPLETO
 ========================= */
-const PRODUCTS = {
+const CATALOGO = {
 
   /* ===== ACADEMY ===== */
   315067943: { nombre:"Italiano",url:"https://chatgpt.com/g/g-694ff655ce908191871b8656228b5971-tutor-de-italiano-mb"},
