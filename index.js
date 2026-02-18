@@ -20,7 +20,62 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
 });
+/* =========================
+   CARGAR CATÁLOGO EN DB AUTOMÁTICO
+========================= */
 
+const CATALOGO_BASE = {
+
+  1395732685:{ area:"academy", nombre:"Italiano"},
+  1395731561:{ area:"academy", nombre:"Portugués"},
+  1395730081:{ area:"academy", nombre:"Chino"},
+  1395728497:{ area:"academy", nombre:"Alemán"},
+  1378551257:{ area:"academy", nombre:"Inglés"},
+  1378561580:{ area:"academy", nombre:"Francés"},
+
+  1404604729:{ area:"tutor", nombre:"TAP Derecho"},
+  1404608913:{ area:"tutor", nombre:"TAP Ingeniería"},
+  1403228132:{ area:"tutor", nombre:"TAP Salud"},
+  1404612037:{ area:"tutor", nombre:"TAP Educación"},
+  1404615645:{ area:"tutor", nombre:"TAP Administración"},
+  1405073311:{ area:"tutor", nombre:"TAP Empresas"},
+
+  1395710455:{ area:"university", nombre:"Facultad Derecho"},
+  1395711401:{ area:"university", nombre:"Facultad Contaduría"},
+  1395720099:{ area:"university", nombre:"Desarrollo software"},
+  1395718843:{ area:"university", nombre:"Marketing"}
+};
+
+async function cargarCatalogoInicial() {
+  try {
+
+    const check = await pool.query("SELECT COUNT(*) FROM catalogo");
+    const total = parseInt(check.rows[0].count);
+
+    if (total > 0) {
+      console.log("CATALOGO YA EXISTE EN DB");
+      return;
+    }
+
+    console.log("CARGANDO CATALOGO INICIAL...");
+
+    for (const variantId in CATALOGO_BASE) {
+
+      const item = CATALOGO_BASE[variantId];
+
+      await pool.query(
+        `INSERT INTO catalogo (variant_id, nombre, area)
+         VALUES ($1,$2,$3)`,
+        [variantId, item.nombre, item.area]
+      );
+    }
+
+    console.log("CATALOGO CARGADO AUTOMATICAMENTE");
+
+  } catch (err) {
+    console.error("ERROR CARGANDO CATALOGO:", err.message);
+  }
+}
 /* =========================
    RESEND MAIL
 ========================= */
@@ -210,6 +265,8 @@ app.get("/access/:token", async (req, res) => {
 /* =========================
    START
 ========================= */
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("MAGICBANK AUTONOMO ACTIVO");
+app.listen(PORT, "0.0.0.0", async () => {
+  console.log("MAGICBANK BACKEND ACTIVO EN PUERTO", PORT);
+
+  await cargarCatalogoInicial();
 });
