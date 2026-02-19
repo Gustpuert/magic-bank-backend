@@ -62,7 +62,50 @@ HEALTHCHECK
 app.get("/", (_, res) => {
   res.send("MAGICBANK BACKEND ACTIVO");
 });
+/* =========================
+ANALYTICS DASHBOARD
+========================= */
 
+app.get("/analytics", async (req, res) => {
+  try {
+
+    const totalAlumnos = await pool.query(`
+      SELECT COUNT(*) FROM access_tokens
+    `);
+
+    const cursosTop = await pool.query(`
+      SELECT product_name, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY product_name
+      ORDER BY total DESC
+    `);
+
+    const areasTop = await pool.query(`
+      SELECT area, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY area
+      ORDER BY total DESC
+    `);
+
+    const ventasPorDia = await pool.query(`
+      SELECT DATE(created_at) as fecha, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY DATE(created_at)
+      ORDER BY fecha DESC
+    `);
+
+    res.json({
+      total_alumnos: totalAlumnos.rows[0].count,
+      cursos_top: cursosTop.rows,
+      areas_top: areasTop.rows,
+      ventas_por_dia: ventasPorDia.rows
+    });
+
+  } catch (err) {
+    console.error("ERROR ANALYTICS:", err.message);
+    res.status(500).send("Error analytics");
+  }
+});
 /* =========================
 AUTH TIENDANUBE
 ========================= */
