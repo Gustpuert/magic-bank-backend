@@ -107,6 +107,100 @@ app.get("/analytics", async (req, res) => {
   }
 });
 /* =========================
+DASHBOARD VISUAL
+========================= */
+
+app.get("/dashboard", async (req, res) => {
+  try {
+
+    const totalAlumnos = await pool.query(`
+      SELECT COUNT(*) FROM access_tokens
+    `);
+
+    const cursosTop = await pool.query(`
+      SELECT product_name, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY product_name
+      ORDER BY total DESC
+    `);
+
+    const areasTop = await pool.query(`
+      SELECT area, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY area
+      ORDER BY total DESC
+    `);
+
+    const ventasPorDia = await pool.query(`
+      SELECT DATE(created_at) as fecha, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY fecha
+      ORDER BY fecha DESC
+    `);
+
+    res.send(`
+      <html>
+      <head>
+        <title>MagicBank Analytics</title>
+        <style>
+          body { font-family: Arial; background:#0f172a; color:white; padding:30px; }
+          h1 { color:#22d3ee; }
+          .card { background:#1e293b; padding:20px; margin-bottom:20px; border-radius:10px; }
+          table { width:100%; border-collapse: collapse; }
+          th, td { padding:8px; text-align:left; }
+          th { background:#334155; }
+          tr:nth-child(even) { background:#1e293b; }
+        </style>
+      </head>
+      <body>
+
+        <h1>📊 MAGICBANK DASHBOARD</h1>
+
+        <div class="card">
+          <h2>Total Alumnos</h2>
+          <h1>${totalAlumnos.rows[0].count}</h1>
+        </div>
+
+        <div class="card">
+          <h2>🏆 Cursos más vendidos</h2>
+          <table>
+            <tr><th>Curso</th><th>Total</th></tr>
+            ${cursosTop.rows.map(c =>
+              `<tr><td>${c.product_name}</td><td>${c.total}</td></tr>`
+            ).join("")}
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>🏫 Áreas más solicitadas</h2>
+          <table>
+            <tr><th>Área</th><th>Total</th></tr>
+            ${areasTop.rows.map(a =>
+              `<tr><td>${a.area}</td><td>${a.total}</td></tr>`
+            ).join("")}
+          </table>
+        </div>
+
+        <div class="card">
+          <h2>📈 Ventas por día</h2>
+          <table>
+            <tr><th>Fecha</th><th>Total</th></tr>
+            ${ventasPorDia.rows.map(v =>
+              `<tr><td>${v.fecha}</td><td>${v.total}</td></tr>`
+            ).join("")}
+          </table>
+        </div>
+
+      </body>
+      </html>
+    `);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error cargando dashboard");
+  }
+});
+/* =========================
 AUTH TIENDANUBE
 ========================= */
 app.get("/auth/tiendanube", (req, res) => {
