@@ -373,33 +373,7 @@ app.get("/access/:token", async (req,res)=>{
   if(!r.rowCount) return res.status(403).send("Acceso inválido");
   res.redirect(r.rows[0].redirect_url);
 });
-/* =========================
-FIX TABLE mb_students ID
-EJECUTAR UNA SOLA VEZ
-LUEGO BORRAR
-========================= */
 
-async function fixStudentsTable() {
-  try {
-
-    await pool.query(`
-      ALTER TABLE mb_students
-      DROP COLUMN id;
-    `);
-
-    await pool.query(`
-      ALTER TABLE mb_students
-      ADD COLUMN id BIGSERIAL PRIMARY KEY;
-    `);
-
-    console.log("ID corregido correctamente en mb_students");
-
-  } catch (error) {
-    console.error("Error corrigiendo ID:", error.message);
-  }
-}
-
-fixStudentsTable();
 /* =========================
 START
 ========================= */
