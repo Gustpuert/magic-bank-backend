@@ -374,7 +374,7 @@ app.get("/access/:token", async (req,res)=>{
   res.redirect(r.rows[0].redirect_url);
 });
 
-/*/* =========================
+/*=========================
 CREAR TABLA tutor_reports
 EJECUTAR UNA SOLA VEZ
 LUEGO BORRAR
@@ -407,7 +407,7 @@ async function createTutorReportsTable() {
 createTutorReportsTable();
 =========================
 START
-========================= */
+========================= 
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log("MAGICBANK BACKEND ACTIVO EN PUERTO", PORT);
