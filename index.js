@@ -465,22 +465,7 @@ app.post("/director/review/:id", async (req, res) => {
     res.status(500).send("Error revisando reporte");
   }
 }); 
-app.get("/test-director-decision", async (req, res) => {
-  try {
 
-    await pool.query(`
-      INSERT INTO director_decisions
-      (report_id, decision, notes, action_type)
-      VALUES (1,'Refuerzo matemáticas','Prueba directa navegador','reinforcement')
-    `);
-
-    res.send("Decisión insertada correctamente");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Error insertando decisión");
-  }
-});
 app.get("/director/reports/pending", async (req, res) => {
   try {
 
@@ -498,23 +483,40 @@ app.get("/director/reports/pending", async (req, res) => {
     res.status(500).send("Error obteniendo reportes");
   }
 });
-app.get("/test-director-decision", async (req, res) => {
+
+/* =========================
+DIRECTOR - TOMAR DECISIÓN REAL
+========================= */
+
+app.post("/director/decision", async (req, res) => {
   try {
+
+    const {
+      report_id,
+      decision,
+      notes,
+      action_type
+    } = req.body;
 
     await pool.query(`
       INSERT INTO director_decisions
       (report_id, decision, notes, action_type)
-      VALUES (1,'Refuerzo matemáticas','Prueba directa navegador','reinforcement')
-    `);
+      VALUES ($1,$2,$3,$4)
+    `,
+    [
+      report_id,
+      decision,
+      notes,
+      action_type
+    ]);
 
-    res.send("Decisión insertada correctamente");
+    res.send("Decisión del director guardada");
 
   } catch (error) {
     console.error(error);
-    res.status(500).send("Error insertando decisión");
+    res.status(500).send("Error guardando decisión");
   }
 });
-
 
 async function createDirectorDecisionsTable() {
   try {
