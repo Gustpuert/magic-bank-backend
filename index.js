@@ -373,38 +373,39 @@ app.get("/access/:token", async (req,res)=>{
   if(!r.rowCount) return res.status(403).send("Acceso inválido");
   res.redirect(r.rows[0].redirect_url);
 });
-/* =========================
-CREAR TABLA student_learning_events
+
+/*/* =========================
+CREAR TABLA tutor_reports
 EJECUTAR UNA SOLA VEZ
 LUEGO BORRAR
 ========================= */
 
-async function createLearningEventsTable() {
+async function createTutorReportsTable() {
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_learning_events (
+      CREATE TABLE IF NOT EXISTS tutor_reports (
         id BIGSERIAL PRIMARY KEY,
         student_id INTEGER NOT NULL,
+        tutor_name TEXT NOT NULL,
         subject TEXT NOT NULL,
-        event_type TEXT NOT NULL,
-        performance_score INTEGER,
-        difficulty_level INTEGER,
-        emotional_state TEXT,
-        tutor_feedback TEXT,
-        director_flag BOOLEAN DEFAULT FALSE,
+        report_type TEXT NOT NULL,
+        summary TEXT,
+        recommendation TEXT,
+        priority_level INTEGER,
+        reviewed_by_director BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
-    console.log("Tabla student_learning_events creada correctamente");
+    console.log("Tabla tutor_reports creada correctamente");
 
   } catch (error) {
-    console.error("Error creando tabla student_learning_events:", error);
+    console.error("Error creando tabla tutor_reports:", error);
   }
 }
 
-createLearningEventsTable();
-/* =========================
+createTutorReportsTable();
+=========================
 START
 ========================= */
 
