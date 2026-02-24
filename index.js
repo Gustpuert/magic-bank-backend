@@ -568,60 +568,7 @@ async function createDirectorDecisionsTable() {
 }
 
 createDirectorDecisionsTable();
-/* =========================
-VOCATIONAL PROFILE TABLE
-========================= */
 
-async function createStudentVocationalProfileTable() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_vocational_profile (
-
-        id SERIAL PRIMARY KEY,
-
-        student_id INTEGER UNIQUE,
-
-        /* PERFIL COGNITIVO */
-        cognitive_profile TEXT,
-        learning_style TEXT,
-        abstraction_level TEXT,
-        problem_solving_pattern TEXT,
-
-        /* PERFIL EMOCIONAL */
-        frustration_tolerance TEXT,
-        motivation_pattern TEXT,
-        attention_span_pattern TEXT,
-        discipline_pattern TEXT,
-
-        /* MAPA ACADÉMICO */
-        strongest_areas TEXT,
-        weakest_areas TEXT,
-        dominant_intelligence TEXT,
-
-        /* DETECCIÓN VOCACIONAL */
-        emerging_talents TEXT,
-        vocational_clues TEXT,
-        recommended_paths TEXT,
-
-        /* ANÁLISIS SISTÉMICO */
-        director_analysis TEXT,
-        ai_detected_pattern TEXT,
-        confidence_score INTEGER DEFAULT 0,
-
-        created_at TIMESTAMP DEFAULT NOW(),
-        updated_at TIMESTAMP DEFAULT NOW()
-
-      );
-    `);
-
-    console.log("Tabla student_vocational_profile lista");
-
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-createStudentVocationalProfileTable();
 /* =========================
 START
 ========================= */
