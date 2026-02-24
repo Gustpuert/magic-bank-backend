@@ -482,6 +482,26 @@ app.get("/director/reports/pending", async (req, res) => {
     res.status(500).send("Error obteniendo reportes");
   }
 });
+async function createDirectorDecisionsTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS director_decisions (
+        id SERIAL PRIMARY KEY,
+        report_id INTEGER REFERENCES tutor_reports(id),
+        decision TEXT,
+        notes TEXT,
+        action_type TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    console.log("Tabla director_decisions lista");
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+createDirectorDecisionsTable();
 /* =========================
 START
 ========================= */
