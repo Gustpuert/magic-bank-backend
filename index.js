@@ -405,10 +405,10 @@ async function createTutorReportsTable() {
 }
 
 createTutorReportsTable();
-=========================
-START
-========================= 
 
+/* =========================
+START
+========================= */
 app.listen(PORT, "0.0.0.0", () => {
   console.log("MAGICBANK BACKEND ACTIVO EN PUERTO", PORT);
 });
