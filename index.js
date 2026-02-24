@@ -373,7 +373,37 @@ app.get("/access/:token", async (req,res)=>{
   if(!r.rowCount) return res.status(403).send("Acceso inválido");
   res.redirect(r.rows[0].redirect_url);
 });
+/* =========================
+CREAR TABLA student_academic_profile
+EJECUTAR UNA SOLA VEZ
+LUEGO BORRAR
+========================= */
 
+async function createAcademicProfileTable() {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_academic_profile (
+        id BIGSERIAL PRIMARY KEY,
+        student_id INTEGER,
+        current_grade INTEGER,
+        country TEXT,
+        learning_style TEXT,
+        cognitive_strengths TEXT,
+        cognitive_weaknesses TEXT,
+        motivation_level INTEGER,
+        academic_rhythm TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    console.log("Tabla student_academic_profile creada correctamente");
+
+  } catch (error) {
+    console.error("Error creando tabla:", error);
+  }
+}
+
+createAcademicProfileTable();
 /* =========================
 START
 ========================= */
