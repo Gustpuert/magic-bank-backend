@@ -465,22 +465,7 @@ app.post("/director/review/:id", async (req, res) => {
     res.status(500).send("Error revisando reporte");
   }
 }); 
-app.get("/director/review/:id", async (req, res) => {
-  try {
 
-    await pool.query(`
-      UPDATE tutor_reports
-      SET reviewed_by_director = TRUE
-      WHERE id = $1
-    `, [req.params.id]);
-
-    res.send("Reporte marcado como revisado");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Error revisando reporte");
-  }
-});
 /* =========================
 START
 ========================= */
