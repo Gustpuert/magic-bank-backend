@@ -482,6 +482,39 @@ app.get("/director/reports/pending", async (req, res) => {
     res.status(500).send("Error obteniendo reportes");
   }
 });
+/* =========================
+DIRECTOR - TOMAR DECISIÓN
+========================= */
+
+app.post("/director/decision", async (req, res) => {
+  try {
+
+    const {
+      report_id,
+      decision,
+      notes,
+      action_type
+    } = req.body;
+
+    await pool.query(`
+      INSERT INTO director_decisions
+      (report_id, decision, notes, action_type)
+      VALUES ($1,$2,$3,$4)
+    `,
+    [
+      report_id,
+      decision,
+      notes,
+      action_type
+    ]);
+
+    res.send("Decisión del director guardada");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error guardando decisión");
+  }
+});
 async function createDirectorDecisionsTable() {
   try {
     await pool.query(`
