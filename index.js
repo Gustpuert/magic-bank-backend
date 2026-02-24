@@ -482,6 +482,22 @@ app.get("/director/reports/pending", async (req, res) => {
     res.status(500).send("Error obteniendo reportes");
   }
 });
+app.get("/test-director-decision", async (req, res) => {
+  try {
+
+    await pool.query(`
+      INSERT INTO director_decisions
+      (report_id, decision, notes, action_type)
+      VALUES (1,'Refuerzo matemáticas','Prueba directa navegador','reinforcement')
+    `);
+
+    res.send("Decisión insertada correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error insertando decisión");
+  }
+});
 /* =========================
 DIRECTOR - TOMAR DECISIÓN
 ========================= */
