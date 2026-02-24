@@ -374,36 +374,36 @@ app.get("/access/:token", async (req,res)=>{
   res.redirect(r.rows[0].redirect_url);
 });
 /* =========================
-CREAR TABLA student_academic_profile
+CREAR TABLA student_learning_events
 EJECUTAR UNA SOLA VEZ
 LUEGO BORRAR
 ========================= */
 
-async function createAcademicProfileTable() {
+async function createLearningEventsTable() {
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_academic_profile (
+      CREATE TABLE IF NOT EXISTS student_learning_events (
         id BIGSERIAL PRIMARY KEY,
-        student_id INTEGER,
-        current_grade INTEGER,
-        country TEXT,
-        learning_style TEXT,
-        cognitive_strengths TEXT,
-        cognitive_weaknesses TEXT,
-        motivation_level INTEGER,
-        academic_rhythm TEXT,
+        student_id INTEGER NOT NULL,
+        subject TEXT NOT NULL,
+        event_type TEXT NOT NULL,
+        performance_score INTEGER,
+        difficulty_level INTEGER,
+        emotional_state TEXT,
+        tutor_feedback TEXT,
+        director_flag BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
-    console.log("Tabla student_academic_profile creada correctamente");
+    console.log("Tabla student_learning_events creada correctamente");
 
   } catch (error) {
-    console.error("Error creando tabla:", error);
+    console.error("Error creando tabla student_learning_events:", error);
   }
 }
 
-createAcademicProfileTable();
+createLearningEventsTable();
 /* =========================
 START
 ========================= */
