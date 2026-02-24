@@ -465,7 +465,23 @@ app.post("/director/review/:id", async (req, res) => {
     res.status(500).send("Error revisando reporte");
   }
 }); 
+app.get("/director/reports/pending", async (req, res) => {
+  try {
 
+    const r = await pool.query(`
+      SELECT *
+      FROM tutor_reports
+      WHERE reviewed_by_director = false
+      ORDER BY priority_level DESC, created_at DESC
+    `);
+
+    res.json(r.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error obteniendo reportes");
+  }
+});
 /* =========================
 START
 ========================= */
