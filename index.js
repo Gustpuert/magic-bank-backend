@@ -414,7 +414,22 @@ app.post("/tutor/report", async (req, res) => {
     res.status(500).send("Error guardando reporte");
   }
 });
+app.get("/test-report", async (req, res) => {
+  try {
 
+    await pool.query(`
+      INSERT INTO tutor_reports
+      (student_id, tutor_name, subject, report_type, summary, recommendation, priority_level)
+      VALUES (1,'Tutor Test','Prueba','alerta','Test desde navegador','Funciona',1)
+    `);
+
+    res.send("Reporte insertado correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error insertando reporte");
+  }
+});
 /* =========================
 START
 ========================= */
