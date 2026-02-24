@@ -414,7 +414,36 @@ app.post("/tutor/report", async (req, res) => {
     res.status(500).send("Error guardando reporte");
   }
 });
+/* =========================
+DIRECTOR - VER REPORTES
+========================= */
 
+app.get("/director/reports", async (req, res) => {
+  try {
+
+    const reports = await pool.query(`
+      SELECT 
+        id,
+        student_id,
+        tutor_name,
+        subject,
+        report_type,
+        summary,
+        recommendation,
+        priority_level,
+        reviewed_by_director,
+        created_at
+      FROM tutor_reports
+      ORDER BY priority_level DESC, created_at DESC
+    `);
+
+    res.json(reports.rows);
+
+  } catch (error) {
+    console.error("Error obteniendo reportes:", error);
+    res.status(500).send("Error obteniendo reportes");
+  }
+});
 /* =========================
 START
 ========================= */
