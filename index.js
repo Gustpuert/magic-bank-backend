@@ -518,6 +518,54 @@ app.post("/director/decision", async (req, res) => {
   }
 });
 /* =========================
+VOCATIONAL PROFILE - TUTOR & DIRECTOR WRITE
+========================= */
+
+app.post("/student/vocational/update", async (req, res) => {
+  try {
+
+    const {
+      student_id,
+      detected_strength,
+      detected_difficulty,
+      interest_area,
+      recommended_path,
+      tutor_observation,
+      director_decision
+    } = req.body;
+
+    await pool.query(`
+      INSERT INTO student_vocational_profile
+      (
+        student_id,
+        detected_strength,
+        detected_difficulty,
+        interest_area,
+        recommended_path,
+        tutor_observation,
+        director_decision,
+        updated_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())
+    `,
+    [
+      student_id,
+      detected_strength,
+      detected_difficulty,
+      interest_area,
+      recommended_path,
+      tutor_observation,
+      director_decision
+    ]);
+
+    res.send("Perfil vocacional actualizado");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error actualizando perfil vocacional");
+  }
+});
+/* =========================
 TUTOR - CONSULTAR DECISIONES DEL DIRECTOR
 ========================= */
 
