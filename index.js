@@ -517,7 +517,37 @@ app.post("/director/decision", async (req, res) => {
     res.status(500).send("Error guardando decisión");
   }
 });
+/* =========================
+TUTOR - CONSULTAR DECISIONES DEL DIRECTOR
+========================= */
 
+app.get("/tutor/decisions/:student_id", async (req, res) => {
+  try {
+
+    const decisions = await pool.query(`
+      SELECT 
+        d.id,
+        d.report_id,
+        d.decision,
+        d.notes,
+        d.action_type,
+        d.created_at,
+        r.subject,
+        r.summary,
+        r.priority_level
+      FROM director_decisions d
+      JOIN tutor_reports r ON r.id = d.report_id
+      WHERE r.student_id = $1
+      ORDER BY d.created_at DESC
+    `, [req.params.student_id]);
+
+    res.json(decisions.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error obteniendo decisiones del director");
+  }
+});
 async function createDirectorDecisionsTable() {
   try {
     await pool.query(`
