@@ -374,37 +374,37 @@ app.get("/access/:token", async (req,res)=>{
   res.redirect(r.rows[0].redirect_url);
 });
 
-/*=========================
-CREAR TABLA tutor_reports
+/* =========================
+CREAR TABLA director_decisions
 EJECUTAR UNA SOLA VEZ
 LUEGO BORRAR
 ========================= */
 
-async function createTutorReportsTable() {
+async function createDirectorDecisionsTable() {
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS tutor_reports (
+      CREATE TABLE IF NOT EXISTS director_decisions (
         id BIGSERIAL PRIMARY KEY,
         student_id INTEGER NOT NULL,
-        tutor_name TEXT NOT NULL,
-        subject TEXT NOT NULL,
-        report_type TEXT NOT NULL,
-        summary TEXT,
-        recommendation TEXT,
+        tutor_name TEXT,
+        alert_type TEXT,
+        decision_taken TEXT,
+        action_required TEXT,
         priority_level INTEGER,
-        reviewed_by_director BOOLEAN DEFAULT FALSE,
+        resolved BOOLEAN DEFAULT FALSE,
+        resolved_at TIMESTAMP,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
-    console.log("Tabla tutor_reports creada correctamente");
+    console.log("Tabla director_decisions creada correctamente");
 
   } catch (error) {
-    console.error("Error creando tabla tutor_reports:", error);
+    console.error("Error creando tabla director_decisions:", error);
   }
 }
 
-createTutorReportsTable();
+createDirectorDecisionsTable();
 
 /* =========================
 START
