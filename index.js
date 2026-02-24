@@ -375,36 +375,45 @@ app.get("/access/:token", async (req,res)=>{
 });
 
 /* =========================
-CREAR TABLA director_decisions
-EJECUTAR UNA SOLA VEZ
-LUEGO BORRAR
+ENDPOINT TUTOR REPORT
+COMUNICACIÓN REAL TUTOR → DB
 ========================= */
 
-async function createDirectorDecisionsTable() {
+app.post("/tutor/report", async (req, res) => {
   try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS director_decisions (
-        id BIGSERIAL PRIMARY KEY,
-        student_id INTEGER NOT NULL,
-        tutor_name TEXT,
-        alert_type TEXT,
-        decision_taken TEXT,
-        action_required TEXT,
-        priority_level INTEGER,
-        resolved BOOLEAN DEFAULT FALSE,
-        resolved_at TIMESTAMP,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
 
-    console.log("Tabla director_decisions creada correctamente");
+    const {
+      student_id,
+      tutor_name,
+      subject,
+      report_type,
+      summary,
+      recommendation,
+      priority_level
+    } = req.body;
+
+    await pool.query(`
+      INSERT INTO tutor_reports
+      (student_id, tutor_name, subject, report_type, summary, recommendation, priority_level)
+      VALUES ($1,$2,$3,$4,$5,$6,$7)
+    `,
+    [
+      student_id,
+      tutor_name,
+      subject,
+      report_type,
+      summary,
+      recommendation,
+      priority_level
+    ]);
+
+    res.send("Reporte de tutor guardado");
 
   } catch (error) {
-    console.error("Error creando tabla director_decisions:", error);
+    console.error("Error guardando reporte:", error);
+    res.status(500).send("Error guardando reporte");
   }
-}
-
-createDirectorDecisionsTable();
+});
 
 /* =========================
 START
