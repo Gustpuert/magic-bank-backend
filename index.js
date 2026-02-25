@@ -611,26 +611,7 @@ app.get("/tutor/decisions/:student_id", async (req, res) => {
     res.status(500).send("Error obteniendo decisiones del director");
   }
 });
-async function createDirectorDecisionsTable() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS director_decisions (
-        id SERIAL PRIMARY KEY,
-        report_id INTEGER REFERENCES tutor_reports(id),
-        decision TEXT,
-        notes TEXT,
-        action_type TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
 
-    console.log("Tabla director_decisions lista");
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-createDirectorDecisionsTable();
 /* =========================
 DIRECTOR - ACCIÓN PEDAGÓGICA OPERATIVA
 CEREBRO INSTITUCIONAL REAL
@@ -781,24 +762,7 @@ app.get("/director/panel", async (req, res) => {
     res.status(500).send("Error cargando panel del Director");
   }
 });
-async function ensureDirectorDecisionsTable() {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS director_decisions (
-        id SERIAL PRIMARY KEY,
-        report_id INTEGER REFERENCES tutor_reports(id),
-        decision TEXT,
-        notes TEXT,
-        action_type TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-  } catch (error) {
-    console.error("director_decisions table error:", error);
-  }
-}
 
-ensureDirectorDecisionsTable();
 /* =========================
 START
 ========================= */
