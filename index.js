@@ -1,4 +1,4 @@
-UIimport dotenv from "dotenv";
+import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
@@ -132,7 +132,7 @@ app.get("/dashboard", async (req, res) => {
     `);
 
     const ventasPorDia = await pool.query(`
-      SELECT DATE(created_at) as fecha, COUNT(*) as total
+      GROUP BY DATE(created_at) as fecha, COUNT(*) as total
       FROM access_tokens
       GROUP BY fecha
       ORDER BY fecha DESC
