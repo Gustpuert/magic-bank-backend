@@ -772,7 +772,7 @@ app.get("/director/panel", async (req, res) => {
           <table>
             <tr><th>Acción</th><th>Fecha</th></tr>
             ${historial.rows.map(h =>
-              `<tr><td>${h.action_type}</td><td>${h.created_at}</td></tr>`
+              `<tr><td>${h.action_required}</td><td>${h.created_at}</td></tr>`
             ).join("")}
           </table>
         </div>
