@@ -631,6 +631,54 @@ async function createDirectorDecisionsTable() {
 }
 
 createDirectorDecisionsTable();
+/* =========================
+DIRECTOR - ACCIÓN PEDAGÓGICA OPERATIVA
+CEREBRO INSTITUCIONAL REAL
+========================= */
+
+app.post("/director/action", async (req, res) => {
+  try {
+
+    const {
+      report_id,
+      action_type,
+      notes
+    } = req.body;
+
+    // Validación de acciones permitidas
+    const allowedActions = [
+      "reinforcement",
+      "acceleration",
+      "sabermode",
+      "cognitive_pause",
+      "certification_ready",
+      "certification_denied"
+    ];
+
+    if (!allowedActions.includes(action_type)) {
+      return res.status(400).send("Acción no permitida");
+    }
+
+    // Guardar decisión del Director
+    await pool.query(`
+      INSERT INTO director_decisions
+      (report_id, decision, notes, action_type)
+      VALUES ($1,$2,$3,$4)
+    `,
+    [
+      report_id,
+      "director_operational_action",
+      notes,
+      action_type
+    ]);
+
+    res.send("Acción pedagógica del Director ejecutada correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error ejecutando acción del Director");
+  }
+});
 
 /* =========================
 START
