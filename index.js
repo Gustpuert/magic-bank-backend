@@ -781,28 +781,20 @@ app.get("/director/panel", async (req, res) => {
     res.status(500).send("Error cargando panel del Director");
   }
 });
-/* =========================
-AUTO-CREACIÓN TABLA DIRECTOR_DECISIONS
-SISTEMA INSTITUCIONAL OFICIAL
-========================= */
-
 async function ensureDirectorDecisionsTable() {
   try {
     await pool.query(`
       CREATE TABLE IF NOT EXISTS director_decisions (
         id SERIAL PRIMARY KEY,
-        report_id INTEGER REFERENCES tutor_reports(id) ON DELETE CASCADE,
+        report_id INTEGER REFERENCES tutor_reports(id),
         decision TEXT,
         notes TEXT,
         action_type TEXT,
         created_at TIMESTAMP DEFAULT NOW()
       );
     `);
-
-    console.log("Tabla director_decisions verificada/creada correctamente");
-
   } catch (error) {
-    console.error("Error creando tabla director_decisions:", error);
+    console.error("director_decisions table error:", error);
   }
 }
 
