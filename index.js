@@ -507,22 +507,35 @@ app.post("/director/decision", async (req, res) => {
   try {
 
     const {
-      report_id,
-      decision,
-      notes,
-      action_type
+      student_id,
+      tutor_name,
+      alert_type,
+      decision_taken,
+      action_required,
+      priority_level
     } = req.body;
 
     await pool.query(`
       INSERT INTO director_decisions
-      (report_id, decision, notes, action_type)
-      VALUES ($1,$2,$3,$4)
+      (
+        student_id,
+        tutor_name,
+        alert_type,
+        decision_taken,
+        action_required,
+        priority_level,
+        resolved,
+        created_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,false,NOW())
     `,
     [
-      report_id,
-      decision,
-      notes,
-      action_type
+      student_id,
+      tutor_name,
+      alert_type,
+      decision_taken,
+      action_required,
+      priority_level
     ]);
 
     res.send("Decisión del director guardada");
