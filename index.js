@@ -679,7 +679,108 @@ app.post("/director/action", async (req, res) => {
     res.status(500).send("Error ejecutando acción del Director");
   }
 });
+/* =========================
+PANEL DIRECTOR ACADÉMICO
+CENTRO DE CONTROL INSTITUCIONAL
+========================= */
 
+app.get("/director/panel", async (req, res) => {
+  try {
+
+    const alertas = await pool.query(`
+      SELECT COUNT(*) FROM tutor_reports
+      WHERE report_type = 'alerta' AND reviewed_by_director = false
+    `);
+
+    const pendientes = await pool.query(`
+      SELECT COUNT(*) FROM tutor_reports
+      WHERE reviewed_by_director = false
+    `);
+
+    const refuerzos = await pool.query(`
+      SELECT COUNT(*) FROM director_decisions
+      WHERE action_type = 'reinforcement'
+    `);
+
+    const sabermode = await pool.query(`
+      SELECT COUNT(*) FROM director_decisions
+      WHERE action_type = 'sabermode'
+    `);
+
+    const certificables = await pool.query(`
+      SELECT COUNT(*) FROM director_decisions
+      WHERE action_type = 'certification_ready'
+    `);
+
+    const historial = await pool.query(`
+      SELECT action_type, created_at
+      FROM director_decisions
+      ORDER BY created_at DESC
+      LIMIT 20
+    `);
+
+    res.send(`
+      <html>
+      <head>
+        <title>Director Académico - MagicBank</title>
+        <style>
+          body { font-family: Arial; background:#020617; color:white; padding:30px; }
+          h1 { color:#38bdf8; }
+          .card { background:#0f172a; padding:20px; margin-bottom:20px; border-radius:12px; }
+          table { width:100%; border-collapse: collapse; }
+          th, td { padding:8px; text-align:left; }
+          th { background:#1e293b; }
+          tr:nth-child(even) { background:#020617; }
+        </style>
+      </head>
+      <body>
+
+        <h1>🎓 PANEL DIRECTOR ACADÉMICO</h1>
+
+        <div class="card">
+          <h2>Alertas activas</h2>
+          <h1>${alertas.rows[0].count}</h1>
+        </div>
+
+        <div class="card">
+          <h2>Reportes pendientes</h2>
+          <h1>${pendientes.rows[0].count}</h1>
+        </div>
+
+        <div class="card">
+          <h2>Estudiantes en refuerzo</h2>
+          <h1>${refuerzos.rows[0].count}</h1>
+        </div>
+
+        <div class="card">
+          <h2>Modo SABER activo</h2>
+          <h1>${sabermode.rows[0].count}</h1>
+        </div>
+
+        <div class="card">
+          <h2>Listos para certificación</h2>
+          <h1>${certificables.rows[0].count}</h1>
+        </div>
+
+        <div class="card">
+          <h2>Historial de decisiones del Director</h2>
+          <table>
+            <tr><th>Acción</th><th>Fecha</th></tr>
+            ${historial.rows.map(h =>
+              `<tr><td>${h.action_type}</td><td>${h.created_at}</td></tr>`
+            ).join("")}
+          </table>
+        </div>
+
+      </body>
+      </html>
+    `);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error cargando panel del Director");
+  }
+});
 /* =========================
 START
 ========================= */
