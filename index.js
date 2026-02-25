@@ -704,21 +704,21 @@ app.get("/director/panel", async (req, res) => {
 
     const refuerzos = await pool.query(`
       SELECT COUNT(*) FROM director_decisions
-      WHERE action_type = 'reinforcement'
+      WHERE action_required = 'reinforcement'
     `);
 
     const sabermode = await pool.query(`
       SELECT COUNT(*) FROM director_decisions
-      WHERE action_type = 'sabermode'
+      WHERE action_required = 'sabermode'
     `);
 
     const certificables = await pool.query(`
       SELECT COUNT(*) FROM director_decisions
-      WHERE action_type = 'certification_ready'
+      WHERE action_required = 'certification_ready'
     `);
 
     const historial = await pool.query(`
-      SELECT action_type, created_at
+      SELECT action_required, created_at
       FROM director_decisions
       ORDER BY created_at DESC
       LIMIT 20
