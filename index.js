@@ -1,4 +1,4 @@
-import dotenv from "dotenv";
+UIimport dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
@@ -634,12 +634,14 @@ app.post("/director/action", async (req, res) => {
   try {
 
     const {
-      report_id,
-      action_type,
-      notes
+      student_id,
+      tutor_name,
+      alert_type,
+      decision_taken,
+      action_required,
+      priority_level
     } = req.body;
 
-    // Validación de acciones permitidas
     const allowedActions = [
       "reinforcement",
       "acceleration",
@@ -649,24 +651,34 @@ app.post("/director/action", async (req, res) => {
       "certification_denied"
     ];
 
-    if (!allowedActions.includes(action_type)) {
+    if (!allowedActions.includes(action_required)) {
       return res.status(400).send("Acción no permitida");
     }
 
-    // Guardar decisión del Director
     await pool.query(`
       INSERT INTO director_decisions
-      (report_id, decision, notes, action_type)
-      VALUES ($1,$2,$3,$4)
+      (
+        student_id,
+        tutor_name,
+        alert_type,
+        decision_taken,
+        action_required,
+        priority_level,
+        resolved,
+        created_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,false,NOW())
     `,
     [
-      report_id,
-      "director_operational_action",
-      notes,
-      action_type
+      student_id,
+      tutor_name,
+      alert_type,
+      decision_taken,
+      action_required,
+      priority_level
     ]);
 
-    res.send("Acción pedagógica del Director ejecutada correctamente");
+    res.send("Acción pedagógica del Director ejecutada");
 
   } catch (error) {
     console.error(error);
