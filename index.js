@@ -991,6 +991,33 @@ app.post("/student/academic-profile", async (req, res) => {
 });
 
 /* =========================
+SETUP TABLE: student_academic_profile
+BORRAR DESPUÉS DE EJECUTAR
+========================= */
+
+app.get("/setup/student-academic-profile", async (req, res) => {
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_academic_profile (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER REFERENCES students(id),
+        current_grade VARCHAR(20),
+        country VARCHAR(50),
+        learning_rhythm VARCHAR(20),
+        academic_status VARCHAR(20),
+        created_at TIMESTAMP DEFAULT NOW()
+      )
+    `);
+
+    res.send("Tabla student_academic_profile creada o ya existente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error creando tabla");
+  }
+});
+/* ========================
 START
 ========================= */
 app.listen(PORT, "0.0.0.0", () => {
