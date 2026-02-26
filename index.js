@@ -944,6 +944,52 @@ app.post("/enroll-student", async (req, res) => {
   }
 });
 /* =========================
+PERFIL ACADÉMICO INICIAL
+DESPUÉS DE INSCRIPCIÓN
+========================= */
+
+app.post("/student/academic-profile", async (req, res) => {
+  try {
+
+    const {
+      student_id,
+      country,
+      schedule_preference,
+      learning_mode,
+      accepts_academic_rules,
+      accepts_data_policy
+    } = req.body;
+
+    await pool.query(`
+      INSERT INTO student_academic_profile
+      (
+        student_id,
+        country,
+        schedule_preference,
+        learning_mode,
+        accepts_academic_rules,
+        accepts_data_policy,
+        created_at
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,NOW())
+    `,
+    [
+      student_id,
+      country,
+      schedule_preference,
+      learning_mode,
+      accepts_academic_rules,
+      accepts_data_policy
+    ]);
+
+    res.send("Perfil académico guardado");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error guardando perfil académico");
+  }
+});
+/* =========================
 START
 ========================= */
 app.listen(PORT, "0.0.0.0", () => {
