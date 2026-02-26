@@ -995,41 +995,25 @@ app.post("/student/academic-profile", async (req, res) => {
   }
 });
 
-/* =========================
-CREAR TABLA DIAGNOSTICO ESTUDIANTE
-ENDPOINT TEMPORAL
-========================= */
-
-app.get("/dev/create-table-student-diagnostic", async (req, res) => {
+app.get("/setup/student-academic-status", async (req, res) => {
   try {
-
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_diagnostic (
+      CREATE TABLE IF NOT EXISTS student_academic_status (
         id SERIAL PRIMARY KEY,
-
-        student_id INTEGER NOT NULL,
-
-        math_level TEXT,
-        language_level TEXT,
-        science_level TEXT,
-        social_level TEXT,
-        english_level TEXT,
-
-        cognitive_observation TEXT,
-        learning_habits TEXT,
-        attention_profile TEXT,
-
-        director_initial_decision TEXT,
-
-        created_at TIMESTAMP DEFAULT NOW()
+        student_id INTEGER REFERENCES students(id),
+        assigned_grade VARCHAR(20),
+        academic_state VARCHAR(20),
+        progress_percentage INTEGER DEFAULT 0,
+        reinforcement_required BOOLEAN DEFAULT false,
+        certification_ready BOOLEAN DEFAULT false,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    res.send("TABLA student_diagnostic creada correctamente");
-
+    res.send("TABLA student_academic_status creada correctamente");
   } catch (error) {
     console.error(error);
-    res.status(500).send(error.message);
+    res.status(500).send("Error creando tabla student_academic_status");
   }
 });
 /* ========================
