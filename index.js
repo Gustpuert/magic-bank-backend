@@ -995,25 +995,24 @@ app.post("/student/academic-profile", async (req, res) => {
   }
 });
 
-app.get("/setup/student-academic-status", async (req, res) => {
+app.get("/setup/student-subject-progress", async (req, res) => {
   try {
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_academic_status (
+      CREATE TABLE IF NOT EXISTS student_subject_progress (
         id SERIAL PRIMARY KEY,
-        student_id INTEGER REFERENCES students(id),
-        assigned_grade VARCHAR(20),
-        academic_state VARCHAR(20),
+        student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+        subject_name VARCHAR(50),
+        current_level VARCHAR(20),
         progress_percentage INTEGER DEFAULT 0,
-        reinforcement_required BOOLEAN DEFAULT false,
-        certification_ready BOOLEAN DEFAULT false,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        subject_status VARCHAR(20) DEFAULT 'active'
       );
     `);
 
-    res.send("TABLA student_academic_status creada correctamente");
+    res.send("TABLA student_subject_progress creada correctamente");
   } catch (error) {
     console.error(error);
-    res.status(500).send("Error creando tabla student_academic_status");
+    res.status(500).send("Error creando student_subject_progress");
   }
 });
 /* ========================
