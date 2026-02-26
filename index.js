@@ -995,25 +995,35 @@ app.post("/student/academic-profile", async (req, res) => {
   }
 });
 
-app.get("/setup/student-pedagogical-actions", async (req, res) => {
+app.get("/setup/student-schedule-control", async (req, res) => {
   try {
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_pedagogical_actions (
+      CREATE TABLE IF NOT EXISTS student_schedule_control (
         id SERIAL PRIMARY KEY,
         student_id INTEGER REFERENCES students(id),
-        action_type VARCHAR(40),
-        decided_by VARCHAR(40) DEFAULT 'director',
-        justification TEXT,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+
+        subject VARCHAR(50),
+        tutor_name VARCHAR(100),
+
+        weekly_hours INTEGER DEFAULT 0,
+        required_hours INTEGER DEFAULT 4,
+
+        rotation_required BOOLEAN DEFAULT true,
+        imbalance_alert BOOLEAN DEFAULT false,
+
+        last_rotation DATE,
+        next_rotation DATE,
+
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    res.send("TABLA student_pedagogical_actions creada correctamente");
+    res.send("TABLA student_schedule_control creada correctamente");
 
   } catch (error) {
     console.error(error);
-    res.status(500).send("Error creando tabla student_pedagogical_actions");
+    res.status(500).send("Error creando tabla schedule control");
   }
 });
 /* ========================
