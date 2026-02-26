@@ -995,35 +995,33 @@ app.post("/student/academic-profile", async (req, res) => {
   }
 });
 
-app.get("/setup/student-schedule-control", async (req, res) => {
+app.get("/setup/student-certification-path", async (req, res) => {
   try {
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_schedule_control (
+      CREATE TABLE IF NOT EXISTS student_certification_path (
         id SERIAL PRIMARY KEY,
         student_id INTEGER REFERENCES students(id),
 
-        subject VARCHAR(50),
-        tutor_name VARCHAR(100),
+        certification_goal VARCHAR(100),   -- bachillerato, técnico, universidad, etc
+        required_subjects TEXT,
+        completed_subjects TEXT,
 
-        weekly_hours INTEGER DEFAULT 0,
-        required_hours INTEGER DEFAULT 4,
+        readiness_level VARCHAR(20),       -- bajo / medio / alto
+        certification_ready BOOLEAN DEFAULT false,
 
-        rotation_required BOOLEAN DEFAULT true,
-        imbalance_alert BOOLEAN DEFAULT false,
+        director_validation BOOLEAN DEFAULT false,
+        validated_at TIMESTAMP,
 
-        last_rotation DATE,
-        next_rotation DATE,
-
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    res.send("TABLA student_schedule_control creada correctamente");
+    res.send("TABLA student_certification_path creada correctamente");
 
   } catch (error) {
     console.error(error);
-    res.status(500).send("Error creando tabla schedule control");
+    res.status(500).send("Error creando tabla student_certification_path");
   }
 });
 /* ========================
