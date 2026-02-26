@@ -820,6 +820,36 @@ app.get("/director/test/reinforcement", async (req, res) => {
   }
 });
 /* =========================
+INIT STUDENTS TABLE (AUDITADO)
+CREA TABLA CENTRAL DE ALUMNOS
+========================= */
+
+app.get("/admin/init-students-table", async (req, res) => {
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS students (
+        id SERIAL PRIMARY KEY,
+        full_name TEXT,
+        email TEXT UNIQUE,
+        age INTEGER,
+        declared_grade TEXT,
+        current_grade TEXT,
+        enrollment_date TIMESTAMP DEFAULT NOW(),
+        active BOOLEAN DEFAULT TRUE
+      )
+    `);
+
+    console.log("TABLA STUDENTS VERIFICADA / CREADA");
+
+    res.send("Tabla STUDENTS creada o ya existente");
+
+  } catch (error) {
+    console.error("ERROR creando tabla students:", error);
+    res.status(500).send("Error creando tabla students");
+  }
+});
+/* =========================
 START
 ========================= */
 app.listen(PORT, "0.0.0.0", () => {
