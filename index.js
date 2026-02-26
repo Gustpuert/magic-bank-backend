@@ -995,33 +995,81 @@ app.post("/student/academic-profile", async (req, res) => {
   }
 });
 
-app.get("/setup/student-certification-path", async (req, res) => {
+app.get("/setup/academic-core", async (req, res) => {
   try {
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_certification_path (
-        id SERIAL PRIMARY KEY,
-        student_id INTEGER REFERENCES students(id),
-
-        certification_goal VARCHAR(100),   -- bachillerato, técnico, universidad, etc
-        required_subjects TEXT,
-        completed_subjects TEXT,
-
-        readiness_level VARCHAR(20),       -- bajo / medio / alto
-        certification_ready BOOLEAN DEFAULT false,
-
-        director_validation BOOLEAN DEFAULT false,
-        validated_at TIMESTAMP,
-
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+    CREATE TABLE IF NOT EXISTS student_diagnostic (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER REFERENCES students(id),
+      diagnostic_notes TEXT,
+      math_level VARCHAR(20),
+      language_level VARCHAR(20),
+      science_level VARCHAR(20),
+      social_level VARCHAR(20),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
     `);
 
-    res.send("TABLA student_certification_path creada correctamente");
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS student_academic_status (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER REFERENCES students(id),
+      assigned_grade VARCHAR(20),
+      academic_state VARCHAR(20),
+      progress_percentage INTEGER DEFAULT 0,
+      reinforcement_required BOOLEAN DEFAULT false,
+      certification_ready BOOLEAN DEFAULT false,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    `);
+
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS student_subject_progress (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER REFERENCES students(id),
+      subject VARCHAR(50),
+      progress INTEGER DEFAULT 0,
+      last_activity TIMESTAMP
+    );
+    `);
+
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS student_pedagogical_actions (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER REFERENCES students(id),
+      action_type VARCHAR(50),
+      description TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    `);
+
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS student_schedule_control (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER REFERENCES students(id),
+      tutor_assigned VARCHAR(50),
+      time_block VARCHAR(50),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    `);
+
+    await pool.query(`
+    CREATE TABLE IF NOT EXISTS student_certification_path (
+      id SERIAL PRIMARY KEY,
+      student_id INTEGER REFERENCES students(id),
+      path_type VARCHAR(50),
+      final_exam_required BOOLEAN DEFAULT true,
+      approved BOOLEAN DEFAULT false,
+      certification_date TIMESTAMP
+    );
+    `);
+
+    res.send("CORE académico creado correctamente");
 
   } catch (error) {
     console.error(error);
-    res.status(500).send("Error creando tabla student_certification_path");
+    res.status(500).send("Error creando core académico");
   }
 });
 /* ========================
