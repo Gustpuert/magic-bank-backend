@@ -449,6 +449,28 @@ app.post("/tutor/report", async (req, res) => {
     res.status(500).send("Error guardando reporte");
   }
 });
+app.get("/test/create-student", async (req, res) => {
+  try {
+    await pool.query(
+      `
+      INSERT INTO students (full_name, email, age, declared_grade, current_grade)
+      VALUES ($1,$2,$3,$4,$4)
+      `,
+      [
+        "Estudiante Prueba",
+        "prueba@magicbank.org",
+        15,
+        9
+      ]
+    );
+
+    res.send("Estudiante creado correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* =========================
 DIRECTOR - VER REPORTES
 ========================= */
