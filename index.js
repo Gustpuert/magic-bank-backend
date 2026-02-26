@@ -373,6 +373,43 @@ app.get("/access/:token", async (req,res)=>{
   if(!r.rowCount) return res.status(403).send("Acceso inválido");
   res.redirect(r.rows[0].redirect_url);
 });
+app.get("/onboarding/:token", async (req, res) => {
+
+  const r = await pool.query(
+    "SELECT email FROM access_tokens WHERE token=$1 AND expires_at>NOW()",
+    [req.params.token]
+  );
+
+  if (!r.rowCount) {
+    return res.status(403).send("Token inválido");
+  }
+
+  res.send(`
+    <html>
+    <body style="font-family:Arial;background:#0f172a;color:white;padding:40px;">
+      <h2>🎓 Inscripción Oficial Bachillerato MagicBank</h2>
+
+      <form method="POST" action="/onboarding/${req.params.token}">
+        <label>Nombre completo:</label><br>
+        <input name="full_name" required /><br><br>
+
+        <label>Edad:</label><br>
+        <input name="age" type="number" required /><br><br>
+
+        <label>Grado declarado:</label><br>
+        <input name="declared_grade" type="number" min="1" max="11" required /><br><br>
+
+        <label>
+          <input type="checkbox" name="legal_accept" required />
+          Acepto las condiciones académicas y reglamento institucional
+        </label><br><br>
+
+        <button type="submit">Finalizar Inscripción</button>
+      </form>
+    </body>
+    </html>
+  `);
+});
 /* =========================
 STUDENT ENROLLMENT
 INSCRIPCIÓN ACADÉMICA REAL
