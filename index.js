@@ -991,26 +991,26 @@ app.post("/student/academic-profile", async (req, res) => {
 });
 
 /* =========================
-SETUP TABLE: student_academic_profile
+SETUP TABLE: student_learning_events
 BORRAR DESPUÉS DE EJECUTAR
 ========================= */
 
-app.get("/setup/student-academic-profile", async (req, res) => {
+app.get("/setup/student-learning-events", async (req, res) => {
   try {
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_academic_profile (
+      CREATE TABLE IF NOT EXISTS student_learning_events (
         id SERIAL PRIMARY KEY,
         student_id INTEGER REFERENCES students(id),
-        current_grade VARCHAR(20),
-        country VARCHAR(50),
-        learning_rhythm VARCHAR(20),
-        academic_status VARCHAR(20),
+        subject VARCHAR(50),
+        event_type VARCHAR(50),
+        performance_score INTEGER,
+        tutor_name VARCHAR(100),
         created_at TIMESTAMP DEFAULT NOW()
       )
     `);
 
-    res.send("Tabla student_academic_profile creada o ya existente");
+    res.send("Tabla student_learning_events creada o ya existente");
 
   } catch (error) {
     console.error(error);
