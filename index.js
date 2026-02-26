@@ -820,33 +820,33 @@ app.get("/director/test/reinforcement", async (req, res) => {
   }
 });
 /* =========================
-INIT STUDENTS TABLE (AUDITADO)
-CREA TABLA CENTRAL DE ALUMNOS
+INSCRIPCIÓN INDIVIDUAL ALUMNO
 ========================= */
 
-app.get("/admin/init-students-table", async (req, res) => {
+app.post("/enroll-student", async (req, res) => {
   try {
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS students (
-        id SERIAL PRIMARY KEY,
-        full_name TEXT,
-        email TEXT UNIQUE,
-        age INTEGER,
-        declared_grade TEXT,
-        current_grade TEXT,
-        enrollment_date TIMESTAMP DEFAULT NOW(),
-        active BOOLEAN DEFAULT TRUE
-      )
-    `);
+    const { full_name, email, age, declared_grade } = req.body;
 
-    console.log("TABLA STUDENTS VERIFICADA / CREADA");
+    if (!full_name || !email || !declared_grade) {
+      return res.status(400).send("Datos incompletos");
+    }
 
-    res.send("Tabla STUDENTS creada o ya existente");
+    await pool.query(
+      `
+      INSERT INTO students (full_name, email, age, declared_grade, current_grade)
+      VALUES ($1, $2, $3, $4, $4)
+      `,
+      [full_name, email, age || null, declared_grade]
+    );
+
+    console.log("NUEVO ALUMNO INSCRITO:", email);
+
+    res.send("Alumno inscrito correctamente");
 
   } catch (error) {
-    console.error("ERROR creando tabla students:", error);
-    res.status(500).send("Error creando tabla students");
+    console.error("ERROR en inscripción:", error);
+    res.status(500).send("Error al inscribir alumno");
   }
 });
 /* =========================
