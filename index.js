@@ -995,81 +995,63 @@ app.post("/student/academic-profile", async (req, res) => {
   }
 });
 
-app.get("/setup/academic-core", async (req, res) => {
+app.post("/academic/director/action", async (req, res) => {
   try {
+    const { action_type, student_id, data } = req.body;
 
-    await pool.query(`
-    CREATE TABLE IF NOT EXISTS student_diagnostic (
-      id SERIAL PRIMARY KEY,
-      student_id INTEGER REFERENCES students(id),
-      diagnostic_notes TEXT,
-      math_level VARCHAR(20),
-      language_level VARCHAR(20),
-      science_level VARCHAR(20),
-      social_level VARCHAR(20),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    `);
+    if (!action_type || !student_id) {
+      return res.status(400).send("Faltan datos obligatorios");
+    }
 
-    await pool.query(`
-    CREATE TABLE IF NOT EXISTS student_academic_status (
-      id SERIAL PRIMARY KEY,
-      student_id INTEGER REFERENCES students(id),
-      assigned_grade VARCHAR(20),
-      academic_state VARCHAR(20),
-      progress_percentage INTEGER DEFAULT 0,
-      reinforcement_required BOOLEAN DEFAULT false,
-      certification_ready BOOLEAN DEFAULT false,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    `);
+    switch (action_type) {
 
-    await pool.query(`
-    CREATE TABLE IF NOT EXISTS student_subject_progress (
-      id SERIAL PRIMARY KEY,
-      student_id INTEGER REFERENCES students(id),
-      subject VARCHAR(50),
-      progress INTEGER DEFAULT 0,
-      last_activity TIMESTAMP
-    );
-    `);
+      case "diagnostic":
+        await pool.query(`
+          INSERT INTO student_diagnostic 
+          (student_id, diagnostic_notes, math_level, language_level, science_level, social_level)
+          VALUES ($1,$2,$3,$4,$5,$6)
+        `, [
+          student_id,
+          data.diagnostic_notes,
+          data.math_level,
+          data.language_level,
+          data.science_level,
+          data.social_level
+        ]);
+        break;
 
-    await pool.query(`
-    CREATE TABLE IF NOT EXISTS student_pedagogical_actions (
-      id SERIAL PRIMARY KEY,
-      student_id INTEGER REFERENCES students(id),
-      action_type VARCHAR(50),
-      description TEXT,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    `);
+      case "assign_grade":
+        await pool.query(`
+          UPDATE student_academic_status
+          SET assigned_grade = $1, academic_state = 'activo'
+          WHERE student_id = $2
+        `, [data.assigned_grade, student_id]);
+        break;
 
-    await pool.query(`
-    CREATE TABLE IF NOT EXISTS student_schedule_control (
-      id SERIAL PRIMARY KEY,
-      student_id INTEGER REFERENCES students(id),
-      tutor_assigned VARCHAR(50),
-      time_block VARCHAR(50),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    );
-    `);
+      case "update_progress":
+        await pool.query(`
+          INSERT INTO student_subject_progress (student_id, subject, progress, last_activity)
+          VALUES ($1,$2,$3, NOW())
+        `, [student_id, data.subject, data.progress]);
+        break;
 
-    await pool.query(`
-    CREATE TABLE IF NOT EXISTS student_certification_path (
-      id SERIAL PRIMARY KEY,
-      student_id INTEGER REFERENCES students(id),
-      path_type VARCHAR(50),
-      final_exam_required BOOLEAN DEFAULT true,
-      approved BOOLEAN DEFAULT false,
-      certification_date TIMESTAMP
-    );
-    `);
+      case "certification_decision":
+        await pool.query(`
+          UPDATE student_certification_path
+          SET approved = $1, certification_date = NOW()
+          WHERE student_id = $2
+        `, [data.approved, student_id]);
+        break;
 
-    res.send("CORE académico creado correctamente");
+      default:
+        return res.status(400).send("Acción no válida");
+    }
+
+    res.send("Acción académica ejecutada correctamente");
 
   } catch (error) {
     console.error(error);
-    res.status(500).send("Error creando core académico");
+    res.status(500).send("Error ejecutando acción académica");
   }
 });
 /* ========================
