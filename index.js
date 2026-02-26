@@ -373,7 +373,42 @@ app.get("/access/:token", async (req,res)=>{
   if(!r.rowCount) return res.status(403).send("Acceso inválido");
   res.redirect(r.rows[0].redirect_url);
 });
+/* =========================
+STUDENT ENROLLMENT
+INSCRIPCIÓN ACADÉMICA REAL
+========================= */
 
+app.post("/student/enroll", async (req, res) => {
+  try {
+
+    const {
+      student_id,
+      declared_grade,
+      enrollment_type
+    } = req.body;
+
+    await pool.query(`
+      UPDATE students
+      SET
+        academic_status = 'active',
+        declared_grade = $2,
+        enrollment_type = $3,
+        enrolled_at = NOW()
+      WHERE id = $1
+    `,
+    [
+      student_id,
+      declared_grade,
+      enrollment_type
+    ]);
+
+    res.send("Alumno inscrito académicamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error inscribiendo alumno");
+  }
+});
 /* =========================
 ENDPOINT TUTOR REPORT
 COMUNICACIÓN REAL TUTOR → DB
