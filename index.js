@@ -989,34 +989,37 @@ app.post("/student/academic-profile", async (req, res) => {
     res.status(500).send("Error guardando perfil académico");
   }
 });
-
 /* =========================
-SETUP TABLE: student_learning_events
+SETUP TABLE: student_vocational_profile
 BORRAR DESPUÉS DE EJECUTAR
 ========================= */
 
-app.get("/setup/student-learning-events", async (req, res) => {
+app.get("/setup/student-vocational-profile", async (req, res) => {
   try {
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_learning_events (
+      CREATE TABLE IF NOT EXISTS student_vocational_profile (
         id SERIAL PRIMARY KEY,
         student_id INTEGER REFERENCES students(id),
-        subject VARCHAR(50),
-        event_type VARCHAR(50),
-        performance_score INTEGER,
-        tutor_name VARCHAR(100),
-        created_at TIMESTAMP DEFAULT NOW()
+        cognitive_profile VARCHAR(100),
+        learning_style VARCHAR(50),
+        detected_strength TEXT,
+        detected_difficulty TEXT,
+        interest_area VARCHAR(100),
+        recommended_path TEXT,
+        certification_status VARCHAR(50),
+        updated_at TIMESTAMP DEFAULT NOW()
       )
     `);
 
-    res.send("Tabla student_learning_events creada o ya existente");
+    res.send("Tabla student_vocational_profile creada o ya existente");
 
   } catch (error) {
     console.error(error);
     res.status(500).send("Error creando tabla");
   }
 });
+
 /* ========================
 START
 ========================= */
