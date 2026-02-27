@@ -1255,6 +1255,22 @@ app.get("/fix/student-subject-progress-progress", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/debug/student-subject-progress-structure", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'student_subject_progress';
+    `);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
