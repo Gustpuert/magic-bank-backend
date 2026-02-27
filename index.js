@@ -1175,6 +1175,38 @@ app.post("/academic/adaptive-engine", async (req, res) => {
     res.status(500).send("Error ejecutando motor académico");
   }
 });
+
+app.get("/test/adaptive-engine", async (req, res) => {
+  try {
+
+    const student_id = 1; // Cambia si quieres probar otro
+
+    // 1️⃣ Asignación inicial simulada
+    await pool.query(`
+      INSERT INTO student_pedagogical_actions
+      (student_id, action_type, description)
+      VALUES ($1, 'initial_assignment', 'Asignado tutor inicial Matemáticas')
+    `, [student_id]);
+
+    await pool.query(`
+      INSERT INTO student_subject_progress
+      (student_id, subject, progress)
+      VALUES ($1, 'Matemáticas', 0)
+    `, [student_id]);
+
+    await pool.query(`
+      INSERT INTO student_schedule_control
+      (student_id, tutor_assigned, time_block)
+      VALUES ($1, 'Tutor Matemáticas', 'alta')
+    `, [student_id]);
+
+    res.send("Motor adaptativo ejecutado correctamente (prueba)");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
