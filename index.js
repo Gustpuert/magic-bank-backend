@@ -1405,10 +1405,10 @@ app.get("/debug/schedule-columns", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
-app.get("/debug/subject-progress-columns", async (req, res) => {
+app.get("/debug/subject-progress-structure", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT column_name
+      SELECT column_name, data_type
       FROM information_schema.columns
       WHERE table_name = 'student_subject_progress'
       ORDER BY column_name;
@@ -1417,7 +1417,6 @@ app.get("/debug/subject-progress-columns", async (req, res) => {
     res.json(result.rows);
 
   } catch (error) {
-    console.error(error);
     res.status(500).send(error.message);
   }
 });
