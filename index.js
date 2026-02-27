@@ -1286,120 +1286,86 @@ app.post("/academic/diagnostic", async (req, res) => {
 
 });
 
-/* =========================
-TEST DIAGNÓSTICO POR URL
-(SOLO PRUEBA)
-========================= */
 
-app.get("/academic/test-diagnostic/:student_id", async (req, res) => {
-
+router.post("/test-diagnostic", async (req, res) => {
   const client = await pool.connect();
 
   try {
+    const {
+      student_id,
+      declared_grade,
+      math_level,
+      english_level,
+      cognitive_observation,
+      learning_habits,
+      attention_profile
+    } = req.body;
 
-    const student_id = req.params.student_id;
+    if (!student_id) {
+      return res.status(400).json({ error: "student_id requerido" });
+    }
 
     await client.query("BEGIN");
 
-    // Diagnóstico básico automático
-    
-await client.query(`
-  INSERT INTO student_diagnostic
-  (student_id, diagnostic_notes, math_level, language_level, science_level, social_level)
-  VALUES ($1,'Diagnóstico automático URL','medio','medio','medio','medio')
-  ON CONFLICT (student_id)
-  DO UPDATE SET
-    diagnostic_notes = EXCLUDED.diagnostic_notes,
-    math_level = EXCLUDED.math_level,
-    language_level = EXCLUDED.language_level,
-    science_level = EXCLUDED.science_level,
-    social_level = EXCLUDED.social_level
-`, [student_id]);
-    const gradeResult = await client.query(
-      "SELECT declared_grade FROM students WHERE id = $1",
+    // 1. Guardar diagnóstico
+    await client.query(
+      `INSERT INTO student_diagnostic 
+       (student_id, declared_grade, math_level, english_level, cognitive_observation, learning_habits, attention_profile)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [student_id, declared_grade, math_level, english_level, cognitive_observation, learning_habits, attention_profile]
+    );
+
+    // 2. Estado académico
+    await client.query(
+      `INSERT INTO student_academic_status
+       (student_id, assigned_grade, academic_state, progress_percentage, reinforcement_required, certification_ready)
+       VALUES ($1,$2,'active',0,false,false)
+       ON CONFLICT (student_id) DO UPDATE
+       SET assigned_grade = EXCLUDED.assigned_grade`,
+      [student_id, declared_grade]
+    );
+
+    // 3. Ruta certificación
+    await client.query(
+      `INSERT INTO student_certification_path
+       (student_id, certification_goal, required_subjects, completed_subjects, readiness_level, certification_ready)
+       VALUES ($1,'Academic Excellence',3,0,0,false)
+       ON CONFLICT (student_id) DO NOTHING`,
       [student_id]
     );
 
-    if (!gradeResult.rowCount) {
-      await client.query("ROLLBACK");
-      return res.status(404).send("Estudiante no encontrado");
-    }
+    // 4. Progreso materias
+    await client.query(
+      `INSERT INTO student_subject_progress
+       (student_id, subject, current_level, progress_percentage, subject_status)
+       VALUES 
+       ($1,'Matemáticas',$2,0,'active'),
+       ($1,'Inglés',$3,0,'active')`,
+      [student_id, math_level, english_level]
+    );
 
-    const declaredGrade = gradeResult.rows[0].declared_grade;
-
-    await client.query(`
-      INSERT INTO student_academic_status
-      (student_id, assigned_grade, academic_state, reinforcement_required, certification_ready)
-      VALUES ($1,$2,'activo',false,false)
-      ON CONFLICT (student_id) DO NOTHING
-    `, [student_id, declaredGrade]);
-
-    // 4️⃣ Ruta certificación (adaptado a tu tabla real)
-
-await client.query(`
-  DELETE FROM student_certification_path
-  WHERE student_id = $1
-`, [student_id]);
-
-await client.query(`
-  INSERT INTO student_certification_path
-  (student_id, completed_subjects, readiness_level, certification_ready, director_validation, created_at)
-  VALUES ($1, 0, 'inicial', false, false, NOW())
-`, [student_id]);
-
-    const CURRICULO_BASE = {
-      1:["Matemáticas","Lengua","Ciencias","Sociales"],
-      2:["Matemáticas","Lengua","Ciencias","Sociales"],
-      3:["Matemáticas","Lengua","Ciencias","Sociales"],
-      4:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
-      5:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
-      6:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
-      7:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
-      8:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
-      9:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
-      10:["Matemáticas","Lengua","Física","Química","Sociales","Inglés","Filosofía"],
-      11:["Matemáticas","Lengua","Física","Química","Sociales","Inglés","Filosofía"]
-    };
-
-    const subjects = CURRICULO_BASE[declaredGrade] || [];
-    const baseHours = 4;
-
-    for (const subject of subjects) {
-
-      await client.query(`
-        INSERT INTO student_subject_progress
-        (student_id, subject, progress_percentage, subject_status)
-        VALUES ($1,$2,0,'activo')
-        ON CONFLICT DO NOTHING
-      `, [student_id, subject]);
-
-      await client.query(`
-        INSERT INTO student_schedule_control
-        (student_id, tutor_name, subject, weekly_hours)
-        VALUES ($1,$2,$2,$3)
-        ON CONFLICT DO NOTHING
-      `, [student_id, subject, baseHours]);
-
-    }
+    // 5. Control horario
+    await client.query(
+      `INSERT INTO student_schedule_control
+       (student_id, subject, tutor_name, weekly_hours, required_hours, rotation_required, imbalance_alert)
+       VALUES
+       ($1,'Matemáticas','Tutor Matemáticas',0,4,true,false),
+       ($1,'Inglés','Tutor Inglés',0,4,true,false)`,
+      [student_id]
+    );
 
     await client.query("COMMIT");
 
-    res.send("Diagnóstico ejecutado correctamente vía URL");
+    res.json({ message: "Diagnóstico ejecutado correctamente" });
 
-  } catch (error) {
-
+  } catch (err) {
     await client.query("ROLLBACK");
-    console.error(error);
-    res.status(500).send("Error ejecutando diagnóstico");
-
+    console.error(err);
+    res.status(500).json({ error: "Error ejecutando diagnóstico" });
   } finally {
-
     client.release();
-
   }
-
 });
-
 
 
 
