@@ -1019,7 +1019,7 @@ app.post("/academic/adaptive-engine", async (req, res) => {
 
         await client.query(`
           INSERT INTO student_subject_progress
-          (student_id, subject_name, progress_percentage, subject_status)
+          (student_id, subject, progress_percentage, subject_status)
           VALUES ($1, $2, 0, 'activo')
         `, [
           student_id,
@@ -1049,7 +1049,7 @@ app.post("/academic/adaptive-engine", async (req, res) => {
           SET progress_percentage = $1,
               last_activity = NOW()
           WHERE student_id = $2
-          AND subject_name = $3
+          AND subject = $3
         `, [
           payload.progress,
           student_id,
