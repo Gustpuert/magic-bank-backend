@@ -22,46 +22,12 @@ const pool = new Pool({
 });
 
 /* =========================
-RESEND MAIL
-========================= */
-async function enviarCorreo(destino, producto, token) {
-  try {
-    await axios.post(
-      "https://api.resend.com/emails",
-      {
-        from: "MagicBank <info@send.magicbank.org>",
-        to: destino,
-        subject: "Acceso a tu tutor MagicBank",
-        html: `
-          <h2>Tu acceso está listo</h2>
-          <p><b>${producto.nombre}</b></p>
-          <p>Haz clic para ingresar:</p>
-          <a href="https://magic-bank-backend-production-713e.up.railway.app/access/${token}">
-          ACCEDER AL TUTOR
-          </a>
-        `,
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
-
-    console.log("EMAIL ENVIADO OK");
-
-  } catch (err) {
-    console.error("ERROR RESEND:", err.response?.data || err.message);
-  }
-}
-
-/* =========================
 HEALTHCHECK
 ========================= */
 app.get("/", (_, res) => {
   res.send("MAGICBANK BACKEND ACTIVO");
 });
+
 /* =========================
 ANALYTICS DASHBOARD
 ========================= */
@@ -106,6 +72,7 @@ app.get("/analytics", async (req, res) => {
     res.status(500).send("Error analytics");
   }
 });
+
 /* =========================
 DASHBOARD VISUAL
 ========================= */
@@ -134,7 +101,7 @@ app.get("/dashboard", async (req, res) => {
     const ventasPorDia = await pool.query(`
       SELECT DATE(created_at) as fecha, COUNT(*) as total
       FROM access_tokens
-      GROUP BY fecha
+      GROUP BY DATE(created_at)
       ORDER BY fecha DESC
     `);
 
@@ -142,55 +109,10 @@ app.get("/dashboard", async (req, res) => {
       <html>
       <head>
         <title>MagicBank Analytics</title>
-        <style>
-          body { font-family: Arial; background:#0f172a; color:white; padding:30px; }
-          h1 { color:#22d3ee; }
-          .card { background:#1e293b; padding:20px; margin-bottom:20px; border-radius:10px; }
-          table { width:100%; border-collapse: collapse; }
-          th, td { padding:8px; text-align:left; }
-          th { background:#334155; }
-          tr:nth-child(even) { background:#1e293b; }
-        </style>
       </head>
       <body>
-
-        <h1>📊 MAGICBANK DASHBOARD</h1>
-
-        <div class="card">
-          <h2>Total Alumnos</h2>
-          <h1>${totalAlumnos.rows[0].count}</h1>
-        </div>
-
-        <div class="card">
-          <h2>🏆 Cursos más vendidos</h2>
-          <table>
-            <tr><th>Curso</th><th>Total</th></tr>
-            ${cursosTop.rows.map(c =>
-              `<tr><td>${c.product_name}</td><td>${c.total}</td></tr>`
-            ).join("")}
-          </table>
-        </div>
-
-        <div class="card">
-          <h2>🏫 Áreas más solicitadas</h2>
-          <table>
-            <tr><th>Área</th><th>Total</th></tr>
-            ${areasTop.rows.map(a =>
-              `<tr><td>${a.area}</td><td>${a.total}</td></tr>`
-            ).join("")}
-          </table>
-        </div>
-
-        <div class="card">
-          <h2>📈 Ventas por día</h2>
-          <table>
-            <tr><th>Fecha</th><th>Total</th></tr>
-            ${ventasPorDia.rows.map(v =>
-              `<tr><td>${v.fecha}</td><td>${v.total}</td></tr>`
-            ).join("")}
-          </table>
-        </div>
-
+        <h1>MAGICBANK DASHBOARD</h1>
+        <p>Total alumnos: ${totalAlumnos.rows[0].count}</p>
       </body>
       </html>
     `);
@@ -200,6 +122,8 @@ app.get("/dashboard", async (req, res) => {
     res.status(500).send("Error cargando dashboard");
   }
 });
+
+
 /* =========================
 AUTH TIENDANUBE
 ========================= */
@@ -1056,6 +980,8 @@ app.post("/academic/director/action", async (req, res) => {
 });
 
 app.post("/academic/adaptive-engine", async (req, res) => {
+  const client = await pool.connect();
+
   try {
 
     const { student_id, action_mode, payload } = req.body;
@@ -1064,8 +990,7 @@ app.post("/academic/adaptive-engine", async (req, res) => {
       return res.status(400).send("Datos incompletos");
     }
 
-    // VALIDAR ESTUDIANTE
-    const studentCheck = await pool.query(
+    const studentCheck = await client.query(
       "SELECT id FROM students WHERE id = $1",
       [student_id]
     );
@@ -1074,79 +999,113 @@ app.post("/academic/adaptive-engine", async (req, res) => {
       return res.status(404).send("Estudiante no encontrado");
     }
 
+    await client.query("BEGIN");
+
     switch (action_mode) {
 
-      // 1️⃣ ASIGNACIÓN INICIAL
+      /* =========================
+      1️⃣ ASIGNACIÓN INICIAL
+      ========================= */
       case "initial_assignment":
 
-        await pool.query(`
+        await client.query(`
           INSERT INTO student_pedagogical_actions
           (student_id, action_type, description)
           VALUES ($1, 'initial_assignment', $2)
-        `, [student_id, `Asignado tutor inicial: ${payload.primary_subject}`]);
+        `, [
+          student_id,
+          `Asignado tutor inicial: ${payload.primary_subject}`
+        ]);
 
-        await pool.query(`
+        await client.query(`
           INSERT INTO student_subject_progress
-          (student_id, subject, progress)
-          VALUES ($1, $2, 0)
-        `, [student_id, payload.primary_subject]);
+          (student_id, subject_name, progress_percentage, subject_status)
+          VALUES ($1, $2, 0, 'activo')
+        `, [
+          student_id,
+          payload.primary_subject
+        ]);
 
-        await pool.query(`
-          
-        `, [student_id, payload.primary_subject, payload.intensity]);
+        await client.query(`
+          INSERT INTO student_schedule_control
+          (student_id, tutor_name, subject, weekly_hours)
+          VALUES ($1, $2, $3, $4)
+        `, [
+          student_id,
+          payload.primary_subject,
+          payload.primary_subject,
+          payload.intensity || 5
+        ]);
 
-      INSERT INTO student_schedule_control
-(student_id, tutor_name, subject, weekly_hours)
-VALUES ($1,$2,$3,$4)  break;
+        break;
 
-      // 2️⃣ EVALUACIÓN DE PROGRESO
+      /* =========================
+      2️⃣ EVALUACIÓN DE PROGRESO
+      ========================= */
       case "progress_evaluation":
 
-        await pool.query(`
+        await client.query(`
           UPDATE student_subject_progress
-          SET progress = $1, last_activity = NOW()
-          WHERE student_id = $2 AND subject = $3
-        `, [payload.progress, student_id, payload.subject]);
+          SET progress_percentage = $1,
+              last_activity = NOW()
+          WHERE student_id = $2
+          AND subject_name = $3
+        `, [
+          payload.progress,
+          student_id,
+          payload.subject
+        ]);
 
         if (payload.progress >= 70) {
-          await pool.query(`
+          await client.query(`
             INSERT INTO student_pedagogical_actions
             (student_id, action_type, description)
             VALUES ($1, 'advance_subject', $2)
-          `, [student_id, `Avance exitoso en ${payload.subject}`]);
+          `, [
+            student_id,
+            `Avance exitoso en ${payload.subject}`
+          ]);
         }
 
         break;
 
-      // 3️⃣ REFUERZO
+      /* =========================
+      3️⃣ REFUERZO
+      ========================= */
       case "reinforcement_adjustment":
 
-        await pool.query(`
+        await client.query(`
           UPDATE student_academic_status
           SET reinforcement_required = true
           WHERE student_id = $1
         `, [student_id]);
 
-        await pool.query(`
+        await client.query(`
           INSERT INTO student_pedagogical_actions
           (student_id, action_type, description)
           VALUES ($1, 'reinforcement', $2)
-        `, [student_id, `Refuerzo activado en ${payload.subject}`]);
+        `, [
+          student_id,
+          `Refuerzo activado en ${payload.subject}`
+        ]);
 
         break;
 
-      // 4️⃣ CERTIFICACIÓN
+      /* =========================
+      4️⃣ CERTIFICACIÓN
+      ========================= */
       case "certification_evaluation":
 
         if (payload.approved === true) {
 
-          await pool.query(`
+          await client.query(`
             UPDATE student_certification_path
-            SET approved = true, certification_date = NOW()
+            SET approved = true,
+                certification_date = NOW()
             WHERE student_id = $1
           `, [student_id]);
 
-          await pool.query(`
+          await client.query(`
             UPDATE student_academic_status
             SET certification_ready = true
             WHERE student_id = $1
@@ -1154,7 +1113,7 @@ VALUES ($1,$2,$3,$4)  break;
 
         } else {
 
-          await pool.query(`
+          await client.query(`
             INSERT INTO student_pedagogical_actions
             (student_id, action_type, description)
             VALUES ($1, 'certification_denied', 'Requiere refuerzo adicional')
@@ -1165,14 +1124,20 @@ VALUES ($1,$2,$3,$4)  break;
         break;
 
       default:
+        await client.query("ROLLBACK");
         return res.status(400).send("Modo no válido");
     }
+
+    await client.query("COMMIT");
 
     res.send("Motor académico ejecutado correctamente");
 
   } catch (error) {
+    await client.query("ROLLBACK");
     console.error(error);
     res.status(500).send("Error ejecutando motor académico");
+  } finally {
+    client.release();
   }
 });
 
