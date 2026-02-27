@@ -1016,15 +1016,27 @@ app.post("/academic/adaptive-engine", async (req, res) => {
           student_id,
           `Asignado tutor inicial: ${payload.primary_subject}`
         ]);
+        let detectedLevel = null;
 
-        await client.query(`
-          INSERT INTO student_subject_progress
-          (student_id, subject, progress_percentage, subject_status)
-          VALUES ($1, $2, 0, 'activo')
-        `, [
-          student_id,
-          payload.primary_subject
-        ]);
+if (subject === "Matemáticas") detectedLevel = data.math_level;
+if (subject === "Lengua") detectedLevel = data.language_level;
+if (subject === "Ciencias") detectedLevel = data.science_level;
+if (subject === "Sociales") detectedLevel = data.social_level;
+
+// Si no viene nivel específico, usar declaredGrade como fallback
+if (!detectedLevel) detectedLevel = declaredGrade;
+
+await client.query(`
+  INSERT INTO student_subject_progress
+  (student_id, subject, current_level, progress_percentage, subject_status)
+  VALUES ($1,$2,$3,0,'nivelacion')
+  ON CONFLICT DO NOTHING
+`, [student_id, subject, detectedLevel]);
+
+
+        
+
+
 
         await client.query(`
           INSERT INTO student_schedule_control
