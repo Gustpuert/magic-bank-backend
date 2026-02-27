@@ -1400,7 +1400,36 @@ app.get("/debug/subject-progress-columns", async (req, res) => {
   }
 });
 
+/* =========================
+DEBUG REMOVE SUBJECT_NAME COLUMN
+========================= */
 
+app.get("/debug/remove-subject-name", async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+
+    await client.query("BEGIN");
+
+    await client.query(`
+      ALTER TABLE student_subject_progress
+      DROP COLUMN IF EXISTS subject_name;
+    `);
+
+    await client.query("COMMIT");
+
+    res.send("Columna subject_name eliminada correctamente");
+
+  } catch (error) {
+
+    await client.query("ROLLBACK");
+    console.error(error);
+    res.status(500).send(error.message);
+
+  } finally {
+    client.release();
+  }
+});
 /* ========================
 START
 ========================= */
