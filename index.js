@@ -1384,39 +1384,32 @@ await pool.query(`
 
 
 
-/* =========================
-DEBUG SCHEDULE STRUCTURE
-========================= */
 
-app.get("/debug/schedule-columns", async (req, res) => {
+
+app.get("/admin/fix-current-level-integer", async (req, res) => {
   try {
 
-    const result = await pool.query(`
-      SELECT column_name
-      FROM information_schema.columns
-      WHERE table_name = 'student_schedule_control'
-      ORDER BY column_name;
+    await pool.query(`
+      ALTER TABLE student_subject_progress
+      ALTER COLUMN current_level TYPE INTEGER
+      USING current_level::integer;
     `);
 
-    res.json(result.rows);
-
-  } catch (error) {
-    console.error("ERROR DEBUG SCHEDULE:", error);
-    res.status(500).send(error.message);
-  }
-});
-app.get("/debug/subject-progress-structure", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT column_name, data_type
-      FROM information_schema.columns
-      WHERE table_name = 'student_subject_progress'
-      ORDER BY column_name;
+    await pool.query(`
+      ALTER TABLE student_subject_progress
+      ALTER COLUMN current_level SET DEFAULT NULL;
     `);
 
-    res.json(result.rows);
+    await pool.query(`
+      ALTER TABLE student_subject_progress
+      ADD CONSTRAINT current_level_positive
+      CHECK (current_level IS NULL OR current_level >= 0);
+    `);
+
+    res.send("current_level convertido correctamente a INTEGER");
 
   } catch (error) {
+    console.error(error);
     res.status(500).send(error.message);
   }
 });
