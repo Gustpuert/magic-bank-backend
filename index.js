@@ -1224,7 +1224,7 @@ app.get("/fix/student-pedagogical-actions", async (req, res) => {
   }
 });
 
-app.get("/fix/student-subject-progress", async (req, res) => {
+app.get("/fix/student-subject-progress-force", async (req, res) => {
   try {
 
     await pool.query(`
@@ -1232,39 +1232,12 @@ app.get("/fix/student-subject-progress", async (req, res) => {
       ADD COLUMN IF NOT EXISTS subject VARCHAR(50);
     `);
 
-    res.send("Tabla student_subject_progress corregida");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(error.message);
-  }
-});
-
-app.get("/fix/student-subject-progress-progress", async (req, res) => {
-  try {
-
     await pool.query(`
       ALTER TABLE student_subject_progress
-      RENAME COLUMN progress_percentage TO progress;
+      ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0;
     `);
 
-    res.send("Columna progress corregida");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(error.message);
-  }
-});
-
-app.get("/debug/student-subject-progress-structure", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT column_name
-      FROM information_schema.columns
-      WHERE table_name = 'student_subject_progress';
-    `);
-
-    res.json(result.rows);
+    res.send("Tabla student_subject_progress alineada definitivamente");
 
   } catch (error) {
     console.error(error);
