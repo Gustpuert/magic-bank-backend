@@ -1239,6 +1239,22 @@ app.get("/fix/student-subject-progress", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/fix/student-subject-progress-progress", async (req, res) => {
+  try {
+
+    await pool.query(`
+      ALTER TABLE student_subject_progress
+      RENAME COLUMN progress_percentage TO progress;
+    `);
+
+    res.send("Columna progress corregida");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
