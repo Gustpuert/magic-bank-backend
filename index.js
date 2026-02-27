@@ -1190,7 +1190,7 @@ app.get("/test/adaptive-engine", async (req, res) => {
 
     await pool.query(`
       INSERT INTO student_subject_progress
-      (student_id, subject, progress)
+      (student_id, subject, progress_percentage)
       VALUES ($1, 'Matemáticas', 0)
     `, [student_id]);
 
