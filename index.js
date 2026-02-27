@@ -1223,6 +1223,22 @@ app.get("/fix/student-pedagogical-actions", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/fix/student-subject-progress", async (req, res) => {
+  try {
+
+    await pool.query(`
+      ALTER TABLE student_subject_progress
+      ADD COLUMN IF NOT EXISTS subject VARCHAR(50);
+    `);
+
+    res.send("Tabla student_subject_progress corregida");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
