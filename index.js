@@ -1467,10 +1467,15 @@ app.get("/debug/check-diagnostic-values", async (req, res) => {
 
     res.json(result.rows);
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(error.message);
-  }
+ catch (error) {
+
+  await client.query("ROLLBACK");
+
+  console.error("ERROR REAL:", error);
+
+  res.status(500).send(error.message);
+
+} 
 });
 /* ========================
 START
