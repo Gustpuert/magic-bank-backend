@@ -1451,6 +1451,27 @@ app.post("/debug/check-diagnostic-payload", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+
+app.get("/debug/check-diagnostic-values", async (req, res) => {
+  try {
+
+    const result = await pool.query(`
+      SELECT DISTINCT 
+        math_level,
+        language_level,
+        science_level,
+        social_level
+      FROM student_diagnostic
+    `);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
