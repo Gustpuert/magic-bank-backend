@@ -1383,7 +1383,22 @@ await pool.query(`
 
 
 
+app.get("/debug/subject-progress-columns", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'student_subject_progress'
+      ORDER BY column_name;
+    `);
 
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 
 
 /* ========================
