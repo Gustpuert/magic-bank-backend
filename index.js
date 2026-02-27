@@ -1207,6 +1207,22 @@ app.get("/test/adaptive-engine", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/fix/student-pedagogical-actions", async (req, res) => {
+  try {
+
+    await pool.query(`
+      ALTER TABLE student_pedagogical_actions
+      ADD COLUMN IF NOT EXISTS description TEXT;
+    `);
+
+    res.send("Tabla student_pedagogical_actions corregida");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
