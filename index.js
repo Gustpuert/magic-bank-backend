@@ -1242,7 +1242,7 @@ app.post("/academic/diagnostic", async (req, res) => {
 
       await client.query(`
         INSERT INTO student_subject_progress
-        (student_id, subject_name, progress_percentage, subject_status)
+        (student_id, subject, progress_percentage, subject_status)
         VALUES ($1,$2,0,'activo')
         ON CONFLICT DO NOTHING
       `, [student_id, subject]);
@@ -1349,7 +1349,7 @@ await pool.query(`
 
       await client.query(`
         INSERT INTO student_subject_progress
-        (student_id, subject_name, progress_percentage, subject_status)
+        (student_id, subject, progress_percentage, subject_status)
         VALUES ($1,$2,0,'activo')
         ON CONFLICT DO NOTHING
       `, [student_id, subject]);
