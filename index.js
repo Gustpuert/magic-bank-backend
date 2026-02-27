@@ -1273,6 +1273,107 @@ app.post("/academic/diagnostic", async (req, res) => {
   }
 
 });
+
+/* =========================
+TEST DIAGNÓSTICO POR URL
+(SOLO PRUEBA)
+========================= */
+
+app.get("/academic/test-diagnostic/:student_id", async (req, res) => {
+
+  const client = await pool.connect();
+
+  try {
+
+    const student_id = req.params.student_id;
+
+    await client.query("BEGIN");
+
+    // Diagnóstico básico automático
+    await client.query(`
+      INSERT INTO student_diagnostic
+      (student_id, diagnostic_notes, math_level, language_level, science_level, social_level)
+      VALUES ($1,'Diagnóstico automático URL','medio','medio','medio','medio')
+    `, [student_id]);
+
+    const gradeResult = await client.query(
+      "SELECT declared_grade FROM students WHERE id = $1",
+      [student_id]
+    );
+
+    if (!gradeResult.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).send("Estudiante no encontrado");
+    }
+
+    const declaredGrade = gradeResult.rows[0].declared_grade;
+
+    await client.query(`
+      INSERT INTO student_academic_status
+      (student_id, assigned_grade, academic_state, reinforcement_required, certification_ready)
+      VALUES ($1,$2,'activo',false,false)
+      ON CONFLICT (student_id) DO NOTHING
+    `, [student_id, declaredGrade]);
+
+    await client.query(`
+      INSERT INTO student_certification_path
+      (student_id, path_type, final_exam_required, approved)
+      VALUES ($1,'curriculo_oficial',true,false)
+      ON CONFLICT (student_id) DO NOTHING
+    `, [student_id]);
+
+    const CURRICULO_BASE = {
+      1:["Matemáticas","Lengua","Ciencias","Sociales"],
+      2:["Matemáticas","Lengua","Ciencias","Sociales"],
+      3:["Matemáticas","Lengua","Ciencias","Sociales"],
+      4:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
+      5:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
+      6:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
+      7:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
+      8:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
+      9:["Matemáticas","Lengua","Ciencias","Sociales","Inglés"],
+      10:["Matemáticas","Lengua","Física","Química","Sociales","Inglés","Filosofía"],
+      11:["Matemáticas","Lengua","Física","Química","Sociales","Inglés","Filosofía"]
+    };
+
+    const subjects = CURRICULO_BASE[declaredGrade] || [];
+    const baseHours = 4;
+
+    for (const subject of subjects) {
+
+      await client.query(`
+        INSERT INTO student_subject_progress
+        (student_id, subject_name, progress_percentage, subject_status)
+        VALUES ($1,$2,0,'activo')
+        ON CONFLICT DO NOTHING
+      `, [student_id, subject]);
+
+      await client.query(`
+        INSERT INTO student_schedule_control
+        (student_id, tutor_name, subject, weekly_hours)
+        VALUES ($1,$2,$2,$3)
+        ON CONFLICT DO NOTHING
+      `, [student_id, subject, baseHours]);
+
+    }
+
+    await client.query("COMMIT");
+
+    res.send("Diagnóstico ejecutado correctamente vía URL");
+
+  } catch (error) {
+
+    await client.query("ROLLBACK");
+    console.error(error);
+    res.status(500).send("Error ejecutando diagnóstico");
+
+  } finally {
+
+    client.release();
+
+  }
+
+});
 /* ========================
 START
 ========================= */
