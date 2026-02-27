@@ -1093,7 +1093,7 @@ app.post("/academic/adaptive-engine", async (req, res) => {
 
         await pool.query(`
           INSERT INTO student_schedule_control
-          (student_id, tutor_assigned, time_block)
+          (student_id, tutor_name, time_block)
           VALUES ($1, $2, $3)
         `, [student_id, payload.primary_subject, payload.intensity]);
 
