@@ -1414,6 +1414,53 @@ app.get("/debug/subject-progress-columns", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/debug/rebuild-certification-table", async (req, res) => {
+  const client = await pool.connect();
+
+  try {
+
+    await client.query("BEGIN");
+
+    // 1️⃣ Borrar tabla si existe
+    await client.query(`
+      DROP TABLE IF EXISTS student_certification_path CASCADE;
+    `);
+
+    // 2️⃣ Crear tabla limpia y alineada con backend
+    await client.query(`
+      CREATE TABLE student_certification_path (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        certification_goal TEXT,
+        required_subjects INTEGER DEFAULT 0,
+        completed_subjects INTEGER DEFAULT 0,
+        readiness_level TEXT DEFAULT 'inicial',
+        certification_ready BOOLEAN DEFAULT false,
+        director_validation BOOLEAN DEFAULT false,
+        validated_at TIMESTAMP,
+        approved BOOLEAN DEFAULT false,
+        certification_date TIMESTAMP,
+        path_type TEXT DEFAULT 'curriculo_oficial',
+        final_exam_required BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await client.query("COMMIT");
+
+    res.send("Tabla student_certification_path reconstruida correctamente");
+
+  } catch (error) {
+
+    await client.query("ROLLBACK");
+    console.error(error);
+    res.status(500).send("Error reconstruyendo tabla");
+
+  } finally {
+    client.release();
+  }
+});
 /* ========================
 START
 ========================= */
