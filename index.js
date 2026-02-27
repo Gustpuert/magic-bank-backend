@@ -132,7 +132,7 @@ app.get("/dashboard", async (req, res) => {
     `);
 
     const ventasPorDia = await pool.query(`
-      GROUP BY DATE(created_at) as fecha, COUNT(*) as total
+      SELECT DATE(created_at) as fecha, COUNT(*) as total
       FROM access_tokens
       GROUP BY fecha
       ORDER BY fecha DESC
