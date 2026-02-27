@@ -1329,12 +1329,12 @@ app.get("/academic/test-diagnostic/:student_id", async (req, res) => {
 
     // 4️⃣ Ruta certificación (adaptado a tu tabla real)
 
-await pool.query(`
+await client.query(`
   DELETE FROM student_certification_path
   WHERE student_id = $1
 `, [student_id]);
 
-await pool.query(`
+await client.query(`
   INSERT INTO student_certification_path
   (student_id, completed_subjects, readiness_level, certification_ready, director_validation, created_at)
   VALUES ($1, 0, 'inicial', false, false, NOW())
