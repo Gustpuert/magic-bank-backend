@@ -1315,12 +1315,18 @@ app.get("/academic/test-diagnostic/:student_id", async (req, res) => {
       ON CONFLICT (student_id) DO NOTHING
     `, [student_id, declaredGrade]);
 
-    await client.query(`
-      INSERT INTO student_certification_path
-      (student_id, path_type, final_exam_required, approved)
-      VALUES ($1,'curriculo_oficial',true,false)
-      ON CONFLICT (student_id) DO NOTHING
-    `, [student_id]);
+    // 4️⃣ Ruta certificación (adaptado a tu tabla real)
+
+await pool.query(`
+  DELETE FROM student_certification_path
+  WHERE student_id = $1
+`, [student_id]);
+
+await pool.query(`
+  INSERT INTO student_certification_path
+  (student_id, completed_subjects, readiness_level, certification_ready, director_validation, created_at)
+  VALUES ($1, 0, 'inicial', false, false, NOW())
+`, [student_id]);
 
     const CURRICULO_BASE = {
       1:["Matemáticas","Lengua","Ciencias","Sociales"],
