@@ -1092,12 +1092,12 @@ app.post("/academic/adaptive-engine", async (req, res) => {
         `, [student_id, payload.primary_subject]);
 
         await pool.query(`
-          INSERT INTO student_schedule_control
-          (student_id, tutor_name, time_block)
-          VALUES ($1, $2, $3)
+          
         `, [student_id, payload.primary_subject, payload.intensity]);
 
-        break;
+      INSERT INTO student_schedule_control
+(student_id, tutor_name, subject, weekly_hours)
+VALUES ($1,$2,$3,$4)  break;
 
       // 2️⃣ EVALUACIÓN DE PROGRESO
       case "progress_evaluation":
