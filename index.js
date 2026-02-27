@@ -1302,12 +1302,19 @@ app.get("/academic/test-diagnostic/:student_id", async (req, res) => {
     await client.query("BEGIN");
 
     // Diagnóstico básico automático
-    await client.query(`
-      INSERT INTO student_diagnostic
-      (student_id, diagnostic_notes, math_level, language_level, science_level, social_level)
-      VALUES ($1,'Diagnóstico automático URL','medio','medio','medio','medio')
-    `, [student_id]);
-
+    
+await client.query(`
+  INSERT INTO student_diagnostic
+  (student_id, diagnostic_notes, math_level, language_level, science_level, social_level)
+  VALUES ($1,'Diagnóstico automático URL','medio','medio','medio','medio')
+  ON CONFLICT (student_id)
+  DO UPDATE SET
+    diagnostic_notes = EXCLUDED.diagnostic_notes,
+    math_level = EXCLUDED.math_level,
+    language_level = EXCLUDED.language_level,
+    science_level = EXCLUDED.science_level,
+    social_level = EXCLUDED.social_level
+`, [student_id]);
     const gradeResult = await client.query(
       "SELECT declared_grade FROM students WHERE id = $1",
       [student_id]
