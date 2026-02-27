@@ -1176,81 +1176,12 @@ app.post("/academic/adaptive-engine", async (req, res) => {
   }
 });
 
-app.get("/test/adaptive-engine", async (req, res) => {
-  try {
-
-    const student_id = 1; // Cambia si quieres probar otro
-
-    // 1️⃣ Asignación inicial simulada
-    await pool.query(`
-      INSERT INTO student_pedagogical_actions
-      (student_id, action_type, description)
-      VALUES ($1, 'initial_assignment', 'Asignado tutor inicial Matemáticas')
-    `, [student_id]);
-
-    await pool.query(`
-      INSERT INTO student_subject_progress
-      (student_id, subject, progress_percentage)
-      VALUES ($1, 'Matemáticas', 0)
-    `, [student_id]);
-
-    await pool.query(`
-      INSERT INTO student_schedule_control
-      (student_id, tutor_assigned, time_block)
-      VALUES ($1, 'Tutor Matemáticas', 'alta')
-    `, [student_id]);
-
-    res.send("Motor adaptativo ejecutado correctamente (prueba)");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(error.message);
-  }
-});
-
-app.get("/fix/student-pedagogical-actions", async (req, res) => {
-  try {
-
-    await pool.query(`
-      ALTER TABLE student_pedagogical_actions
-      ADD COLUMN IF NOT EXISTS description TEXT;
-    `);
-
-    res.send("Tabla student_pedagogical_actions corregida");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(error.message);
-  }
-});
-
-app.get("/fix/student-subject-progress-force", async (req, res) => {
-  try {
-
-    await pool.query(`
-      ALTER TABLE student_subject_progress
-      ADD COLUMN IF NOT EXISTS subject VARCHAR(50);
-    `);
-
-    await pool.query(`
-      ALTER TABLE student_subject_progress
-      ADD COLUMN IF NOT EXISTS progress INTEGER DEFAULT 0;
-    `);
-
-    res.send("Tabla student_subject_progress alineada definitivamente");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(error.message);
-  }
-});
-
-app.get("/debug/subject-columns-real", async (req, res) => {
+app.get("/debug/schedule-columns", async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT column_name
       FROM information_schema.columns
-      WHERE table_name = 'student_subject_progress'
+      WHERE table_name = 'student_schedule_control'
       ORDER BY column_name;
     `);
 
