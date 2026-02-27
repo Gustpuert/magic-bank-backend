@@ -1413,6 +1413,23 @@ app.get("/admin/fix-current-level-integer", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/admin/check-current-level-type", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_name = 'student_subject_progress'
+      AND column_name = 'current_level';
+    `);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
