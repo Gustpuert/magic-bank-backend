@@ -1471,11 +1471,11 @@ app.get("/debug/check-diagnostic-values", async (req, res) => {
 
   await client.query("ROLLBACK");
 
-  console.error("ERROR REAL:", error);
+  console.error("ERROR REAL TEST DIAGNOSTIC:", error);
 
   res.status(500).send(error.message);
 
-} 
+}
 });
 /* ========================
 START
