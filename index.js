@@ -1384,7 +1384,27 @@ await pool.query(`
 
 
 
+/* =========================
+DEBUG SCHEDULE STRUCTURE
+========================= */
 
+app.get("/debug/schedule-columns", async (req, res) => {
+  try {
+
+    const result = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'student_schedule_control'
+      ORDER BY column_name;
+    `);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error("ERROR DEBUG SCHEDULE:", error);
+    res.status(500).send(error.message);
+  }
+});
 
 /* ========================
 START
