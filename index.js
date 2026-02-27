@@ -1244,6 +1244,23 @@ app.get("/fix/student-subject-progress-force", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/debug/subject-columns-real", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'student_subject_progress'
+      ORDER BY column_name;
+    `);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
