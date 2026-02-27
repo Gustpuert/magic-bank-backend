@@ -1054,6 +1054,127 @@ app.post("/academic/director/action", async (req, res) => {
     res.status(500).send("Error ejecutando acción académica");
   }
 });
+
+app.post("/academic/adaptive-engine", async (req, res) => {
+  try {
+
+    const { student_id, action_mode, payload } = req.body;
+
+    if (!student_id || !action_mode) {
+      return res.status(400).send("Datos incompletos");
+    }
+
+    // VALIDAR ESTUDIANTE
+    const studentCheck = await pool.query(
+      "SELECT id FROM students WHERE id = $1",
+      [student_id]
+    );
+
+    if (!studentCheck.rowCount) {
+      return res.status(404).send("Estudiante no encontrado");
+    }
+
+    switch (action_mode) {
+
+      // 1️⃣ ASIGNACIÓN INICIAL
+      case "initial_assignment":
+
+        await pool.query(`
+          INSERT INTO student_pedagogical_actions
+          (student_id, action_type, description)
+          VALUES ($1, 'initial_assignment', $2)
+        `, [student_id, `Asignado tutor inicial: ${payload.primary_subject}`]);
+
+        await pool.query(`
+          INSERT INTO student_subject_progress
+          (student_id, subject, progress)
+          VALUES ($1, $2, 0)
+        `, [student_id, payload.primary_subject]);
+
+        await pool.query(`
+          INSERT INTO student_schedule_control
+          (student_id, tutor_assigned, time_block)
+          VALUES ($1, $2, $3)
+        `, [student_id, payload.primary_subject, payload.intensity]);
+
+        break;
+
+      // 2️⃣ EVALUACIÓN DE PROGRESO
+      case "progress_evaluation":
+
+        await pool.query(`
+          UPDATE student_subject_progress
+          SET progress = $1, last_activity = NOW()
+          WHERE student_id = $2 AND subject = $3
+        `, [payload.progress, student_id, payload.subject]);
+
+        if (payload.progress >= 70) {
+          await pool.query(`
+            INSERT INTO student_pedagogical_actions
+            (student_id, action_type, description)
+            VALUES ($1, 'advance_subject', $2)
+          `, [student_id, `Avance exitoso en ${payload.subject}`]);
+        }
+
+        break;
+
+      // 3️⃣ REFUERZO
+      case "reinforcement_adjustment":
+
+        await pool.query(`
+          UPDATE student_academic_status
+          SET reinforcement_required = true
+          WHERE student_id = $1
+        `, [student_id]);
+
+        await pool.query(`
+          INSERT INTO student_pedagogical_actions
+          (student_id, action_type, description)
+          VALUES ($1, 'reinforcement', $2)
+        `, [student_id, `Refuerzo activado en ${payload.subject}`]);
+
+        break;
+
+      // 4️⃣ CERTIFICACIÓN
+      case "certification_evaluation":
+
+        if (payload.approved === true) {
+
+          await pool.query(`
+            UPDATE student_certification_path
+            SET approved = true, certification_date = NOW()
+            WHERE student_id = $1
+          `, [student_id]);
+
+          await pool.query(`
+            UPDATE student_academic_status
+            SET certification_ready = true
+            WHERE student_id = $1
+          `, [student_id]);
+
+        } else {
+
+          await pool.query(`
+            INSERT INTO student_pedagogical_actions
+            (student_id, action_type, description)
+            VALUES ($1, 'certification_denied', 'Requiere refuerzo adicional')
+          `, [student_id]);
+
+        }
+
+        break;
+
+      default:
+        return res.status(400).send("Modo no válido");
+    }
+
+    res.send("Motor académico ejecutado correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error ejecutando motor académico");
+  }
+});
 /* ========================
 START
 ========================= */
