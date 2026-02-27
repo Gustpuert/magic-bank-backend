@@ -61,7 +61,7 @@ app.get("/analytics", async (req, res) => {
     `);
 
     res.json({
-      total_alumnos: totalAlumnos.rows[0].count,
+      total_alumnos:Number (totalAlumnos.rows[0].count),
       cursos_top: cursosTop.rows,
       areas_top: areasTop.rows,
       ventas_por_dia: ventasPorDia.rows
