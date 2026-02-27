@@ -1442,6 +1442,15 @@ app.get("/admin/check-current-level-type", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.post("/debug/check-diagnostic-payload", async (req, res) => {
+  try {
+    console.log("PAYLOAD RECIBIDO:", req.body);
+    res.json(req.body);
+  } catch (error) {
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
