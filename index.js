@@ -1941,7 +1941,21 @@ app.get("/admin/install-academic-system", async (req, res) => {
   }
 });
 
+app.get("/admin/fix-student-subjects", async (req, res) => {
+  try {
 
+    await pool.query(`
+      ALTER TABLE student_subjects
+      ADD CONSTRAINT unique_student_subject
+      UNIQUE (student_id, subject_id);
+    `);
+
+    res.json({ message: "Restricción UNIQUE agregada correctamente" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 /* =============================
 START
