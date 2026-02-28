@@ -1302,10 +1302,10 @@ app.get("/academic/validate/:student_id", async (req, res) => {
 
     const subjects = await pool.query(
       `
-      SELECT ss.id, catalogo.name, ss.current_level
+      SELECT ss.id, catalog.name, ss.current_level
       FROM student_subjects ss
-      JOIN academic_subjects_catalgo catalogo
-      ON ss.subject_id = catalogo.id
+      JOIN academic_subjects_catalg catalog
+      ON ss.subject_id = catalog.id
       WHERE ss.student_id = $1
       `,
       [student_id]
