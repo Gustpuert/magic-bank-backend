@@ -1650,6 +1650,69 @@ app.get("/academic/current-status/:student_id", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+/* =========================
+DIRECTOR - CREAR ESTUDIANTE
+INICIO ACADÉMICO
+========================= */
+
+app.post("/academic/create-student", async (req, res) => {
+  try {
+
+    const { full_name, email, age, declared_grade } = req.body;
+
+    if (!full_name || !declared_grade) {
+      return res.status(400).json({
+        error: "full_name y declared_grade son obligatorios"
+      });
+    }
+
+    const result = await pool.query(
+      `
+      INSERT INTO students 
+      (full_name, email, age, declared_grade, current_grade)
+      VALUES ($1,$2,$3,$4,$4)
+      RETURNING id, full_name, declared_grade
+      `,
+      [
+        full_name,
+        email || null,
+        age || null,
+        declared_grade
+      ]
+    );
+
+    res.json({
+      message: "Estudiante creado correctamente",
+      student: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error("ERROR CREATE STUDENT:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+
+app.get("/admin/test-create-student", async (req, res) => {
+  try {
+
+    const result = await pool.query(
+      `
+      INSERT INTO students 
+      (full_name, declared_grade, current_grade)
+      VALUES ('Alumno Director Test', 7, 7)
+      RETURNING *;
+      `
+    );
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 /* ========================
 START
 ========================= */
