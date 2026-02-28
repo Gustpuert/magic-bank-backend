@@ -1365,7 +1365,7 @@ app.get("/academic/validate/:student_id", async (req, res) => {
       duplicated_subjects: duplicatedSubjects.rows,
 
       level_mismatch: subjects.rows.filter(
-        s => s.current_level !== declaredGrade
+        s => Number(s.current_level) !== Number(declaredGrade)
       )
 
     });
