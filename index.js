@@ -1434,7 +1434,26 @@ app.get("/academic/validate/:student_id", async (req, res) => {
 });
 
 
+app.get("/debug/table-structure/:table", async (req, res) => {
+  try {
+    const table = req.params.table;
 
+    const result = await pool.query(
+      `
+      SELECT column_name, data_type, is_nullable
+      FROM information_schema.columns
+      WHERE table_name = $1
+      ORDER BY ordinal_position
+      `,
+      [table]
+    );
+
+    res.json(result.rows);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 /* ========================
 START
