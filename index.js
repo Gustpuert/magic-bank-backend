@@ -1407,8 +1407,8 @@ app.get("/academic/validate/:student_id", async (req, res) => {
     // =============================
 
     res.json({
-      student_id,
-      declared_grade: declaredGrade,
+      student_id: Number (student_id)
+      declared_grade:  Number (declaredGrade),
       academic_status_exists: status.rowCount > 0,
       certification_path_exists: certification.rowCount > 0,
       subjects_created: subjects.rowCount,
