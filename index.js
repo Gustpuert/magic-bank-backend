@@ -1811,7 +1811,18 @@ app.get("/admin/full-init/:student_id", async (req, res) => {
   }
 
 });
+app.get("/admin/drop-legacy-academic", async (req, res) => {
+  try {
 
+    await pool.query("DROP TABLE IF EXISTS student_subject_progress CASCADE;");
+    await pool.query("DROP TABLE IF EXISTS student_schedule_control CASCADE;");
+
+    res.json({ message: "Tablas legacy eliminadas correctamente" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 /* =============================
 START
 ========================= */
