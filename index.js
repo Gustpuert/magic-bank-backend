@@ -1874,6 +1874,75 @@ app.get("/admin/seed-colombia", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
+app.get("/admin/install-academic-system", async (req, res) => {
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS academic_countries (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS academic_subjects_catalog (
+        id SERIAL PRIMARY KEY,
+        country_id INTEGER REFERENCES academic_countries(id),
+        name TEXT NOT NULL,
+        mandatory BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_subjects (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER REFERENCES students(id),
+        subject_id INTEGER REFERENCES academic_subjects_catalog(id),
+        current_level INTEGER NOT NULL,
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    // Insertar Colombia si no existe
+    await pool.query(`
+      INSERT INTO academic_countries (name)
+      VALUES ('Colombia')
+      ON CONFLICT (name) DO NOTHING;
+    `);
+
+    // Insertar materias oficiales Colombia
+    await pool.query(`
+      INSERT INTO academic_subjects_catalog (country_id, name)
+      VALUES
+      (1,'Matemáticas'),
+      (1,'Lengua Castellana'),
+      (1,'Ciencias Naturales y Educación Ambiental'),
+      (1,'Ciencias Sociales'),
+      (1,'Educación Artística'),
+      (1,'Educación Física, Recreación y Deportes'),
+      (1,'Educación Ética y en Valores Humanos'),
+      (1,'Educación Religiosa'),
+      (1,'Tecnología e Informática'),
+      (1,'Idioma Extranjero - Inglés')
+      ON CONFLICT DO NOTHING;
+    `);
+
+    res.json({
+      message: "Sistema académico instalado correctamente"
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+
 /* =============================
 START
 ========================= */
