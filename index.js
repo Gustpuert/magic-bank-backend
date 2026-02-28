@@ -1277,11 +1277,7 @@ app.get("/academic/validate/:student_id", async (req, res) => {
 
   try {
 
-    const student_id = req.params.student_id;
-
-    // =============================
-    // 1️⃣ Verificar estudiante
-    // =============================
+    const { student_id } = req.params;
 
     const student = await pool.query(
       "SELECT declared_grade FROM students WHERE id = $1",
@@ -1289,99 +1285,52 @@ app.get("/academic/validate/:student_id", async (req, res) => {
     );
 
     if (!student.rowCount) {
-      return res.status(404).json({
-        error: "Estudiante no existe"
-      });
+      return res.status(404).json({ error: "Estudiante no existe" });
     }
 
     const declaredGrade = student.rows[0].declared_grade;
-
-    // =============================
-    // 2️⃣ Estado académico
-    // =============================
 
     const status = await pool.query(
       "SELECT * FROM student_academic_status WHERE student_id = $1",
       [student_id]
     );
 
-    // =============================
-    // 3️⃣ Ruta certificación
-    // =============================
-
     const certification = await pool.query(
       "SELECT * FROM student_certification_path WHERE student_id = $1",
       [student_id]
     );
 
-    // =============================
-    // 4️⃣ Materias
-    // =============================
-
     const subjects = await pool.query(
-      "SELECT subject, current_level FROM student_subject_progress WHERE student_id = $1",
+      `
+      SELECT ss.id, asc.name, ss.current_level
+      FROM student_subjects ss
+      JOIN academic_subjects_catalog asc
+      ON ss.subject_id = asc.id
+      WHERE ss.student_id = $1
+      `,
       [student_id]
     );
 
-    // =============================
-    // 5️⃣ Horarios
-    // =============================
+    let structural_status = "OK";
 
-    const schedule = await pool.query(
-      "SELECT subject, weekly_hours FROM student_schedule_control WHERE student_id = $1",
-      [student_id]
-    );
-
-    // =============================
-    // 6️⃣ Duplicados
-    // =============================
-
-    const duplicatedSubjects = await pool.query(`
-      SELECT subject, COUNT(*)
-      FROM student_subject_progress
-      WHERE student_id = $1
-      GROUP BY subject
-      HAVING COUNT(*) > 1
-    `, [student_id]);
-
-    // =============================
-    // 7️⃣ Validación de niveles
-    // =============================
+    if (!status.rowCount || !certification.rowCount || !subjects.rowCount) {
+      structural_status = "CRITICAL";
+    }
 
     const levelMismatch = subjects.rows.filter(
       s => Number(s.current_level) !== Number(declaredGrade)
     );
 
-    // =============================
-    // 8️⃣ Clasificación estructural
-    // =============================
-
-    let structural_status = "OK";
-
-    if (subjects.rowCount === 0 || schedule.rowCount === 0) {
-      structural_status = "CRITICAL";
-    }
-
-    if (duplicatedSubjects.rows.length > 0) {
-      structural_status = "CRITICAL";
-    }
-
     if (levelMismatch.length > 0 && structural_status !== "CRITICAL") {
       structural_status = "WARNING";
     }
 
-    // =============================
-    // RESPUESTA FINAL
-    // =============================
-
     res.json({
-      student_id: Number (student_id),
-      declared_grade:  Number (declaredGrade),
+      student_id: Number(student_id),
+      declared_grade: Number(declaredGrade),
       academic_status_exists: status.rowCount > 0,
       certification_path_exists: certification.rowCount > 0,
       subjects_created: subjects.rowCount,
-      schedule_created: schedule.rowCount,
-      duplicated_subjects: duplicatedSubjects.rows,
       level_mismatch: levelMismatch,
       structural_status
     });
@@ -1391,10 +1340,7 @@ app.get("/academic/validate/:student_id", async (req, res) => {
     console.error("ERROR VALIDACIÓN:", error);
 
     res.status(500).json({
-      message: "Error validando estructura académica",
-      error: error.message,
-      detail: error.detail,
-      code: error.code
+      error: error.message
     });
 
   }
