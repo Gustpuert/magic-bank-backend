@@ -1721,81 +1721,81 @@ app.get("/admin/fix-student-subjects", async (req, res) => {
   }
 });
 
-/* ===============================
-ADMIN - FULL INITIALIZATION
-Inicialización académica total
-================================ */
-
-app.get("/admin/full-init/:student_id", async (req, res) => {
-
-  const client = await pool.connect();
-
+app.get("/admin/full-init/:id", async (req, res) => {
   try {
+    const student_id = req.params.id;
 
-    const { student_id } = req.params;
-
-    const studentCheck = await client.query(
-      "SELECT id, declared_grade FROM students WHERE id = $1",
+    // 1️⃣ Verificar que el estudiante exista
+    const studentResult = await pool.query(
+      "SELECT declared_grade FROM students WHERE id = $1",
       [student_id]
     );
 
-    if (!studentCheck.rowCount) {
-      return res.status(404).json({ error: "Estudiante no existe" });
+    if (!studentResult.rowCount) {
+      return res.status(404).json({
+        error: "Estudiante no existe"
+      });
     }
 
-    const declaredGrade = studentCheck.rows[0].declared_grade;
+    const declared_grade = Number(studentResult.rows[0].declared_grade);
 
-    await client.query("BEGIN");
+    // 2️⃣ Crear estado académico si no existe
+    await pool.query(`
+      INSERT INTO academic_status (student_id, current_grade)
+      SELECT $1, $2
+      WHERE NOT EXISTS (
+        SELECT 1 FROM academic_status WHERE student_id = $1
+      );
+    `, [student_id, declared_grade]);
 
-    // 1️⃣ Estado académico
-    await client.query(`
-      INSERT INTO student_academic_status
-      (student_id, assigned_grade, academic_state, reinforcement_required, certification_ready)
-      VALUES ($1,$2,'activo',false,false)
-      ON CONFLICT DO NOTHING
-    `, [student_id, declaredGrade]);
+    // 3️⃣ Crear ruta de certificación si no existe
+    await pool.query(`
+      INSERT INTO student_certification_path (student_id, target_grade)
+      SELECT $1, $2
+      WHERE NOT EXISTS (
+        SELECT 1 FROM student_certification_path WHERE student_id = $1
+      );
+    `, [student_id, declared_grade]);
 
-    // 2️⃣ Ruta certificación
-    await client.query(`
-      INSERT INTO student_certification_path
-      (student_id, completed_subjects, readiness_level, certification_ready, director_validation, created_at)
-      VALUES ($1,0,'inicial',false,false,NOW())
-      ON CONFLICT DO NOTHING
-    `, [student_id]);
+    // 4️⃣ Insertar materias SOLO si no existen (ANTI DUPLICADO)
+    const subjectsInsert = await pool.query(`
+      INSERT INTO student_subjects (student_id, subject_id, current_level)
+      SELECT $1, catalog.id, $2
+      FROM academic_subjects_catalog catalog
+      WHERE catalog.grade = $2
+      AND NOT EXISTS (
+        SELECT 1
+        FROM student_subjects ss
+        WHERE ss.student_id = $1
+        AND ss.subject_id = catalog.id
+      )
+      RETURNING id;
+    `, [student_id, declared_grade]);
 
-    // 3️⃣ Materias oficiales Colombia
-    const subjects = await client.query(`
-      SELECT id FROM academic_subjects_catalog
-      WHERE country_id = 1
-    `);
+    // 5️⃣ Validación estructural básica
+    const subjectsCount = await pool.query(
+      "SELECT COUNT(*) FROM student_subjects WHERE student_id = $1",
+      [student_id]
+    );
 
-    for (let subject of subjects.rows) {
-
-      await client.query(`
-        INSERT INTO student_subjects
-        (student_id, subject_id, current_level)
-        VALUES ($1,$2,$3)
-        ON CONFLICT DO NOTHING
-      `, [student_id, subject.id, declaredGrade]);
-
-    }
-
-    await client.query("COMMIT");
-
-    // 4️⃣ Validación estructural
-    const validation = await client.query(`
-      SELECT COUNT(*) as total
-      FROM student_subjects
-      WHERE student_id = $1
-    `, [student_id]);
+    const totalSubjects = Number(subjectsCount.rows[0].count);
 
     res.json({
       message: "Inicialización académica completa",
       student_id: Number(student_id),
-      assigned_grade: declaredGrade,
-      subjects_created: Number(validation.rows[0].total),
+      assigned_grade: declared_grade,
+      subjects_created_this_run: subjectsInsert.rowCount,
+      total_subjects_for_student: totalSubjects,
       structural_status: "OK"
     });
+
+  } catch (error) {
+    console.error("FULL INIT ERROR:", error);
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
 
   } catch (error) {
 
