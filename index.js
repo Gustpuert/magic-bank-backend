@@ -1721,9 +1721,15 @@ app.get("/admin/fix-student-subjects", async (req, res) => {
   }
 });
 
+/* ===============================
+ADMIN - FULL INITIALIZATION MEN
+Inicialización académica oficial
+================================ */
+
 app.get("/admin/full-init/:id", async (req, res) => {
   try {
-    const student_id = req.params.id;
+
+    const student_id = Number(req.params.id);
 
     // 1️⃣ Verificar que el estudiante exista
     const studentResult = await pool.query(
@@ -1741,29 +1747,30 @@ app.get("/admin/full-init/:id", async (req, res) => {
 
     // 2️⃣ Crear estado académico si no existe
     await pool.query(`
-      INSERT INTO academic_status (student_id, current_grade)
-      SELECT $1, $2
+      INSERT INTO student_academic_status
+      (student_id, assigned_grade, academic_state, reinforcement_required, certification_ready)
+      SELECT $1, $2, 'activo', false, false
       WHERE NOT EXISTS (
-        SELECT 1 FROM academic_status WHERE student_id = $1
+        SELECT 1 FROM student_academic_status WHERE student_id = $1
       );
     `, [student_id, declared_grade]);
 
     // 3️⃣ Crear ruta de certificación si no existe
     await pool.query(`
-      INSERT INTO student_certification_path (student_id, target_grade)
-      SELECT $1, $2
+      INSERT INTO student_certification_path
+      (student_id, completed_subjects, readiness_level, certification_ready, director_validation, created_at)
+      SELECT $1, 0, 'inicial', false, false, NOW()
       WHERE NOT EXISTS (
         SELECT 1 FROM student_certification_path WHERE student_id = $1
       );
-    `, [student_id, declared_grade]);
+    `, [student_id]);
 
-    // 4️⃣ Insertar materias SOLO si no existen (ANTI DUPLICADO)
+    // 4️⃣ Insertar ÁREAS OFICIALES MEN (sin duplicar)
     const subjectsInsert = await pool.query(`
       INSERT INTO student_subjects (student_id, subject_id, current_level)
       SELECT $1, catalog.id, $2
       FROM academic_subjects_catalog catalog
-      WHERE catalog.grade = $2
-      AND NOT EXISTS (
+      WHERE NOT EXISTS (
         SELECT 1
         FROM student_subjects ss
         WHERE ss.student_id = $1
@@ -1772,7 +1779,7 @@ app.get("/admin/full-init/:id", async (req, res) => {
       RETURNING id;
     `, [student_id, declared_grade]);
 
-    // 5️⃣ Validación estructural básica
+    // 5️⃣ Contar materias reales del estudiante
     const subjectsCount = await pool.query(
       "SELECT COUNT(*) FROM student_subjects WHERE student_id = $1",
       [student_id]
@@ -1781,8 +1788,8 @@ app.get("/admin/full-init/:id", async (req, res) => {
     const totalSubjects = Number(subjectsCount.rows[0].count);
 
     res.json({
-      message: "Inicialización académica completa",
-      student_id: Number(student_id),
+      message: "Inicialización académica oficial ejecutada correctamente",
+      student_id,
       assigned_grade: declared_grade,
       subjects_created_this_run: subjectsInsert.rowCount,
       total_subjects_for_student: totalSubjects,
@@ -1790,37 +1797,13 @@ app.get("/admin/full-init/:id", async (req, res) => {
     });
 
   } catch (error) {
+
     console.error("FULL INIT ERROR:", error);
-    res.status(500).json({
-      error: error.message
-    });
-  }
-});
-
-  } catch (error) {
-
-    await client.query("ROLLBACK");
-    console.error(error);
 
     res.status(500).json({
       error: error.message
     });
 
-  } finally {
-    client.release();
-  }
-
-});
-app.get("/admin/drop-legacy-academic", async (req, res) => {
-  try {
-
-    await pool.query("DROP TABLE IF EXISTS student_subject_progress CASCADE;");
-    await pool.query("DROP TABLE IF EXISTS student_schedule_control CASCADE;");
-
-    res.json({ message: "Tablas legacy eliminadas correctamente" });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
   }
 });
 /* =============================
