@@ -1552,6 +1552,83 @@ app.get("/admin/create-academic-control", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.post("/academic/director-decision", async (req, res) => {
+  try {
+    const {
+      student_id,
+      declared_grade,
+      validated_grade,
+      leveling_required,
+      academic_status,
+      active_tutor
+    } = req.body;
+
+    const result = await pool.query(
+      `
+      INSERT INTO academic_control
+      (student_id, declared_grade, validated_grade, leveling_required, academic_status, active_tutor, director_decision_date)
+      VALUES ($1,$2,$3,$4,$5,$6,NOW())
+      ON CONFLICT (student_id)
+      DO UPDATE SET
+        declared_grade = EXCLUDED.declared_grade,
+        validated_grade = EXCLUDED.validated_grade,
+        leveling_required = EXCLUDED.leveling_required,
+        academic_status = EXCLUDED.academic_status,
+        active_tutor = EXCLUDED.active_tutor,
+        director_decision_date = NOW()
+      RETURNING *;
+      `,
+      [
+        student_id,
+        declared_grade,
+        validated_grade,
+        leveling_required,
+        academic_status,
+        active_tutor
+      ]
+    );
+
+    res.json({
+      message: "Decisión del Director guardada correctamente",
+      data: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error("ERROR DIRECTOR DECISION:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get("/admin/test-director/:student_id", async (req, res) => {
+  try {
+
+    const { student_id } = req.params;
+
+    const result = await pool.query(
+      `
+      INSERT INTO academic_control
+      (student_id, declared_grade, validated_grade, leveling_required, academic_status, active_tutor, director_decision_date)
+      VALUES ($1,9,8,true,'leveling','TutorGrado8',NOW())
+      ON CONFLICT (student_id)
+      DO UPDATE SET
+        declared_grade = 9,
+        validated_grade = 8,
+        leveling_required = true,
+        academic_status = 'leveling',
+        active_tutor = 'TutorGrado8',
+        director_decision_date = NOW()
+      RETURNING *;
+      `,
+      [student_id]
+    );
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 /* ========================
 START
 ========================= */
