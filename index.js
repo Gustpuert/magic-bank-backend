@@ -1183,8 +1183,8 @@ app.post("/academic/diagnostic", async (req, res) => {
 
     const { student_id, data } = req.body;
 
-    if (!student_id || !data) {
-      return res.status(400).send("Datos incompletos");
+    if (!student_id) {
+      return res.status(400).json({ error: "student_id requerido" });
     }
 
     await client.query("BEGIN");
@@ -1196,11 +1196,11 @@ app.post("/academic/diagnostic", async (req, res) => {
       VALUES ($1,$2,$3,$4,$5,$6)
     `, [
       student_id,
-      data.diagnostic_notes,
-      data.math_level,
-      data.language_level,
-      data.science_level,
-      data.social_level
+      data?.diagnostic_notes || "Diagnóstico inicial",
+      data?.math_level || 1,
+      data?.language_level || 1,
+      data?.science_level || 1,
+      data?.social_level || 1
     ]);
 
     // 2️⃣ Obtener grado declarado
@@ -1211,12 +1211,12 @@ app.post("/academic/diagnostic", async (req, res) => {
 
     if (!gradeResult.rowCount) {
       await client.query("ROLLBACK");
-      return res.status(404).send("Estudiante no encontrado");
+      return res.status(404).json({ error: "Estudiante no encontrado" });
     }
 
     const declaredGrade = gradeResult.rows[0].declared_grade;
 
-    // 3️⃣ Crear estado académico
+    // 3️⃣ Crear o actualizar estado académico
     await client.query(`
       INSERT INTO student_academic_status
       (student_id, assigned_grade, academic_state, reinforcement_required, certification_ready)
@@ -1227,12 +1227,12 @@ app.post("/academic/diagnostic", async (req, res) => {
     // 4️⃣ Crear ruta certificación
     await client.query(`
       INSERT INTO student_certification_path
-      (student_id, path_type, final_exam_required, approved)
-      VALUES ($1,'curriculo_oficial',true,false)
+      (student_id, completed_subjects, readiness_level, certification_ready, director_validation, created_at)
+      VALUES ($1,0,'inicial',false,false,NOW())
       ON CONFLICT DO NOTHING
     `, [student_id]);
 
-    // 5️⃣ Currículo base
+    // 5️⃣ Materias base (solo si no existen)
     const CURRICULO_BASE = {
       1:["Matemáticas","Lengua","Ciencias","Sociales"],
       2:["Matemáticas","Lengua","Ciencias","Sociales"],
@@ -1247,34 +1247,53 @@ app.post("/academic/diagnostic", async (req, res) => {
       11:["Matemáticas","Lengua","Física","Química","Sociales","Inglés","Filosofía"]
     };
 
-    
-const subject = payload.primary_subject;
-const detectedLevel = payload.current_level || null;
+    const subjects = CURRICULO_BASE[declaredGrade] || [];
+    const baseHours = 4;
 
-await client.query(`
-  INSERT INTO student_subject_progress
-  (student_id, subject, current_level, progress_percentage, subject_status)
-  VALUES ($1,$2,$3,0,'nivelacion')
-  ON CONFLICT DO NOTHING
-`, [student_id, subject, detectedLevel]);
-      await client.query(`
-        INSERT INTO student_schedule_control
-        (student_id, tutor_name, subject, weekly_hours)
-        VALUES ($1,$2,$2,$3)
-        ON CONFLICT DO NOTHING
-      `, [student_id, subject, baseHours]);
+    for (const subject of subjects) {
+
+      const exists = await client.query(`
+        SELECT id FROM student_subject_progress
+        WHERE student_id = $1 AND subject = $2
+      `, [student_id, subject]);
+
+      if (!exists.rowCount) {
+
+        await client.query(`
+          INSERT INTO student_subject_progress
+          (student_id, subject, current_level, progress_percentage, subject_status)
+          VALUES ($1,$2,$3,0,'activo')
+        `, [student_id, subject, declaredGrade]);
+
+        await client.query(`
+          INSERT INTO student_schedule_control
+          (student_id, tutor_name, subject, weekly_hours)
+          VALUES ($1,$2,$2,$3)
+        `, [student_id, subject, baseHours]);
+
+      }
 
     }
 
     await client.query("COMMIT");
 
-    res.send("Diagnóstico y nacimiento académico completado");
+    res.json({
+      message: "Diagnóstico académico ejecutado correctamente",
+      student_id,
+      assigned_grade: declaredGrade
+    });
 
   } catch (error) {
 
     await client.query("ROLLBACK");
-    console.error(error);
-    res.status(500).send("Error ejecutando diagnóstico académico");
+    console.error("ERROR DIAGNÓSTICO:", error);
+
+    res.status(500).json({
+      message: "Error ejecutando diagnóstico",
+      error: error.message,
+      detail: error.detail,
+      code: error.code
+    });
 
   } finally {
 
@@ -1285,85 +1304,7 @@ await client.query(`
 });
 
 
-app.post("/academic/test-diagnostic-full", async (req, res) => {
-  const client = await pool.connect();
 
-  try {
-    const {
-      student_id,
-      declared_grade,
-      math_level,
-      english_level,
-      cognitive_observation,
-      learning_habits,
-      attention_profile
-    } = req.body;
-
-    if (!student_id) {
-      return res.status(400).json({ error: "student_id requerido" });
-    }
-
-    await client.query("BEGIN");
-
-    // 1. Guardar diagnóstico
-    await client.query(
-      `INSERT INTO student_diagnostic 
-       (student_id, declared_grade, math_level, english_level, cognitive_observation, learning_habits, attention_profile)
-       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
-      [student_id, declared_grade, math_level, english_level, cognitive_observation, learning_habits, attention_profile]
-    );
-
-    // 2. Estado académico
-    await client.query(
-      `INSERT INTO student_academic_status
-       (student_id, assigned_grade, academic_state, progress_percentage, reinforcement_required, certification_ready)
-       VALUES ($1,$2,'active',0,false,false)
-       ON CONFLICT (student_id) DO UPDATE
-       SET assigned_grade = EXCLUDED.assigned_grade`,
-      [student_id, declared_grade]
-    );
-
-    // 3. Ruta certificación
-    await client.query(
-      `INSERT INTO student_certification_path
-       (student_id, certification_goal, required_subjects, completed_subjects, readiness_level, certification_ready)
-       VALUES ($1,'Academic Excellence',3,0,0,false)
-       ON CONFLICT  DO NOTHING`,
-      [student_id]
-    );
-
-    // 4. Progreso materias
-    await client.query(
-      `INSERT INTO student_subject_progress
-       (student_id, subject, current_level, progress_percentage, subject_status)
-       VALUES 
-       ($1,'Matemáticas',$2,0,'active'),
-       ($1,'Inglés',$3,0,'active')`,
-      [student_id, math_level, english_level]
-    );
-
-    // 5. Control horario
-    await client.query(
-      `INSERT INTO student_schedule_control
-       (student_id, subject, tutor_name, weekly_hours, required_hours, rotation_required, imbalance_alert)
-       VALUES
-       ($1,'Matemáticas','Tutor Matemáticas',0,4,true,false),
-       ($1,'Inglés','Tutor Inglés',0,4,true,false)`,
-      [student_id]
-    );
-
-    await client.query("COMMIT");
-
-    res.json({ message: "Diagnóstico ejecutado correctamente" });
-
-  } catch (err) {
-    await client.query("ROLLBACK");
-    console.error(err);
-    res.status(500).json({ error: "Error ejecutando diagnóstico" });
-  } finally {
-    client.release();
-  }
-});
 
 
 
@@ -1471,51 +1412,7 @@ app.get("/debug/table-structure/:table", async (req, res) => {
   }
 });
 
-app.get("/academic/test-diagnostic/:student_id", async (req, res) => {
 
-  const client = await pool.connect();
-
-  try {
-
-    const student_id = req.params.student_id;
-
-    await client.query("BEGIN");
-
-    // Ejemplo simple de prueba
-    const result = await client.query(`
-      SELECT 
-        math_level,
-        language_level,
-        science_level,
-        social_level
-      FROM student_diagnostic
-      WHERE student_id = $1
-    `, [student_id]);
-
-    await client.query("COMMIT");
-
-    res.json(result.rows);
-
-  } catch (err) {
-
-    await client.query("ROLLBACK");
-
-    console.error(err);
-
-    res.status(500).json({
-      message: "Error ejecutando diagnóstico",
-      error: err.message,
-      detail: err.detail,
-      code: err.code
-    });
-
-  } finally {
-
-    client.release();
-
-  }
-
-});
 /* ========================
 START
 ========================= */
