@@ -1247,18 +1247,16 @@ app.post("/academic/diagnostic", async (req, res) => {
       11:["Matemáticas","Lengua","Física","Química","Sociales","Inglés","Filosofía"]
     };
 
-    const subjects = CURRICULO_BASE[declaredGrade] || [];
-    const baseHours = 4;
+    
+const subject = payload.primary_subject;
+const detectedLevel = payload.current_level || null;
 
-    for (const subject of subjects) {
-
-      await client.query(`
-        INSERT INTO student_subject_progress
-        (student_id, subject, progress_percentage, subject_status)
-        VALUES ($1,$2,0,'activo')
-        ON CONFLICT DO NOTHING
-      `, [student_id, subject]);
-
+await client.query(`
+  INSERT INTO student_subject_progress
+  (student_id, subject, current_level, progress_percentage, subject_status)
+  VALUES ($1,$2,$3,0,'nivelacion')
+  ON CONFLICT DO NOTHING
+`, [student_id, subject, detectedLevel]);
       await client.query(`
         INSERT INTO student_schedule_control
         (student_id, tutor_name, subject, weekly_hours)
