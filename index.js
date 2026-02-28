@@ -1304,7 +1304,7 @@ app.get("/academic/validate/:student_id", async (req, res) => {
       `
       SELECT ss.id, catalog.name, ss.current_level
       FROM student_subjects ss
-      JOIN academic_subjects_catalg catalog
+      JOIN academic_subjects_catalog catalog
       ON ss.subject_id = catalog.id
       WHERE ss.student_id = $1
       `,
