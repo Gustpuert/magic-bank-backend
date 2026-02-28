@@ -1475,6 +1475,23 @@ app.get("/admin/create-student-form-table", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.post("/debug/test-form", async (req, res) => {
+  try {
+    const { student_id, nombre, edad, email } = req.body;
+
+    await pool.query(
+      `INSERT INTO student_form (student_id, nombre, edad, email)
+       VALUES ($1, $2, $3, $4)`,
+      [student_id, nombre, edad, email]
+    );
+
+    res.json({ message: "Formulario guardado correctamente" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+});
 /* ========================
 START
 ========================= */
