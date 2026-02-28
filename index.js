@@ -1440,15 +1440,18 @@ app.get("/debug/check-diagnostic-values", async (req, res) => {
 
     res.json(result.rows);
 
- catch (error) {
+  } catch (err) {
 
-  await client.query("ROLLBACK");
+    console.error(err);
 
-  console.error("ERROR REAL TEST DIAGNOSTIC:", error);
+    res.status(500).json({
+      message: "Error consultando niveles",
+      error: err.message,
+      detail: err.detail,
+      code: err.code
+    });
 
-  res.status(500).send(error.message);
-
-}
+  }
 });
 
 app.get("/debug/table-structure/:table", async (req, res) => {
