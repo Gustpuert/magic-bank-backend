@@ -1806,6 +1806,45 @@ app.get("/admin/full-init/:id", async (req, res) => {
 
   }
 });
+
+/* ===============================
+ADMIN - RESET ACADÉMICO CONTROLADO
+Borra solo estructura académica del estudiante
+================================ */
+
+app.get("/admin/reset-academic/:id", async (req, res) => {
+  try {
+
+    const student_id = Number(req.params.id);
+
+    await pool.query(
+      "DELETE FROM student_subjects WHERE student_id = $1",
+      [student_id]
+    );
+
+    await pool.query(
+      "DELETE FROM student_academic_status WHERE student_id = $1",
+      [student_id]
+    );
+
+    await pool.query(
+      "DELETE FROM student_certification_path WHERE student_id = $1",
+      [student_id]
+    );
+
+    res.json({
+      message: "Estructura académica reiniciada correctamente",
+      student_id
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: error.message
+    });
+  }
+});
+
 /* =============================
 START
 ========================= */
