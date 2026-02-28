@@ -1599,6 +1599,24 @@ app.get("/academic/validate/:student_id", async (req, res) => {
   }
 
 });
+
+app.get("/admin/reset-student/:student_id", async (req, res) => {
+  try {
+    const id = req.params.student_id;
+
+    await pool.query("DELETE FROM student_subject_progress WHERE student_id=$1", [id]);
+    await pool.query("DELETE FROM student_schedule_control WHERE student_id=$1", [id]);
+    await pool.query("DELETE FROM student_academic_status WHERE student_id=$1", [id]);
+    await pool.query("DELETE FROM student_certification_path WHERE student_id=$1", [id]);
+    await pool.query("DELETE FROM student_diagnostic WHERE student_id=$1", [id]);
+
+    res.send("Estudiante reiniciado correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
