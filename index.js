@@ -1806,6 +1806,44 @@ app.get("/admin/test-assign/:student_id", async (req, res) => {
   }
 });
 
+app.get("/admin/create-academic-structure", async (req, res) => {
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS academic_countries (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS academic_subjects_catalog (
+        id SERIAL PRIMARY KEY,
+        country_id INTEGER REFERENCES academic_countries(id),
+        name TEXT NOT NULL,
+        mandatory BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_subjects (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER REFERENCES students(id),
+        subject_id INTEGER REFERENCES academic_subjects_catalog(id),
+        current_level INTEGER NOT NULL,
+        status TEXT DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.json({ message: "Estructura académica creada correctamente" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 /* =============================
 START
 ========================= */
