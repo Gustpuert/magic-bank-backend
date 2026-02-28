@@ -1844,7 +1844,37 @@ app.get("/admin/reset-academic/:id", async (req, res) => {
     });
   }
 });
+app.get("/admin/check-student/:id", async (req, res) => {
+  try {
 
+    const student_id = Number(req.params.id);
+
+    const subjects = await pool.query(
+      "SELECT COUNT(*) FROM student_subjects WHERE student_id = $1",
+      [student_id]
+    );
+
+    const status = await pool.query(
+      "SELECT COUNT(*) FROM student_academic_status WHERE student_id = $1",
+      [student_id]
+    );
+
+    const cert = await pool.query(
+      "SELECT COUNT(*) FROM student_certification_path WHERE student_id = $1",
+      [student_id]
+    );
+
+    res.json({
+      student_id,
+      subjects: Number(subjects.rows[0].count),
+      academic_status: Number(status.rows[0].count),
+      certification_path: Number(cert.rows[0].count)
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 /* =============================
 START
 ========================= */
