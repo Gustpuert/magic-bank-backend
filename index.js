@@ -1775,6 +1775,97 @@ app.get("/admin/fix-student-subjects", async (req, res) => {
   }
 });
 
+/* ===============================
+ADMIN - FULL INITIALIZATION
+Inicialización académica total
+================================ */
+
+app.get("/admin/full-init/:student_id", async (req, res) => {
+
+  const client = await pool.connect();
+
+  try {
+
+    const { student_id } = req.params;
+
+    const studentCheck = await client.query(
+      "SELECT id, declared_grade FROM students WHERE id = $1",
+      [student_id]
+    );
+
+    if (!studentCheck.rowCount) {
+      return res.status(404).json({ error: "Estudiante no existe" });
+    }
+
+    const declaredGrade = studentCheck.rows[0].declared_grade;
+
+    await client.query("BEGIN");
+
+    // 1️⃣ Estado académico
+    await client.query(`
+      INSERT INTO student_academic_status
+      (student_id, assigned_grade, academic_state, reinforcement_required, certification_ready)
+      VALUES ($1,$2,'activo',false,false)
+      ON CONFLICT DO NOTHING
+    `, [student_id, declaredGrade]);
+
+    // 2️⃣ Ruta certificación
+    await client.query(`
+      INSERT INTO student_certification_path
+      (student_id, completed_subjects, readiness_level, certification_ready, director_validation, created_at)
+      VALUES ($1,0,'inicial',false,false,NOW())
+      ON CONFLICT DO NOTHING
+    `, [student_id]);
+
+    // 3️⃣ Materias oficiales Colombia
+    const subjects = await client.query(`
+      SELECT id FROM academic_subjects_catalog
+      WHERE country_id = 1
+    `);
+
+    for (let subject of subjects.rows) {
+
+      await client.query(`
+        INSERT INTO student_subjects
+        (student_id, subject_id, current_level)
+        VALUES ($1,$2,$3)
+        ON CONFLICT DO NOTHING
+      `, [student_id, subject.id, declaredGrade]);
+
+    }
+
+    await client.query("COMMIT");
+
+    // 4️⃣ Validación estructural
+    const validation = await client.query(`
+      SELECT COUNT(*) as total
+      FROM student_subjects
+      WHERE student_id = $1
+    `, [student_id]);
+
+    res.json({
+      message: "Inicialización académica completa",
+      student_id: Number(student_id),
+      assigned_grade: declaredGrade,
+      subjects_created: Number(validation.rows[0].total),
+      structural_status: "OK"
+    });
+
+  } catch (error) {
+
+    await client.query("ROLLBACK");
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  } finally {
+    client.release();
+  }
+
+});
+
 /* =============================
 START
 ========================= */
