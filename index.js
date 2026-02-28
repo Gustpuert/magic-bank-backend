@@ -1713,7 +1713,69 @@ app.get("/admin/test-create-student", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-/* ========================
+
+
+
+/* ===============================
+DIRECTOR - ASIGNAR MATERIAS OFICIALES
+Colombia por defecto
+================================ */
+
+app.post("/academic/assign/:student_id", async (req, res) => {
+  try {
+
+    const { student_id } = req.params;
+
+    // 1️⃣ Verificar estudiante
+    const student = await pool.query(
+      "SELECT id, current_grade FROM students WHERE id = $1",
+      [student_id]
+    );
+
+    if (student.rows.length === 0) {
+      return res.status(404).json({ error: "Estudiante no encontrado" });
+    }
+
+    const grade = student.rows[0].current_grade;
+
+    // 2️⃣ País por defecto Colombia (id = 1)
+    const country_id = 1;
+
+    // 3️⃣ Traer materias oficiales del país
+    const subjects = await pool.query(
+      `
+      SELECT id 
+      FROM academic_subjects_catalog
+      WHERE country_id = $1
+      `,
+      [country_id]
+    );
+
+    // 4️⃣ Insertar materias si no existen
+    for (let subject of subjects.rows) {
+      await pool.query(
+        `
+        INSERT INTO student_subjects
+        (student_id, subject_id, current_level)
+        VALUES ($1,$2,$3)
+        ON CONFLICT DO NOTHING
+        `,
+        [student_id, subject.id, grade]
+      );
+    }
+
+    res.json({
+      message: "Materias oficiales asignadas correctamente",
+      student_id,
+      total_subjects: subjects.rowCount
+    });
+
+  } catch (error) {
+    console.error("ERROR ASSIGN:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+/* =============================
 START
 ========================= */
 app.listen(PORT, "0.0.0.0", () => {
