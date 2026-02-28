@@ -1489,6 +1489,31 @@ app.get("/debug/table-structure/:table", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+app.get("/admin/clean-duplicate-subjects/:student_id", async (req, res) => {
+
+  try {
+
+    const student_id = req.params.student_id;
+
+    await pool.query(`
+      DELETE FROM student_subject_progress
+      WHERE id NOT IN (
+        SELECT MIN(id)
+        FROM student_subject_progress
+        WHERE student_id = $1
+        GROUP BY subject
+      )
+      AND student_id = $1
+    `, [student_id]);
+
+    res.send("Duplicados eliminados correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+
+});
 
 /* =========================
 VALIDACIÓN INSTITUCIONAL REAL
