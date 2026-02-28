@@ -1510,6 +1510,23 @@ app.get("/debug/test-form/:student_id", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.get("/debug/check-form/:student_id", async (req, res) => {
+  try {
+    const { student_id } = req.params;
+
+    const result = await pool.query(
+      "SELECT * FROM student_form WHERE student_id = $1",
+      [student_id]
+    );
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error("ERROR CHECK FORM:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 /* ========================
 START
 ========================= */
