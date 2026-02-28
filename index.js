@@ -1221,7 +1221,7 @@ app.post("/academic/diagnostic", async (req, res) => {
       INSERT INTO student_academic_status
       (student_id, assigned_grade, academic_state, reinforcement_required, certification_ready)
       VALUES ($1,$2,'activo',false,false)
-      ON CONFLICT (student_id) DO NOTHING
+      ON CONFLICT DO NOTHING
     `, [student_id, declaredGrade]);
 
     // 4️⃣ Crear ruta certificación
@@ -1229,7 +1229,7 @@ app.post("/academic/diagnostic", async (req, res) => {
       INSERT INTO student_certification_path
       (student_id, path_type, final_exam_required, approved)
       VALUES ($1,'curriculo_oficial',true,false)
-      ON CONFLICT (student_id) DO NOTHING
+      ON CONFLICT DO NOTHING
     `, [student_id]);
 
     // 5️⃣ Currículo base
@@ -1328,7 +1328,7 @@ app.post("/academic/test-diagnostic-full", async (req, res) => {
       `INSERT INTO student_certification_path
        (student_id, certification_goal, required_subjects, completed_subjects, readiness_level, certification_ready)
        VALUES ($1,'Academic Excellence',3,0,0,false)
-       ON CONFLICT (student_id) DO NOTHING`,
+       ON CONFLICT  DO NOTHING`,
       [student_id]
     );
 
