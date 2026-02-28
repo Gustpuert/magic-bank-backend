@@ -809,39 +809,7 @@ app.get("/director/panel", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
-app.get("/director/test/reinforcement", async (req, res) => {
-  try {
 
-    await pool.query(`
-      INSERT INTO director_decisions
-      (
-        student_id,
-        tutor_name,
-        alert_type,
-        decision_taken,
-        action_required,
-        priority_level,
-        resolved,
-        created_at
-      )
-      VALUES ($1,$2,$3,$4,$5,$6,false,NOW())
-    `,
-    [
-      1,
-      "Tutor Matemáticas",
-      "bajo rendimiento",
-      "Asignar refuerzo intensivo en álgebra",
-      "reinforcement",
-      2
-    ]);
-
-    res.send("Refuerzo aplicado correctamente");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(error.message);
-  }
-});
 /* =========================
 INSCRIPCIÓN INDIVIDUAL ALUMNO
 ========================= */
