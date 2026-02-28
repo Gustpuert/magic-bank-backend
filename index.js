@@ -1490,7 +1490,90 @@ app.get("/debug/table-structure/:table", async (req, res) => {
   }
 });
 
+/* =========================
+VALIDACIÓN INSTITUCIONAL REAL
+POST DIAGNÓSTICO
+========================= */
 
+app.get("/academic/validate/:student_id", async (req, res) => {
+
+  try {
+
+    const student_id = req.params.student_id;
+
+    // 1️⃣ Verificar estudiante
+    const student = await pool.query(
+      "SELECT declared_grade FROM students WHERE id = $1",
+      [student_id]
+    );
+
+    if (!student.rowCount) {
+      return res.status(404).json({ error: "Estudiante no existe" });
+    }
+
+    const declaredGrade = student.rows[0].declared_grade;
+
+    // 2️⃣ Estado académico
+    const status = await pool.query(
+      "SELECT * FROM student_academic_status WHERE student_id = $1",
+      [student_id]
+    );
+
+    // 3️⃣ Ruta certificación
+    const certification = await pool.query(
+      "SELECT * FROM student_certification_path WHERE student_id = $1",
+      [student_id]
+    );
+
+    // 4️⃣ Materias
+    const subjects = await pool.query(
+      "SELECT subject, current_level FROM student_subject_progress WHERE student_id = $1",
+      [student_id]
+    );
+
+    // 5️⃣ Horarios
+    const schedule = await pool.query(
+      "SELECT subject, weekly_hours FROM student_schedule_control WHERE student_id = $1",
+      [student_id]
+    );
+
+    // 6️⃣ Duplicados
+    const duplicated = await pool.query(`
+      SELECT subject, COUNT(*)
+      FROM student_subject_progress
+      WHERE student_id = $1
+      GROUP BY subject
+      HAVING COUNT(*) > 1
+    `, [student_id]);
+
+    // 7️⃣ Validación de niveles
+    const levelMismatch = subjects.rows.filter(
+      s => s.current_level !== declaredGrade
+    );
+
+    res.json({
+      student_id,
+      declared_grade: declaredGrade,
+      academic_status_exists: status.rowCount > 0,
+      certification_path_exists: certification.rowCount > 0,
+      subjects_created: subjects.rowCount,
+      schedule_created: schedule.rowCount,
+      duplicated_subjects: duplicated.rows,
+      level_mismatch: levelMismatch
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      message: "Error validando estructura académica",
+      error: error.message
+    });
+
+  }
+
+});
 /* ========================
 START
 ========================= */
