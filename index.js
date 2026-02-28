@@ -1433,27 +1433,6 @@ app.get("/academic/validate/:student_id", async (req, res) => {
 
 });
 
-
-app.get("/debug/table-structure/:table", async (req, res) => {
-  try {
-    const table = req.params.table;
-
-    const result = await pool.query(
-      `
-      SELECT column_name, data_type, is_nullable
-      FROM information_schema.columns
-      WHERE table_name = $1
-      ORDER BY ordinal_position
-      `,
-      [table]
-    );
-
-    res.json(result.rows);
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
 app.get("/admin/create-student-form-table", async (req, res) => {
   try {
     await pool.query(`
@@ -1476,57 +1455,6 @@ app.get("/admin/create-student-form-table", async (req, res) => {
   }
 });
 
-app.post("/debug/test-form", async (req, res) => {
-  try {
-    const { student_id, nombre, edad, email } = req.body;
-
-    await pool.query(
-      `INSERT INTO student_form (student_id, nombre, edad, email)
-       VALUES ($1, $2, $3, $4)`,
-      [student_id, nombre, edad, email]
-    );
-
-    res.json({ message: "Formulario guardado correctamente" });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: err.message });
-  }
-});
-
-app.get("/debug/test-form/:student_id", async (req, res) => {
-  try {
-    const student_id = Number(req.params.student_id);
-
-    await pool.query(
-      `INSERT INTO student_form (student_id, nombre, edad, email)
-       VALUES ($1, $2, $3, $4)`,
-      [student_id, "PRUEBA AUDITORIA", 15, "test@magicbank.edu"]
-    );
-
-    res.json({ message: "Formulario insertado correctamente" });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get("/debug/check-form/:student_id", async (req, res) => {
-  try {
-    const { student_id } = req.params;
-
-    const result = await pool.query(
-      "SELECT * FROM student_form WHERE student_id = $1",
-      [student_id]
-    );
-
-    res.json(result.rows);
-
-  } catch (error) {
-    console.error("ERROR CHECK FORM:", error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 app.get("/admin/create-academic-control", async (req, res) => {
   try {
@@ -1600,35 +1528,7 @@ app.post("/academic/director-decision", async (req, res) => {
   }
 });
 
-app.get("/admin/test-director/:student_id", async (req, res) => {
-  try {
 
-    const { student_id } = req.params;
-
-    const result = await pool.query(
-      `
-      INSERT INTO academic_control
-      (student_id, declared_grade, validated_grade, leveling_required, academic_status, active_tutor, director_decision_date)
-      VALUES ($1,9,8,true,'leveling','TutorGrado8',NOW())
-      ON CONFLICT (student_id)
-      DO UPDATE SET
-        declared_grade = 9,
-        validated_grade = 8,
-        leveling_required = true,
-        academic_status = 'leveling',
-        active_tutor = 'TutorGrado8',
-        director_decision_date = NOW()
-      RETURNING *;
-      `,
-      [student_id]
-    );
-
-    res.json(result.rows[0]);
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 app.get("/academic/current-status/:student_id", async (req, res) => {
   try {
@@ -1694,28 +1594,6 @@ app.post("/academic/create-student", async (req, res) => {
 });
 
 
-
-app.get("/admin/test-create-student", async (req, res) => {
-  try {
-
-    const result = await pool.query(
-      `
-      INSERT INTO students 
-      (full_name, declared_grade, current_grade)
-      VALUES ('Alumno Director Test', 7, 7)
-      RETURNING *;
-      `
-    );
-
-    res.json(result.rows[0]);
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-
-
 /* ===============================
 DIRECTOR - ASIGNAR MATERIAS OFICIALES
 Colombia por defecto
@@ -1776,35 +1654,7 @@ app.post("/academic/assign/:student_id", async (req, res) => {
   }
 });
 
-app.get("/admin/test-assign/:student_id", async (req, res) => {
-  try {
 
-    const { student_id } = req.params;
-
-    const grade = 7;
-
-    const subjects = await pool.query(
-      "SELECT id FROM academic_subjects_catalog WHERE country_id = 1"
-    );
-
-    for (let subject of subjects.rows) {
-      await pool.query(
-        `
-        INSERT INTO student_subjects
-        (student_id, subject_id, current_level)
-        VALUES ($1,$2,$3)
-        ON CONFLICT DO NOTHING
-        `,
-        [student_id, subject.id, grade]
-      );
-    }
-
-    res.json({ message: "Asignación ejecutada", total: subjects.rowCount });
-
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
 
 app.get("/admin/create-academic-structure", async (req, res) => {
   try {
