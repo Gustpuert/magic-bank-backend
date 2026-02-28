@@ -1034,10 +1034,6 @@ await client.query(`
 `, [student_id, subject, detectedLevel]);
 
 
-        
-
-
-
         await client.query(`
           INSERT INTO student_schedule_control
           (student_id, tutor_name, subject, weekly_hours)
@@ -1304,86 +1300,6 @@ const validationReport = validation.rows[0] || {
   } finally {
 
     client.release();
-
-  }
-
-});
-
-app.get("/academic/validate/:student_id", async (req, res) => {
-
-  try {
-
-    const student_id = req.params.student_id;
-
-    const student = await pool.query(
-      "SELECT declared_grade FROM students WHERE id = $1",
-      [student_id]
-    );
-
-    if (!student.rowCount) {
-      return res.status(404).json({ error: "Estudiante no existe" });
-    }
-
-    const declaredGrade = student.rows[0].declared_grade;
-
-    const status = await pool.query(
-      "SELECT * FROM student_academic_status WHERE student_id = $1",
-      [student_id]
-    );
-
-    const certification = await pool.query(
-      "SELECT * FROM student_certification_path WHERE student_id = $1",
-      [student_id]
-    );
-
-    const subjects = await pool.query(
-      "SELECT subject, current_level FROM student_subject_progress WHERE student_id = $1",
-      [student_id]
-    );
-
-    const schedule = await pool.query(
-      "SELECT subject, weekly_hours FROM student_schedule_control WHERE student_id = $1",
-      [student_id]
-    );
-
-    const duplicatedSubjects = await pool.query(`
-      SELECT subject, COUNT(*)
-      FROM student_subject_progress
-      WHERE student_id = $1
-      GROUP BY subject
-      HAVING COUNT(*) > 1
-    `, [student_id]);
-
-    res.json({
-
-      student_id,
-
-      declared_grade: declaredGrade,
-
-      academic_status_exists: status.rowCount > 0,
-
-      certification_path_exists: certification.rowCount > 0,
-
-      subjects_created: subjects.rowCount,
-
-      schedule_created: schedule.rowCount,
-
-      duplicated_subjects: duplicatedSubjects.rows,
-
-      level_mismatch: subjects.rows.filter(
-        s => Number(s.current_level) !== Number(declaredGrade)
-      )
-
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      message: "Error validando estructura académica",
-      error: error.message
-    });
 
   }
 
