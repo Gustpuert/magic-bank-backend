@@ -1843,7 +1843,37 @@ app.get("/admin/create-academic-structure", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.get("/admin/seed-colombia", async (req, res) => {
+  try {
 
+    await pool.query(`
+      INSERT INTO academic_countries (name)
+      VALUES ('Colombia')
+      ON CONFLICT (name) DO NOTHING;
+    `);
+
+    await pool.query(`
+      INSERT INTO academic_subjects_catalog (country_id, name)
+      VALUES
+      (1,'Matemáticas'),
+      (1,'Lengua Castellana'),
+      (1,'Ciencias Naturales y Educación Ambiental'),
+      (1,'Ciencias Sociales'),
+      (1,'Educación Artística'),
+      (1,'Educación Física, Recreación y Deportes'),
+      (1,'Educación Ética y en Valores Humanos'),
+      (1,'Educación Religiosa'),
+      (1,'Tecnología e Informática'),
+      (1,'Idioma Extranjero - Inglés')
+      ON CONFLICT DO NOTHING;
+    `);
+
+    res.json({ message: "Materias oficiales Colombia insertadas" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 /* =============================
 START
 ========================= */
