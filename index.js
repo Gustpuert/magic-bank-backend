@@ -1629,6 +1629,27 @@ app.get("/admin/test-director/:student_id", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.get("/academic/current-status/:student_id", async (req, res) => {
+  try {
+    const { student_id } = req.params;
+
+    const result = await pool.query(
+      "SELECT * FROM academic_control WHERE student_id = $1",
+      [student_id]
+    );
+
+    if (!result.rows.length) {
+      return res.status(404).json({ error: "No existe control académico para este estudiante" });
+    }
+
+    res.json(result.rows[0]);
+
+  } catch (error) {
+    console.error("ERROR CURRENT STATUS:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
 /* ========================
 START
 ========================= */
