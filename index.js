@@ -1681,6 +1681,37 @@ app.get("/test-run-diagnostic/:student_id", async (req, res) => {
   }
 
 });
+
+app.get("/admin/create-structural-indexes", async (req, res) => {
+  try {
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS unique_student_subject
+      ON student_subject_progress (student_id, subject);
+    `);
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS unique_student_schedule
+      ON student_schedule_control (student_id, subject);
+    `);
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS unique_student_status
+      ON student_academic_status (student_id);
+    `);
+
+    await pool.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS unique_student_certification
+      ON student_certification_path (student_id);
+    `);
+
+    res.send("Índices estructurales creados correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
