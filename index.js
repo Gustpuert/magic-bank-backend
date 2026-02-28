@@ -1492,6 +1492,24 @@ app.post("/debug/test-form", async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get("/debug/test-form/:student_id", async (req, res) => {
+  try {
+    const student_id = Number(req.params.student_id);
+
+    await pool.query(
+      `INSERT INTO student_form (student_id, nombre, edad, email)
+       VALUES ($1, $2, $3, $4)`,
+      [student_id, "PRUEBA AUDITORIA", 15, "test@magicbank.edu"]
+    );
+
+    res.json({ message: "Formulario insertado correctamente" });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: error.message });
+  }
+});
 /* ========================
 START
 ========================= */
