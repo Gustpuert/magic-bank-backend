@@ -1775,6 +1775,37 @@ app.post("/academic/assign/:student_id", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.get("/admin/test-assign/:student_id", async (req, res) => {
+  try {
+
+    const { student_id } = req.params;
+
+    const grade = 7;
+
+    const subjects = await pool.query(
+      "SELECT id FROM academic_subjects_catalog WHERE country_id = 1"
+    );
+
+    for (let subject of subjects.rows) {
+      await pool.query(
+        `
+        INSERT INTO student_subjects
+        (student_id, subject_id, current_level)
+        VALUES ($1,$2,$3)
+        ON CONFLICT DO NOTHING
+        `,
+        [student_id, subject.id, grade]
+      );
+    }
+
+    res.json({ message: "Asignación ejecutada", total: subjects.rowCount });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 /* =============================
 START
 ========================= */
