@@ -1454,7 +1454,27 @@ app.get("/debug/table-structure/:table", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.get("/admin/create-student-form-table", async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_form (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL REFERENCES students(id) ON DELETE CASCADE,
+        nombre TEXT,
+        edad INTEGER,
+        email TEXT,
+        acudiente TEXT,
+        telefono TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
 
+    res.send("Tabla student_form creada correctamente");
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
