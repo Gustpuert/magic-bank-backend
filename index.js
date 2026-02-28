@@ -1287,7 +1287,7 @@ app.post("/academic/diagnostic", async (req, res) => {
 });
 
 
-router.post("/test-diagnostic", async (req, res) => {
+app.post("/academic/test-diagnostic-full", async (req, res) => {
   const client = await pool.connect();
 
   try {
