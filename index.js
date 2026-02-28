@@ -1617,6 +1617,70 @@ app.get("/admin/reset-student/:student_id", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/test-run-diagnostic/:student_id", async (req, res) => {
+
+  const client = await pool.connect();
+
+  try {
+
+    const student_id = req.params.student_id;
+
+    await client.query("BEGIN");
+
+    const gradeResult = await client.query(
+      "SELECT declared_grade FROM students WHERE id = $1",
+      [student_id]
+    );
+
+    if (!gradeResult.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).send("Estudiante no encontrado");
+    }
+
+    const declaredGrade = gradeResult.rows[0].declared_grade;
+
+    await client.query(`
+      INSERT INTO student_academic_status
+      (student_id, assigned_grade, academic_state, reinforcement_required, certification_ready)
+      VALUES ($1,$2,'activo',false,false)
+    `, [student_id, declaredGrade]);
+
+    await client.query(`
+      INSERT INTO student_certification_path
+      (student_id, completed_subjects, readiness_level, certification_ready, director_validation, created_at)
+      VALUES ($1,0,'inicial',false,false,NOW())
+    `, [student_id]);
+
+    await client.query(`
+      INSERT INTO student_subject_progress
+      (student_id, subject, current_level, progress_percentage, subject_status)
+      VALUES ($1,'Matemáticas',$2,0,'activo')
+    `, [student_id, declaredGrade]);
+
+    await client.query(`
+      INSERT INTO student_schedule_control
+      (student_id, tutor_name, subject, weekly_hours)
+      VALUES ($1,'Matemáticas','Matemáticas',4)
+    `, [student_id]);
+
+    await client.query("COMMIT");
+
+    res.send("Diagnóstico ejecutado manualmente");
+
+  } catch (error) {
+
+    await client.query("ROLLBACK");
+    console.error(error);
+    res.status(500).send(error.message);
+
+  } finally {
+
+    client.release();
+
+  }
+
+});
 /* ========================
 START
 ========================= */
