@@ -1259,6 +1259,27 @@ app.post("/academic/diagnostic", async (req, res) => {
       }
 
     }
+    // =============================
+// VALIDACIÓN INSTITUCIONAL AUTOMÁTICA
+// =============================
+
+const validation = await client.query(`
+  SELECT 
+    s.id as student_id,
+    COUNT(DISTINCT sp.subject) as subjects_created,
+    COUNT(DISTINCT sc.subject) as schedule_created
+  FROM students s
+  LEFT JOIN student_subject_progress sp ON sp.student_id = s.id
+  LEFT JOIN student_schedule_control sc ON sc.student_id = s.id
+  WHERE s.id = $1
+  GROUP BY s.id
+`, [student_id]);
+
+const validationReport = validation.rows[0] || {
+  student_id,
+  subjects_created: 0,
+  schedule_created: 0
+};
 
     await client.query("COMMIT");
 
