@@ -1472,6 +1472,52 @@ app.get("/debug/table-structure/:table", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/academic/test-diagnostic/:student_id", async (req, res) => {
+
+  const client = await pool.connect();
+
+  try {
+
+    const student_id = req.params.student_id;
+
+    await client.query("BEGIN");
+
+    // Ejemplo simple de prueba
+    const result = await client.query(`
+      SELECT 
+        math_level,
+        language_level,
+        science_level,
+        social_level
+      FROM student_diagnostic
+      WHERE student_id = $1
+    `, [student_id]);
+
+    await client.query("COMMIT");
+
+    res.json(result.rows);
+
+  } catch (err) {
+
+    await client.query("ROLLBACK");
+
+    console.error(err);
+
+    res.status(500).json({
+      message: "Error ejecutando diagnóstico",
+      error: err.message,
+      detail: err.detail,
+      code: err.code
+    });
+
+  } finally {
+
+    client.release();
+
+  }
+
+});
 /* ========================
 START
 ========================= */
