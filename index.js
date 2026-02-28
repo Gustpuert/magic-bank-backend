@@ -1527,6 +1527,31 @@ app.get("/debug/check-form/:student_id", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.get("/admin/create-academic-control", async (req, res) => {
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS academic_control (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER UNIQUE REFERENCES students(id),
+        declared_grade INTEGER,
+        validated_grade INTEGER,
+        leveling_required BOOLEAN DEFAULT false,
+        academic_status VARCHAR(30) DEFAULT 'diagnosis',
+        active_tutor VARCHAR(100),
+        director_decision_date TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+
+    res.send("Tabla academic_control creada correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* ========================
 START
 ========================= */
