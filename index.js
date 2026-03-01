@@ -2228,6 +2228,159 @@ app.get("/admin/reset-academic-system", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.get("/admin/create-student-active-tutors", async (req, res) => {
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_active_tutors (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER REFERENCES students(id) ON DELETE CASCADE,
+        tutor_area TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(student_id, tutor_area)
+      );
+    `);
+
+    res.json({ message: "Tabla student_active_tutors creada correctamente" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+app.post("/director/assign-tutors", async (req, res) => {
+
+  try {
+
+    const { student_id, tutors } = req.body;
+
+    if (!student_id || !Array.isArray(tutors)) {
+      return res.status(400).send("Datos inválidos");
+    }
+
+    for (let tutor of tutors) {
+
+      await pool.query(`
+        INSERT INTO student_active_tutors (student_id, tutor_area)
+        VALUES ($1,$2)
+        ON CONFLICT DO NOTHING
+      `, [student_id, tutor]);
+
+    }
+
+    res.send("Tutores asignados correctamente");
+
+  } catch (error) {
+
+    console.error(error);
+    res.status(500).send("Error asignando tutores");
+
+  }
+
+});
+
+async function enviarCorreoTutores(student_id, email, token) {
+
+  const activeTutors = await pool.query(`
+    SELECT tutor_area
+    FROM student_active_tutors
+    WHERE student_id = $1
+  `, [student_id]);
+
+  const botones = activeTutors.rows.map(t =>
+    `
+    <p>
+      <a href="https://magic-bank-backend-production-713e.up.railway.app/tutor/${t.tutor_area}?token=${token}">
+        Acceder Tutor ${t.tutor_area}
+      </a>
+    </p>
+    `
+  ).join("");
+
+  await axios.post(
+    "https://api.resend.com/emails",
+    {
+      from: "Director MagicBank <director@send.magicbank.org>",
+      to: email,
+      subject: "Asignación oficial de tutores",
+      html: `
+        <h2>🎓 Asignación Académica Oficial</h2>
+        <p>Estos son tus tutores autorizados:</p>
+        ${botones}
+      `
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+        "Content-Type": "application/json"
+      }
+    }
+  );
+
+}
+app.get("/tutor/:area", async (req, res) => {
+
+  try {
+
+    const { area } = req.params;
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(403).send("Acceso restringido");
+    }
+
+    const tokenCheck = await pool.query(`
+      SELECT email
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [token]);
+
+    if (!tokenCheck.rowCount) {
+      return res.status(403).send("Token inválido");
+    }
+
+    const student = await pool.query(`
+      SELECT id
+      FROM students
+      WHERE email = $1
+    `, [tokenCheck.rows[0].email]);
+
+    if (!student.rowCount) {
+      return res.status(403).send("Estudiante no encontrado");
+    }
+
+    const student_id = student.rows[0].id;
+
+    const authorized = await pool.query(`
+      SELECT 1
+      FROM student_active_tutors
+      WHERE student_id = $1
+      AND tutor_area = $2
+    `, [student_id, area]);
+
+    if (!authorized.rowCount) {
+      return res.status(403).send("Tutor no autorizado");
+    }
+
+    const tutorUrl = TUTOR_GPTS[area];
+
+    if (!tutorUrl) {
+      return res.status(404).send("Tutor no existe");
+    }
+
+    res.redirect(tutorUrl);
+
+  } catch (error) {
+
+    console.error(error);
+    res.status(500).send("Error accediendo tutor");
+
+  }
+
+});
 /* =============================
 START
 ========================= */
