@@ -2046,7 +2046,20 @@ app.get("/admin/fix-students-table", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+app.get("/admin/clean-colombia-catalog", async (req, res) => {
+  try {
 
+    await pool.query(`
+      DELETE FROM academic_subjects_catalog
+      WHERE country_id = 1;
+    `);
+
+    res.json({ message: "Catálogo Colombia eliminado correctamente" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 /* =============================
 START
 ========================= */
