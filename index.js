@@ -290,7 +290,23 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
     console.error("ERROR:",err.response?.data||err.message);
   }
 });
+/* ===============================
+TUTORES OFICIALES BACHILLERATO MAGICBANK
+MAPEO REAL GPT (NO EXPUESTO EN CORREO)
+================================ */
 
+const TUTOR_GPTS = {
+  matematicas: "https://chatgpt.com/g/g-699bcab04a3c81918adc1061209889af-bachiller-matematicas-tutor-pro",
+  "ciencias-naturales": "https://chatgpt.com/g/g-699e260ae5f08191ace18acfd628fd6b-bachillerato-tutor-de-ciencias-naturales",
+  lenguaje: "https://chatgpt.com/g/g-699e327b46848191af476ddc6ee9c091-bachillerato-tutor-lenguaje",
+  "ciencias-sociales": "https://chatgpt.com/g/g-699e331abc048191b5377e84353e159d-bachillerato-tutor-de-ciencias-sociales",
+  "etica-valores": "https://chatgpt.com/g/g-699e3504f2248191a39334f24854a0e5-bachillerato-tutor-de-etica-y-valores-humanos",
+  "tecnologia-informatica": "https://chatgpt.com/g/g-699e35c46f348191b350b97f4bf0a544-bachillerato-tutor-de-tecnologia-e-informatica",
+  "educacion-artistica": "https://chatgpt.com/g/g-699e36eae2bc81919dfe01a0b18c67f3-bachillerato-tutor-educacion-artistica-y-cultural",
+  "educacion-fisica": "https://chatgpt.com/g/g-699e37946b888191b14c5fe1572f55a3-bachillerato-tutor-de-educacion-fisica-y-deporte",
+  "educacion-religiosa": "https://chatgpt.com/g/g-699e382245b08191a9824537ddea9faf-bachillerato-tutor-de-educacion-religiosa",
+  ingles: "https://chatgpt.com/g/g-699e366421f08191b14fc6af17f251fd-bachillerato-tutor-de-ingles"
+};
 /* =========================
 ACCESS
 ========================= */
@@ -338,6 +354,58 @@ app.get("/onboarding/:token", async (req, res) => {
     </body>
     </html>
   `);
+});
+
+/* ===============================
+ACCESO PROTEGIDO A TUTORES MAGICBANK
+VALIDA TOKEN Y REDIRIGE A GPT REAL
+NO EXPONE URL DIRECTA
+================================ */
+
+app.get("/tutor/:area", async (req, res) => {
+
+  try {
+
+    const { area } = req.params;
+    const { token } = req.query;
+
+    // 1️⃣ Validar token presente
+    if (!token) {
+      return res.status(403).send("Acceso restringido");
+    }
+
+    // 2️⃣ Validar token en base de datos
+    const tokenCheck = await pool.query(
+      `
+      SELECT email
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+      `,
+      [token]
+    );
+
+    if (!tokenCheck.rowCount) {
+      return res.status(403).send("Token inválido o expirado");
+    }
+
+    // 3️⃣ Validar que tutor exista en sistema
+    const tutorUrl = TUTOR_GPTS[area];
+
+    if (!tutorUrl) {
+      return res.status(404).send("Tutor no encontrado");
+    }
+
+    // 4️⃣ Redirigir silenciosamente al GPT real
+    res.redirect(tutorUrl);
+
+  } catch (error) {
+
+    console.error("ERROR ACCESO TUTOR:", error);
+    res.status(500).send("Error accediendo al tutor");
+
+  }
+
 });
 /* =========================
 STUDENT ENROLLMENT
