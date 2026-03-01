@@ -274,63 +274,90 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
   res.sendStatus(200);
 
   try {
-    const orderId=req.body.id;
-    if(!orderId) return;
 
-    const store=await pool.query("SELECT store_id,access_token FROM tiendanube_stores LIMIT 1");
-    if(!store.rowCount) return;
+    const orderId = req.body.id;
+    if (!orderId) return;
 
-    const {store_id,access_token}=store.rows[0];
+    const store = await pool.query(
+      "SELECT store_id,access_token FROM tiendanube_stores LIMIT 1"
+    );
+    if (!store.rowCount) return;
 
-    const order=await axios.get(
+    const { store_id, access_token } = store.rows[0];
+
+    const order = await axios.get(
       `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
-      {headers:{Authentication:`bearer ${access_token}`,"User-Agent":"MagicBank","Content-Type":"application/json"}}
+      {
+        headers: {
+          Authentication: `bearer ${access_token}`,
+          "User-Agent": "MagicBank",
+          "Content-Type": "application/json"
+        }
+      }
     );
 
-    if(order.data.payment_status!=="paid") return;
+    if (order.data.payment_status !== "paid") return;
 
-    const email=
+    const email =
       order.data.contact_email ||
       order.data.customer?.email ||
       order.data.billing_address?.email;
 
-    const productId=
+    const productId =
       order.data.order_products?.[0]?.product_id ||
       order.data.products?.[0]?.product_id;
 
-    const variantId=
+    const variantId =
       order.data.order_products?.[0]?.variant_id ||
       order.data.products?.[0]?.variant_id;
 
-    let curso=CATALOGO[productId];
+    let curso = CATALOGO[productId];
 
-    if(!curso){
-      for(const id in CATALOGO){
-        if(CATALOGO[id].variant==variantId){
-          curso=CATALOGO[id];
+    if (!curso) {
+      for (const id in CATALOGO) {
+        if (CATALOGO[id].variant == variantId) {
+          curso = CATALOGO[id];
           break;
         }
       }
     }
 
-    if(!curso){
-      console.log("NO EN CATALOGO:",productId,variantId);
+    if (!curso) {
+      console.log("NO EN CATALOGO:", productId, variantId);
       return;
     }
 
-    const token=crypto.randomBytes(32).toString("hex");
+    // 🔐 GENERAR TOKEN REAL
+    const rawToken = crypto.randomBytes(32).toString("hex");
 
+    // 🔐 GENERAR HASH DEL TOKEN
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    // 🔐 GUARDAR SOLO EL HASH EN BASE DE DATOS
     await pool.query(
-      `INSERT INTO access_tokens
+      `
+      INSERT INTO access_tokens
       (token,email,product_id,product_name,area,redirect_url,expires_at)
-      VALUES ($1,$2,$3,$4,$5,$6,NOW()+interval '30 days')`,
-      [token,email,productId,curso.nombre,curso.area,curso.url]
+      VALUES ($1,$2,$3,$4,$5,$6,NOW()+interval '30 days')
+      `,
+      [
+        tokenHash,
+        email,
+        productId,
+        curso.nombre,
+        curso.area,
+        curso.url
+      ]
     );
 
-    await enviarCorreo(email, curso, token);
+    // 📧 ENVIAR TOKEN REAL POR CORREO
+    await enviarCorreo(email, curso, rawToken);
 
-  } catch(err){
-    console.error("ERROR:",err.response?.data||err.message);
+  } catch (err) {
+    console.error("ERROR:", err.response?.data || err.message);
   }
 });
 /* ===============================
@@ -380,14 +407,42 @@ async function asignarTutoresBachillerato(student_id) {
 /* =========================
 ACCESS
 ========================= */
-app.get("/access/:token", async (req,res)=>{
-  const r=await pool.query(
-    "SELECT redirect_url FROM access_tokens WHERE token=$1 AND expires_at>NOW()",
-    [req.params.token]
-  );
-  if(!r.rowCount) return res.status(403).send("Acceso inválido");
-  res.redirect(r.rows[0].redirect_url);
+app.get("/access/:token", async (req, res) => {
+
+  try {
+
+    const rawToken = req.params.token;
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    const r = await pool.query(
+      `
+      SELECT redirect_url
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+      `,
+      [tokenHash]
+    );
+
+    if (!r.rowCount) {
+      return res.status(403).send("Acceso inválido");
+    }
+
+    res.redirect(r.rows[0].redirect_url);
+
+  } catch (error) {
+
+    console.error(error);
+    res.status(500).send("Error validando acceso");
+
+  }
+
 });
+
 app.get("/onboarding/:token", async (req, res) => {
 
   const r = await pool.query(
@@ -2032,6 +2087,7 @@ async function enviarCorreoTutores(student_id, email, token) {
   );
 
 }
+
 app.get("/tutor/:area", async (req, res) => {
 
   try {
@@ -2043,12 +2099,18 @@ app.get("/tutor/:area", async (req, res) => {
       return res.status(403).send("Acceso restringido");
     }
 
+    // 🔐 Hashear token recibido
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
     const tokenCheck = await pool.query(`
       SELECT email
       FROM access_tokens
       WHERE token = $1
       AND expires_at > NOW()
-    `, [token]);
+    `, [tokenHash]);
 
     if (!tokenCheck.rowCount) {
       return res.status(403).send("Token inválido");
@@ -2093,6 +2155,7 @@ app.get("/tutor/:area", async (req, res) => {
   }
 
 });
+
 /* =============================
 START
 ========================= */
