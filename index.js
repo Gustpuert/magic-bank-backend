@@ -425,7 +425,176 @@ app.get("/onboarding/:token", async (req, res) => {
     </html>
   `);
 });
+/* =========================================
+   DIRECTOR SUBMIT INSTITUCIONAL
+   MODELO C DEFINITIVO MAGICBANK
+========================================= */
 
+app.post("/academic/director-submit", async (req, res) => {
+
+  try {
+
+    const {
+      token,
+      full_name,
+      age,
+      declared_grade,
+      validated_grade,
+      country
+    } = req.body;
+
+    if (!token || !full_name || !declared_grade) {
+      return res.status(400).json({ error: "Datos incompletos" });
+    }
+
+    // 1️⃣ Validar token
+    const access = await pool.query(`
+      SELECT email, product_name
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [token]);
+
+    if (!access.rowCount) {
+      return res.status(403).json({ error: "Token inválido" });
+    }
+
+    const { email, product_name } = access.rows[0];
+
+    // 2️⃣ Crear o actualizar estudiante
+    let student_id;
+
+    const existing = await pool.query(
+      "SELECT id FROM students WHERE email = $1",
+      [email]
+    );
+
+    if (!existing.rowCount) {
+
+      const created = await pool.query(`
+        INSERT INTO students
+        (full_name, email, age, declared_grade, current_grade)
+        VALUES ($1,$2,$3,$4,$5)
+        RETURNING id
+      `, [
+        full_name,
+        email,
+        age || null,
+        declared_grade,
+        validated_grade || declared_grade
+      ]);
+
+      student_id = created.rows[0].id;
+
+    } else {
+
+      student_id = existing.rows[0].id;
+
+      await pool.query(`
+        UPDATE students
+        SET
+          full_name = $1,
+          age = $2,
+          declared_grade = $3,
+          current_grade = $4
+        WHERE id = $5
+      `, [
+        full_name,
+        age || null,
+        declared_grade,
+        validated_grade || declared_grade,
+        student_id
+      ]);
+
+    }
+
+    // 3️⃣ Activar tutores según producto
+
+    let tutoresActivar = [];
+
+    if (product_name === "Bachillerato completo MagicBank") {
+
+      tutoresActivar = [
+        "matematicas",
+        "lenguaje",
+        "ciencias-naturales",
+        "ciencias-sociales",
+        "etica-valores",
+        "tecnologia-informatica",
+        "educacion-artistica",
+        "educacion-fisica",
+        "educacion-religiosa",
+        "ingles"
+      ];
+
+    }
+
+    for (let tutor of tutoresActivar) {
+
+      await pool.query(`
+        INSERT INTO student_active_tutors (student_id, tutor_area)
+        VALUES ($1,$2)
+        ON CONFLICT DO NOTHING
+      `, [student_id, tutor]);
+
+    }
+
+    // 4️⃣ Construir botones protegidos
+
+    const botones = tutoresActivar.map(t =>
+      `
+      <p>
+        <a href="https://magic-bank-backend-production-713e.up.railway.app/tutor/${t}?token=${token}">
+          Acceder Tutor ${t.replace("-", " ")}
+        </a>
+      </p>
+      `
+    ).join("");
+
+    // 5️⃣ Enviar correo institucional
+
+    await axios.post(
+      "https://api.resend.com/emails",
+      {
+        from: "Director MagicBank <director@send.magicbank.org>",
+        to: email,
+        subject: "Asignación Oficial de Tutores MagicBank",
+        html: `
+          <div style="font-family:Arial;">
+            <h2>🎓 Proceso Académico Activado</h2>
+            <p>Hola ${full_name},</p>
+            <p>El Director Académico ha activado tus tutores oficiales:</p>
+            ${botones}
+            <p>Revisa este correo cada vez que necesites ingresar a tus tutores.</p>
+            <p>Todos los accesos están protegidos institucionalmente.</p>
+          </div>
+        `
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    // 6️⃣ Respuesta al Director GPT
+
+    res.json({
+      message: "Proceso académico activado correctamente",
+      student_id
+    });
+
+  } catch (error) {
+
+    console.error("ERROR DIRECTOR SUBMIT:", error);
+    res.status(500).json({
+      error: "Error procesando inscripción académica"
+    });
+
+  }
+
+});
 /* ===============================
 ACCESO PROTEGIDO A TUTORES MAGICBANK
 VALIDA TOKEN Y REDIRIGE A GPT REAL
