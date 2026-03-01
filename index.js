@@ -2028,6 +2028,25 @@ app.get("/admin/fix-country-column", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
+app.get("/admin/fix-students-table", async (req, res) => {
+  try {
+
+    await pool.query(`
+      ALTER TABLE students
+      ADD COLUMN IF NOT EXISTS country_id INTEGER DEFAULT 1;
+    `);
+
+    res.json({
+      message: "Tabla students actualizada correctamente"
+    });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 /* =============================
 START
 ========================= */
