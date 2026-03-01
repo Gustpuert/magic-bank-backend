@@ -270,21 +270,46 @@ async function enviarCorreo(destino, curso, token) {
 /* =========================
 WEBHOOK TIENDANUBE
 ========================= */
+/* =========================
+WEBHOOK TIENDANUBE BLINDADO
+VALIDACIÓN INSTITUCIONAL
+========================= */
+
 app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
-  res.sendStatus(200);
 
   try {
 
-    const orderId = req.body.id;
-    if (!orderId) return;
+    // 🔐 1️⃣ VALIDACIÓN DE SECRETO DEL WEBHOOK
+    const receivedSecret = req.headers["x-magicbank-secret"];
 
+    if (!receivedSecret || receivedSecret !== process.env.WEBHOOK_SECRET) {
+      console.warn("Intento de webhook no autorizado");
+      return res.status(401).send("Webhook no autorizado");
+    }
+
+    // 🔄 Responder inmediatamente a Tiendanube
+    res.sendStatus(200);
+
+    // 2️⃣ Validar ID de orden
+    const orderId = req.body?.id;
+    if (!orderId) {
+      console.warn("Webhook sin orderId");
+      return;
+    }
+
+    // 3️⃣ Obtener credenciales tienda
     const store = await pool.query(
-      "SELECT store_id,access_token FROM tiendanube_stores LIMIT 1"
+      "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
     );
-    if (!store.rowCount) return;
+
+    if (!store.rowCount) {
+      console.error("No hay tienda conectada");
+      return;
+    }
 
     const { store_id, access_token } = store.rows[0];
 
+    // 4️⃣ Consultar orden oficial en Tiendanube
     const order = await axios.get(
       `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
       {
@@ -296,12 +321,21 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       }
     );
 
-    if (order.data.payment_status !== "paid") return;
+    if (order.data.payment_status !== "paid") {
+      console.log("Orden no pagada:", orderId);
+      return;
+    }
 
+    // 5️⃣ Extraer datos cliente
     const email =
       order.data.contact_email ||
       order.data.customer?.email ||
       order.data.billing_address?.email;
+
+    if (!email) {
+      console.warn("Orden sin email:", orderId);
+      return;
+    }
 
     const productId =
       order.data.order_products?.[0]?.product_id ||
@@ -323,25 +357,25 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
     }
 
     if (!curso) {
-      console.log("NO EN CATALOGO:", productId, variantId);
+      console.warn("Producto no encontrado en catálogo:", productId, variantId);
       return;
     }
 
-    // 🔐 GENERAR TOKEN REAL
+    // 🔐 6️⃣ Generar token real
     const rawToken = crypto.randomBytes(32).toString("hex");
 
-    // 🔐 GENERAR HASH DEL TOKEN
+    // 🔐 7️⃣ Hashear token antes de guardar
     const tokenHash = crypto
       .createHash("sha256")
       .update(rawToken)
       .digest("hex");
 
-    // 🔐 GUARDAR SOLO EL HASH EN BASE DE DATOS
+    // 8️⃣ Guardar token hash
     await pool.query(
       `
       INSERT INTO access_tokens
-      (token,email,product_id,product_name,area,redirect_url,expires_at)
-      VALUES ($1,$2,$3,$4,$5,$6,NOW()+interval '30 days')
+      (token, email, product_id, product_name, area, redirect_url, expires_at)
+      VALUES ($1,$2,$3,$4,$5,$6,NOW() + interval '30 days')
       `,
       [
         tokenHash,
@@ -353,12 +387,17 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       ]
     );
 
-    // 📧 ENVIAR TOKEN REAL POR CORREO
+    // 9️⃣ Enviar correo con token real
     await enviarCorreo(email, curso, rawToken);
 
+    console.log("Webhook procesado correctamente:", orderId);
+
   } catch (err) {
-    console.error("ERROR:", err.response?.data || err.message);
+
+    console.error("ERROR WEBHOOK:", err.response?.data || err.message);
+
   }
+
 });
 /* ===============================
 TUTORES OFICIALES BACHILLERATO MAGICBANK
