@@ -661,7 +661,8 @@ app.post("/director/action", async (req, res) => {
       alert_type,
       decision_taken,
       action_required,
-      priority_level
+      priority_level,
+      director_justification
     } = req.body;
 
     const allowedActions = [
@@ -675,6 +676,27 @@ app.post("/director/action", async (req, res) => {
 
     if (!allowedActions.includes(action_required)) {
       return res.status(400).send("Acción no permitida");
+    }
+
+    // 🔴 VALIDACIÓN OBLIGATORIA PARA CERTIFICACIÓN
+    if (action_required === "certification_ready") {
+      if (!director_justification || director_justification.trim().length < 20) {
+        return res.status(400).send("Justificación obligatoria para certificar");
+      }
+
+      await pool.query(`
+        UPDATE student_certification_path
+        SET approved = true,
+            certification_date = NOW(),
+            director_validation = true
+        WHERE student_id = $1
+      `, [student_id]);
+
+      await pool.query(`
+        UPDATE student_academic_status
+        SET certification_ready = true
+        WHERE student_id = $1
+      `, [student_id]);
     }
 
     await pool.query(`
@@ -700,7 +722,7 @@ app.post("/director/action", async (req, res) => {
       priority_level
     ]);
 
-    res.send("Acción pedagógica del Director ejecutada");
+    res.send("Acción del Director ejecutada correctamente");
 
   } catch (error) {
     console.error(error);
