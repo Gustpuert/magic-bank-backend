@@ -445,40 +445,60 @@ app.get("/access/:token", async (req, res) => {
 
 app.get("/onboarding/:token", async (req, res) => {
 
-  const r = await pool.query(
-    "SELECT email FROM access_tokens WHERE token=$1 AND expires_at>NOW()",
-    [req.params.token]
-  );
+  try {
 
-  if (!r.rowCount) {
-    return res.status(403).send("Token inválido");
+    const rawToken = req.params.token;
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    const r = await pool.query(
+      `
+      SELECT email
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+      `,
+      [tokenHash]
+    );
+
+    if (!r.rowCount) {
+      return res.status(403).send("Token inválido");
+    }
+
+    res.send(`
+      <html>
+      <body style="font-family:Arial;background:#0f172a;color:white;padding:40px;">
+        <h2>🎓 Inscripción Oficial Bachillerato MagicBank</h2>
+
+        <form method="POST" action="/onboarding/${rawToken}">
+          <label>Nombre completo:</label><br>
+          <input name="full_name" required /><br><br>
+
+          <label>Edad:</label><br>
+          <input name="age" type="number" required /><br><br>
+
+          <label>Grado declarado:</label><br>
+          <input name="declared_grade" type="number" min="1" max="11" required /><br><br>
+
+          <label>
+            <input type="checkbox" name="legal_accept" required />
+            Acepto las condiciones académicas y reglamento institucional
+          </label><br><br>
+
+          <button type="submit">Finalizar Inscripción</button>
+        </form>
+      </body>
+      </html>
+    `);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error en onboarding");
   }
 
-  res.send(`
-    <html>
-    <body style="font-family:Arial;background:#0f172a;color:white;padding:40px;">
-      <h2>🎓 Inscripción Oficial Bachillerato MagicBank</h2>
-
-      <form method="POST" action="/onboarding/${req.params.token}">
-        <label>Nombre completo:</label><br>
-        <input name="full_name" required /><br><br>
-
-        <label>Edad:</label><br>
-        <input name="age" type="number" required /><br><br>
-
-        <label>Grado declarado:</label><br>
-        <input name="declared_grade" type="number" min="1" max="11" required /><br><br>
-
-        <label>
-          <input type="checkbox" name="legal_accept" required />
-          Acepto las condiciones académicas y reglamento institucional
-        </label><br><br>
-
-        <button type="submit">Finalizar Inscripción</button>
-      </form>
-    </body>
-    </html>
-  `);
 });
 /* =========================================
    DIRECTOR SUBMIT INSTITUCIONAL
@@ -502,13 +522,19 @@ app.post("/academic/director-submit", async (req, res) => {
       return res.status(400).json({ error: "Datos incompletos" });
     }
 
+    // 🔐 HASHEAR TOKEN
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
     // 1️⃣ Validar token
     const access = await pool.query(`
       SELECT email, product_name
       FROM access_tokens
       WHERE token = $1
       AND expires_at > NOW()
-    `, [token]);
+    `, [tokenHash]);
 
     if (!access.rowCount) {
       return res.status(403).json({ error: "Token inválido" });
@@ -563,12 +589,10 @@ app.post("/academic/director-submit", async (req, res) => {
 
     }
 
-    // 3️⃣ Activar tutores según producto
-
+    // 3️⃣ Activar tutores si aplica
     let tutoresActivar = [];
 
     if (product_name === "Bachillerato completo MagicBank") {
-
       tutoresActivar = [
         "matematicas",
         "lenguaje",
@@ -581,20 +605,15 @@ app.post("/academic/director-submit", async (req, res) => {
         "educacion-religiosa",
         "ingles"
       ];
-
     }
 
     for (let tutor of tutoresActivar) {
-
       await pool.query(`
         INSERT INTO student_active_tutors (student_id, tutor_area)
         VALUES ($1,$2)
         ON CONFLICT DO NOTHING
       `, [student_id, tutor]);
-
     }
-
-    // 4️⃣ Construir botones protegidos
 
     const botones = tutoresActivar.map(t =>
       `
@@ -605,8 +624,6 @@ app.post("/academic/director-submit", async (req, res) => {
       </p>
       `
     ).join("");
-
-    // 5️⃣ Enviar correo institucional
 
     await axios.post(
       "https://api.resend.com/emails",
@@ -620,7 +637,6 @@ app.post("/academic/director-submit", async (req, res) => {
             <p>Hola ${full_name},</p>
             <p>El Director Académico ha activado tus tutores oficiales:</p>
             ${botones}
-            <p>Revisa este correo cada vez que necesites ingresar a tus tutores.</p>
             <p>Todos los accesos están protegidos institucionalmente.</p>
           </div>
         `
@@ -633,20 +649,16 @@ app.post("/academic/director-submit", async (req, res) => {
       }
     );
 
-    // 6️⃣ Respuesta al Director GPT
-
     res.json({
       message: "Proceso académico activado correctamente",
       student_id
     });
 
   } catch (error) {
-
     console.error("ERROR DIRECTOR SUBMIT:", error);
     res.status(500).json({
       error: "Error procesando inscripción académica"
     });
-
   }
 
 });
@@ -967,23 +979,27 @@ app.get("/director/initialize/:token", async (req, res) => {
 
   try {
 
-    const { token } = req.params;
+    const rawToken = req.params.token;
 
-    // 1️⃣ Validar token
+    // 🔐 HASHEAR TOKEN
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
     const access = await pool.query(`
       SELECT email, product_name, area
       FROM access_tokens
       WHERE token = $1
       AND expires_at > NOW()
-    `, [token]);
+    `, [tokenHash]);
 
     if (!access.rowCount) {
       return res.status(403).send("Token inválido o expirado");
     }
 
-    const { email, product_name, area } = access.rows[0];
+    const { email, product_name } = access.rows[0];
 
-    // 2️⃣ Buscar estudiante existente
     const studentCheck = await pool.query(
       "SELECT id FROM students WHERE email = $1",
       [email]
@@ -1007,7 +1023,6 @@ app.get("/director/initialize/:token", async (req, res) => {
 
     }
 
-    // 3️⃣ Si es Bachillerato → activar 10 tutores oficiales
     if (product_name === "Bachillerato completo MagicBank") {
 
       const tutoresBachillerato = [
@@ -1024,21 +1039,17 @@ app.get("/director/initialize/:token", async (req, res) => {
       ];
 
       for (let tutor of tutoresBachillerato) {
-
         await pool.query(`
           INSERT INTO student_active_tutors (student_id, tutor_area)
           VALUES ($1,$2)
           ON CONFLICT DO NOTHING
         `, [student_id, tutor]);
-
       }
-
-      // 4️⃣ Enviar correo institucional con tutores protegidos
 
       const botones = tutoresBachillerato.map(t =>
         `
         <p>
-          <a href="https://magic-bank-backend-production-713e.up.railway.app/tutor/${t}?token=${token}">
+          <a href="https://magic-bank-backend-production-713e.up.railway.app/tutor/${t}?token=${rawToken}">
             Acceder Tutor ${t}
           </a>
         </p>
@@ -1056,7 +1067,6 @@ app.get("/director/initialize/:token", async (req, res) => {
               <h2>🎓 Bienvenido al Bachillerato MagicBank</h2>
               <p>El Director Académico ha activado tus tutores oficiales:</p>
               ${botones}
-              <p>Todos los accesos están protegidos institucionalmente.</p>
             </div>
           `
         },
@@ -1067,10 +1077,8 @@ app.get("/director/initialize/:token", async (req, res) => {
           }
         }
       );
-
     }
 
-    // 5️⃣ Confirmación institucional
     res.send(`
       <html>
         <body style="font-family:Arial;background:#020617;color:white;padding:40px;">
@@ -1082,10 +1090,8 @@ app.get("/director/initialize/:token", async (req, res) => {
     `);
 
   } catch (error) {
-
     console.error("ERROR DIRECTOR INITIALIZE:", error);
     res.status(500).send("Error inicializando proceso académico");
-
   }
 
 });
