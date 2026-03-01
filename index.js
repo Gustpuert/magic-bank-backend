@@ -2172,6 +2172,19 @@ app.get("/admin/protect-catalog", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.get("/admin/reset-academic-system", async (req, res) => {
+  try {
+
+    await pool.query("DELETE FROM student_subjects;");
+    await pool.query("DELETE FROM academic_subjects_catalog WHERE country_id = 1;");
+
+    res.json({ message: "Sistema académico reiniciado completamente" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 /* =============================
 START
 ========================= */
