@@ -223,7 +223,50 @@ const CATALOGO = {
   url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-accounting-pat"
 }
 };
+/* =========================
+   RESEND MAIL
+========================= */
 
+async function enviarCorreo(destino, curso, token) {
+  try {
+
+    await axios.post(
+      "https://api.resend.com/emails",
+      {
+        from: "MagicBank <info@send.magicbank.org>",
+        to: destino,
+        subject: `Acceso oficial a ${curso.nombre}`,
+        html: `
+          <div style="font-family:Arial;">
+            <h2>🎓 Tu acceso está listo</h2>
+            <p><strong>${curso.nombre}</strong></p>
+            <p>Haz clic para ingresar:</p>
+            <a href="https://magic-bank-backend-production-713e.up.railway.app/access/${token}">
+              ACCEDER AL TUTOR
+            </a>
+            <p>Este acceso expira en 30 días.</p>
+          </div>
+        `
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    console.log("EMAIL ENVIADO OK");
+
+  } catch (error) {
+
+    console.error(
+      "ERROR RESEND:",
+      error.response?.data || error.message
+    );
+
+  }
+}
 /* =========================
 WEBHOOK TIENDANUBE
 ========================= */
