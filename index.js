@@ -1721,89 +1721,87 @@ app.get("/admin/fix-student-subjects", async (req, res) => {
   }
 });
 
-/* ===============================
-ADMIN - FULL INITIALIZATION MEN
-Inicialización académica oficial
-================================ */
+
+
+/* =========================================
+   ADMIN - FULL INIT SEGURO (SIN DUPLICAR)
+   Bloquea reinicialización si ya existe estructura
+========================================= */
 
 app.get("/admin/full-init/:id", async (req, res) => {
   try {
 
     const student_id = Number(req.params.id);
 
-    // 1️⃣ Verificar que el estudiante exista
-    const studentResult = await pool.query(
-      "SELECT declared_grade FROM students WHERE id = $1",
-      [student_id]
-    );
-
-    if (!studentResult.rowCount) {
-      return res.status(404).json({
-        error: "Estudiante no existe"
-      });
-    }
-
-    const declared_grade = Number(studentResult.rows[0].declared_grade);
-
-    // 2️⃣ Crear estado académico si no existe
-    await pool.query(`
-      INSERT INTO student_academic_status
-      (student_id, assigned_grade, academic_state, reinforcement_required, certification_ready)
-      SELECT $1, $2, 'activo', false, false
-      WHERE NOT EXISTS (
-        SELECT 1 FROM student_academic_status WHERE student_id = $1
-      );
-    `, [student_id, declared_grade]);
-
-    // 3️⃣ Crear ruta de certificación si no existe
-    await pool.query(`
-      INSERT INTO student_certification_path
-      (student_id, completed_subjects, readiness_level, certification_ready, director_validation, created_at)
-      SELECT $1, 0, 'inicial', false, false, NOW()
-      WHERE NOT EXISTS (
-        SELECT 1 FROM student_certification_path WHERE student_id = $1
-      );
-    `, [student_id]);
-
-    // 4️⃣ Insertar ÁREAS OFICIALES MEN (sin duplicar)
-    const subjectsInsert = await pool.query(`
-      INSERT INTO student_subjects (student_id, subject_id, current_level)
-      SELECT $1, catalog.id, $2
-      FROM academic_subjects_catalog catalog
-      WHERE NOT EXISTS (
-        SELECT 1
-        FROM student_subjects ss
-        WHERE ss.student_id = $1
-        AND ss.subject_id = catalog.id
-      )
-      RETURNING id;
-    `, [student_id, declared_grade]);
-
-    // 5️⃣ Contar materias reales del estudiante
-    const subjectsCount = await pool.query(
+    // 1️⃣ Verificar si ya tiene materias
+    const existingSubjects = await pool.query(
       "SELECT COUNT(*) FROM student_subjects WHERE student_id = $1",
       [student_id]
     );
 
-    const totalSubjects = Number(subjectsCount.rows[0].count);
+    if (Number(existingSubjects.rows[0].count) > 0) {
+      return res.json({
+        message: "Inicialización bloqueada: el estudiante ya tiene materias asignadas",
+        student_id,
+        subjects_existing: Number(existingSubjects.rows[0].count),
+        structural_status: "BLOCKED"
+      });
+    }
+
+    // 2️⃣ Obtener país del estudiante (si no existe usa 1 por defecto)
+    const student = await pool.query(
+      "SELECT country_id FROM students WHERE id = $1",
+      [student_id]
+    );
+
+    const country_id = student.rows.length > 0
+      ? student.rows[0].country_id
+      : 1;
+
+    // 3️⃣ Obtener catálogo oficial (solo 10 áreas)
+    const catalog = await pool.query(
+      "SELECT id FROM academic_subjects_catalog WHERE country_id = $1",
+      [country_id]
+    );
+
+    // 4️⃣ Insertar exactamente las materias del catálogo
+    for (let subject of catalog.rows) {
+      await pool.query(
+        `INSERT INTO student_subjects 
+         (student_id, subject_id, current_level, status)
+         VALUES ($1, $2, 1, 'active')`,
+        [student_id, subject.id]
+      );
+    }
+
+    // 5️⃣ Crear estado académico si no existe
+    await pool.query(
+      `INSERT INTO student_academic_status (student_id)
+       VALUES ($1)
+       ON CONFLICT (student_id) DO NOTHING`,
+      [student_id]
+    );
+
+    // 6️⃣ Crear ruta de certificación si no existe
+    await pool.query(
+      `INSERT INTO student_certification_path (student_id)
+       VALUES ($1)
+       ON CONFLICT (student_id) DO NOTHING`,
+      [student_id]
+    );
 
     res.json({
       message: "Inicialización académica oficial ejecutada correctamente",
       student_id,
-      assigned_grade: declared_grade,
-      subjects_created_this_run: subjectsInsert.rowCount,
-      total_subjects_for_student: totalSubjects,
+      subjects_created: catalog.rows.length,
       structural_status: "OK"
     });
 
   } catch (error) {
-
-    console.error("FULL INIT ERROR:", error);
-
+    console.error(error);
     res.status(500).json({
       error: error.message
     });
-
   }
 });
 
