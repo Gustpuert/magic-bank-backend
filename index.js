@@ -947,7 +947,13 @@ app.post("/academic/director/action", async (req, res) => {
   }
 });
 
+/* =========================================
+   MOTOR ADAPTATIVO ACADÉMICO COMPLETO
+   ALERTA AUTOMÁTICA INSTITUCIONAL INCLUIDA
+========================================= */
+
 app.post("/academic/adaptive-engine", async (req, res) => {
+
   const client = await pool.connect();
 
   try {
@@ -972,7 +978,7 @@ app.post("/academic/adaptive-engine", async (req, res) => {
     switch (action_mode) {
 
       /* =========================
-      1️⃣ ASIGNACIÓN INICIAL
+         1️⃣ ASIGNACIÓN INICIAL
       ========================= */
       case "initial_assignment":
 
@@ -984,23 +990,6 @@ app.post("/academic/adaptive-engine", async (req, res) => {
           student_id,
           `Asignado tutor inicial: ${payload.primary_subject}`
         ]);
-        let detectedLevel = null;
-
-if (subject === "Matemáticas") detectedLevel = data.math_level;
-if (subject === "Lengua") detectedLevel = data.language_level;
-if (subject === "Ciencias") detectedLevel = data.science_level;
-if (subject === "Sociales") detectedLevel = data.social_level;
-
-// Si no viene nivel específico, usar declaredGrade como fallback
-if (!detectedLevel) detectedLevel = declaredGrade;
-
-await client.query(`
-  INSERT INTO student_subject_progress
-  (student_id, subject, current_level, progress_percentage, subject_status)
-  VALUES ($1,$2,$3,0,'nivelacion')
-  ON CONFLICT DO NOTHING
-`, [student_id, subject, detectedLevel]);
-
 
         await client.query(`
           INSERT INTO student_schedule_control
@@ -1015,8 +1004,10 @@ await client.query(`
 
         break;
 
+
       /* =========================
-      2️⃣ EVALUACIÓN DE PROGRESO
+         2️⃣ EVALUACIÓN DE PROGRESO
+         CON ALERTA AUTOMÁTICA
       ========================= */
       case "progress_evaluation":
 
@@ -1032,21 +1023,45 @@ await client.query(`
           payload.subject
         ]);
 
-        if (payload.progress >= 70) {
+        // 🔴 ALERTA AUTOMÁTICA SI PROGRESO < 40
+        if (payload.progress < 40) {
+
           await client.query(`
-            INSERT INTO student_pedagogical_actions
-            (student_id, action_type, description)
-            VALUES ($1, 'advance_subject', $2)
+            INSERT INTO tutor_reports
+            (student_id, tutor_name, subject, report_type, summary, recommendation, priority_level)
+            VALUES ($1,$2,$3,'alerta',$4,$5,2)
           `, [
             student_id,
-            `Avance exitoso en ${payload.subject}`
+            payload.tutor_name || 'Tutor Automático',
+            payload.subject,
+            `Progreso crítico detectado (${payload.progress}%)`,
+            'Se recomienda refuerzo estructural inmediato'
           ]);
+
+        }
+
+        // 🟢 REPORTE DE AVANCE SI PROGRESO >= 70
+        if (payload.progress >= 70) {
+
+          await client.query(`
+            INSERT INTO tutor_reports
+            (student_id, tutor_name, subject, report_type, summary, recommendation, priority_level)
+            VALUES ($1,$2,$3,'avance',$4,$5,1)
+          `, [
+            student_id,
+            payload.tutor_name || 'Tutor Automático',
+            payload.subject,
+            `Dominio sólido detectado (${payload.progress}%)`,
+            'Posible aceleración o evaluación superior'
+          ]);
+
         }
 
         break;
 
+
       /* =========================
-      3️⃣ REFUERZO
+         3️⃣ REFUERZO ESTRUCTURAL
       ========================= */
       case "reinforcement_adjustment":
 
@@ -1067,8 +1082,9 @@ await client.query(`
 
         break;
 
+
       /* =========================
-      4️⃣ CERTIFICACIÓN
+         4️⃣ CERTIFICACIÓN
       ========================= */
       case "certification_evaluation":
 
@@ -1099,6 +1115,7 @@ await client.query(`
 
         break;
 
+
       default:
         await client.query("ROLLBACK");
         return res.status(400).send("Modo no válido");
@@ -1109,12 +1126,18 @@ await client.query(`
     res.send("Motor académico ejecutado correctamente");
 
   } catch (error) {
+
     await client.query("ROLLBACK");
     console.error(error);
+
     res.status(500).send("Error ejecutando motor académico");
+
   } finally {
+
     client.release();
+
   }
+
 });
 
 
