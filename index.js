@@ -2140,6 +2140,38 @@ app.get("/admin/protect-catalog", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
+app.get("/admin/clean-colombia-catalog", async (req, res) => {
+  try {
+    await pool.query(`
+      DELETE FROM academic_subjects_catalog
+      WHERE country_id = 1;
+    `);
+
+    res.json({ message: "Catálogo Colombia limpiado correctamente" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+app.get("/admin/protect-catalog", async (req, res) => {
+  try {
+
+    await pool.query(`
+      ALTER TABLE academic_subjects_catalog
+      ADD CONSTRAINT unique_country_subject
+      UNIQUE (country_id, name);
+    `);
+
+    res.json({ message: "Catálogo protegido correctamente" });
+
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 /* =============================
 START
 ========================= */
