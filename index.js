@@ -1986,6 +1986,32 @@ app.get("/admin/check-student/:id", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+
+app.get("/admin/create-student-direct", async (req, res) => {
+    const { full_name, email, age, declared_grade } = req.query;
+
+    if (!full_name || !email || !declared_grade) {
+        return res.status(400).json({ error: "Missing required fields" });
+    }
+
+    try {
+        const result = await pool.query(
+            `INSERT INTO students (full_name, email, age, declared_grade)
+             VALUES ($1, $2, $3, $4)
+             RETURNING id`,
+            [full_name, email, age, declared_grade]
+        );
+
+        res.json({
+            message: "Estudiante creado correctamente",
+            student_id: result.rows[0].id
+        });
+
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 /* =============================
 START
 ========================= */
