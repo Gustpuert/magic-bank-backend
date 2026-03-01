@@ -634,7 +634,14 @@ app.get("/tutor/:area", async (req, res) => {
     if (!tutorUrl) {
       return res.status(404).send("Tutor no encontrado");
     }
-
+try {
+  await pool.query(`
+    INSERT INTO tutor_access_log (student_id, tutor_area, accessed_at)
+    VALUES ($1,$2,NOW())
+  `, [student_id, area]);
+} catch (logError) {
+  console.error("Error registrando acceso:", logError);
+}
     // 4️⃣ Redirigir silenciosamente al GPT real
     res.redirect(tutorUrl);
 
