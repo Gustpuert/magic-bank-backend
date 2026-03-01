@@ -350,6 +350,33 @@ const TUTOR_GPTS = {
   "educacion-religiosa": "https://chatgpt.com/g/g-699e382245b08191a9824537ddea9faf-bachillerato-tutor-de-educacion-religiosa",
   ingles: "https://chatgpt.com/g/g-699e366421f08191b14fc6af17f251fd-bachillerato-tutor-de-ingles"
 };
+
+async function asignarTutoresBachillerato(student_id) {
+
+  const tutoresBachillerato = [
+    "matematicas",
+    "lenguaje",
+    "ciencias-naturales",
+    "ciencias-sociales",
+    "etica-valores",
+    "tecnologia-informatica",
+    "educacion-artistica",
+    "educacion-fisica",
+    "educacion-religiosa",
+    "ingles"
+  ];
+
+  for (let tutor of tutoresBachillerato) {
+
+    await pool.query(`
+      INSERT INTO student_active_tutors (student_id, tutor_area)
+      VALUES ($1,$2)
+      ON CONFLICT DO NOTHING
+    `, [student_id, tutor]);
+
+  }
+
+}
 /* =========================
 ACCESS
 ========================= */
@@ -757,7 +784,137 @@ app.get("/tutor/decisions/:student_id", async (req, res) => {
     res.status(500).send("Error obteniendo decisiones del director");
   }
 });
+/* =========================================
+   DIRECTOR AUTOMÁTICO INICIALIZADOR
+   MODELO C – INSTITUCIONAL MAGICBANK
+========================================= */
 
+app.get("/director/initialize/:token", async (req, res) => {
+
+  try {
+
+    const { token } = req.params;
+
+    // 1️⃣ Validar token
+    const access = await pool.query(`
+      SELECT email, product_name, area
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [token]);
+
+    if (!access.rowCount) {
+      return res.status(403).send("Token inválido o expirado");
+    }
+
+    const { email, product_name, area } = access.rows[0];
+
+    // 2️⃣ Buscar estudiante existente
+    const studentCheck = await pool.query(
+      "SELECT id FROM students WHERE email = $1",
+      [email]
+    );
+
+    let student_id;
+
+    if (!studentCheck.rowCount) {
+
+      const newStudent = await pool.query(`
+        INSERT INTO students (full_name, email, declared_grade, current_grade)
+        VALUES ($1,$2,1,1)
+        RETURNING id
+      `, ["Alumno MagicBank", email]);
+
+      student_id = newStudent.rows[0].id;
+
+    } else {
+
+      student_id = studentCheck.rows[0].id;
+
+    }
+
+    // 3️⃣ Si es Bachillerato → activar 10 tutores oficiales
+    if (product_name === "Bachillerato completo MagicBank") {
+
+      const tutoresBachillerato = [
+        "matematicas",
+        "lenguaje",
+        "ciencias-naturales",
+        "ciencias-sociales",
+        "etica-valores",
+        "tecnologia-informatica",
+        "educacion-artistica",
+        "educacion-fisica",
+        "educacion-religiosa",
+        "ingles"
+      ];
+
+      for (let tutor of tutoresBachillerato) {
+
+        await pool.query(`
+          INSERT INTO student_active_tutors (student_id, tutor_area)
+          VALUES ($1,$2)
+          ON CONFLICT DO NOTHING
+        `, [student_id, tutor]);
+
+      }
+
+      // 4️⃣ Enviar correo institucional con tutores protegidos
+
+      const botones = tutoresBachillerato.map(t =>
+        `
+        <p>
+          <a href="https://magic-bank-backend-production-713e.up.railway.app/tutor/${t}?token=${token}">
+            Acceder Tutor ${t}
+          </a>
+        </p>
+        `
+      ).join("");
+
+      await axios.post(
+        "https://api.resend.com/emails",
+        {
+          from: "Director MagicBank <director@send.magicbank.org>",
+          to: email,
+          subject: "Asignación Oficial Bachillerato MagicBank",
+          html: `
+            <div style="font-family:Arial;">
+              <h2>🎓 Bienvenido al Bachillerato MagicBank</h2>
+              <p>El Director Académico ha activado tus tutores oficiales:</p>
+              ${botones}
+              <p>Todos los accesos están protegidos institucionalmente.</p>
+            </div>
+          `
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+
+    }
+
+    // 5️⃣ Confirmación institucional
+    res.send(`
+      <html>
+        <body style="font-family:Arial;background:#020617;color:white;padding:40px;">
+          <h2>🎓 Inicialización Académica Completa</h2>
+          <p>Tu proceso institucional fue activado correctamente.</p>
+          <p>Revisa tu correo para acceder a tus tutores oficiales.</p>
+        </body>
+      </html>
+    `);
+
+  } catch (error) {
+
+    console.error("ERROR DIRECTOR INITIALIZE:", error);
+    res.status(500).send("Error inicializando proceso académico");
+
+  }
+
+});
 /* =========================
 DIRECTOR - ACCIÓN PEDAGÓGICA OPERATIVA
 CEREBRO INSTITUCIONAL REAL
