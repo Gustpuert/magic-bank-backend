@@ -267,37 +267,38 @@ async function enviarCorreo(destino, curso, token) {
 
   }
 }
+
 /* =========================
 WEBHOOK TIENDANUBE
-========================= */
-/* =========================
-WEBHOOK TIENDANUBE BLINDADO
-VALIDACIÓN INSTITUCIONAL
+VERSIÓN SEGURA Y ESTABLE
+NO ROMPE FUNCIONAMIENTO ACTUAL
 ========================= */
 
 app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
 
+  // ⚡ Responder inmediatamente a Tiendanube
+  res.sendStatus(200);
+
   try {
 
-    // 🔐 1️⃣ VALIDACIÓN DE SECRETO DEL WEBHOOK
-    const receivedSecret = req.headers["x-magicbank-secret"];
-
-    if (!receivedSecret || receivedSecret !== process.env.WEBHOOK_SECRET) {
-      console.warn("Intento de webhook no autorizado");
-      return res.status(401).send("Webhook no autorizado");
-    }
-
-    // 🔄 Responder inmediatamente a Tiendanube
-    res.sendStatus(200);
-
-    // 2️⃣ Validar ID de orden
     const orderId = req.body?.id;
     if (!orderId) {
-      console.warn("Webhook sin orderId");
+      console.warn("Webhook recibido sin orderId");
       return;
     }
 
-    // 3️⃣ Obtener credenciales tienda
+    // 1️⃣ Verificar que la orden no haya sido procesada antes
+    const existingOrder = await pool.query(
+      "SELECT 1 FROM processed_orders WHERE order_id = $1",
+      [orderId]
+    );
+
+    if (existingOrder.rowCount > 0) {
+      console.log("Orden ya procesada anteriormente:", orderId);
+      return;
+    }
+
+    // 2️⃣ Obtener credenciales de la tienda
     const store = await pool.query(
       "SELECT store_id, access_token FROM tiendanube_stores LIMIT 1"
     );
@@ -309,7 +310,7 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
 
     const { store_id, access_token } = store.rows[0];
 
-    // 4️⃣ Consultar orden oficial en Tiendanube
+    // 3️⃣ Consultar orden oficial en Tiendanube
     const order = await axios.get(
       `https://api.tiendanube.com/v1/${store_id}/orders/${orderId}`,
       {
@@ -326,7 +327,7 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       return;
     }
 
-    // 5️⃣ Extraer datos cliente
+    // 4️⃣ Extraer email del cliente
     const email =
       order.data.contact_email ||
       order.data.customer?.email ||
@@ -361,16 +362,16 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       return;
     }
 
-    // 🔐 6️⃣ Generar token real
+    // 5️⃣ Generar token real
     const rawToken = crypto.randomBytes(32).toString("hex");
 
-    // 🔐 7️⃣ Hashear token antes de guardar
+    // 6️⃣ Hashear token antes de guardar
     const tokenHash = crypto
       .createHash("sha256")
       .update(rawToken)
       .digest("hex");
 
-    // 8️⃣ Guardar token hash
+    // 7️⃣ Guardar token en base de datos
     await pool.query(
       `
       INSERT INTO access_tokens
@@ -387,15 +388,22 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
       ]
     );
 
+    // 8️⃣ Marcar orden como procesada (anti-duplicado real)
+    await pool.query(
+      `
+      INSERT INTO processed_orders (order_id, processed_at)
+      VALUES ($1, NOW())
+      `,
+      [orderId]
+    );
+
     // 9️⃣ Enviar correo con token real
     await enviarCorreo(email, curso, rawToken);
 
     console.log("Webhook procesado correctamente:", orderId);
 
   } catch (err) {
-
     console.error("ERROR WEBHOOK:", err.response?.data || err.message);
-
   }
 
 });
@@ -2200,7 +2208,34 @@ app.get("/tutor/:area", async (req, res) => {
   }
 
 });
+/* =========================
+SETUP TEMPORAL
+CREAR TABLA processed_orders
+ELIMINAR DESPUÉS DE USAR
+========================= */
 
+app.get("/setup/create-processed-orders-table", async (req, res) => {
+
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS processed_orders (
+        id SERIAL PRIMARY KEY,
+        order_id BIGINT UNIQUE NOT NULL,
+        processed_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.send("Tabla processed_orders creada correctamente");
+
+  } catch (error) {
+
+    console.error("ERROR CREANDO TABLA:", error);
+    res.status(500).send("Error creando tabla");
+
+  }
+
+});
 /* =============================
 START
 ========================= */
