@@ -214,7 +214,7 @@ const CATALOGO = {
   variant:1458984295,
   area:"university",
   nombre:"Bachillerato completo MagicBank",
-  url:"https://chatgpt.com/g/g-699cbbf2352081919bc18e03806c18aa-academic-director-tutor"
+  url:"https://chatgpt.com/g/g-699e59962d20819194b173b12f4857ed-bachillerato-director-academivo-tutor-pro
 },
 324464294:{
   variant:1438540878,
