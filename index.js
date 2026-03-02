@@ -2365,25 +2365,26 @@ app.get("/debug/generate-token", async (req, res) => {
       .update(rawToken)
       .digest("hex");
 
-    // 3️⃣ Insertar en base de datos con TODAS las columnas necesarias
+    // 3️⃣ Insertar en base de datos incluyendo TODAS las columnas obligatorias
     await pool.query(`
       INSERT INTO access_tokens (
         token,
         email,
         product_id,
         product_name,
+        area,
         expires_at,
         created_at
       )
-      VALUES ($1, $2, $3, $4, NOW() + interval '30 days', NOW())
+      VALUES ($1, $2, $3, $4, $5, NOW() + interval '30 days', NOW())
     `, [
       tokenHash,
       "prueba@test.com",
-      315067943, // ⚠️ Usa un product_id válido existente en tu tabla
-      "Bachillerato MagicBank"
+      315067943, // ⚠️ usa un product_id válido
+      "Bachillerato MagicBank",
+      "bachillerato"
     ]);
 
-    // 4️⃣ Responder con token plano
     res.json({ rawToken });
 
   } catch (error) {
