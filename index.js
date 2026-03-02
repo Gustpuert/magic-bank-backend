@@ -5,7 +5,7 @@ import express from "express";
 import axios from "axios";
 import crypto from "crypto";
 import pkg from "pg";
-
+import cors from "cors";
 const { Pool } = pkg;
 
 const app = express();
