@@ -2353,25 +2353,52 @@ app.get("/test/register-student", async (req, res) => {
 });
 
 
-
-
 app.get("/debug/generate-token", async (req, res) => {
+  try {
 
-  const rawToken = crypto.randomBytes(16).toString("hex");
+    // 1️⃣ Generar token plano
+    const rawToken = crypto.randomBytes(16).toString("hex");
 
-  const tokenHash = crypto
-    .createHash("sha256")
-    .update(rawToken)
-    .digest("hex");
+    // 2️⃣ Hashear token
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
 
-  await pool.query(`
-  INSERT INTO access_tokens (token, email, product_id, expires_at)
-  VALUES ($1, $2, $3, NOW() + interval '30 days')
-`, [tokenHash, "prueba@test.com", 315067943]);
+    // 3️⃣ Insertar en base de datos con TODAS las columnas necesarias
+    await pool.query(`
+      INSERT INTO access_tokens (
+        token,
+        email,
+        product_id,
+        product_name,
+        expires_at,
+        created_at
+      )
+      VALUES ($1, $2, $3, $4, NOW() + interval '30 days', NOW())
+    `, [
+      tokenHash,
+      "prueba@test.com",
+      315067943, // ⚠️ Usa un product_id válido existente en tu tabla
+      "Bachillerato MagicBank"
+    ]);
 
-  res.json({ rawToken });
+    // 4️⃣ Responder con token plano
+    res.json({ rawToken });
 
+  } catch (error) {
+
+    console.error("ERROR DEBUG GENERATE TOKEN:", error);
+
+    res.status(500).json({
+      error: "Error generando token de prueba",
+      detail: error.message
+    });
+
+  }
 });
+
+
 /* =============================
 START
 ========================= */
