@@ -2364,7 +2364,7 @@ app.get("/debug/generate-token", async (req, res) => {
       .digest("hex");
 
     // 3️⃣ URL real a la que redirige el token
-    const redirectUrl = "https://chat.openai.com/g/g-XXXXXXXXXXXX"; 
+    const redirectUrl = "https://chatgpt.com/g/g-699e59962d20819194b173b12f4857ed-bachillerato-director-academico-tutor-pro";
     // ⚠️ Reemplaza por la URL real de tu Director de Bachillerato
 
     // 4️⃣ Insertar incluyendo TODAS las columnas NOT NULL
