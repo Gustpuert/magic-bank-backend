@@ -2209,7 +2209,30 @@ app.get("/tutor/:area", async (req, res) => {
   }
 
 });
+app.get("/setup/add-unique-processed-orders", async (req, res) => {
+  try {
 
+    await pool.query(`
+      ALTER TABLE processed_orders
+      ADD CONSTRAINT processed_orders_order_id_unique UNIQUE (order_id);
+    `);
+
+    res.send("UNIQUE agregado correctamente a order_id");
+
+  } catch (error) {
+
+    if (error.code === "23505") {
+      return res.send("Ya existen duplicados en la tabla, no se puede agregar UNIQUE");
+    }
+
+    if (error.code === "42P07") {
+      return res.send("La restricción ya existe");
+    }
+
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+});
 /* =============================
 START
 ========================= */
