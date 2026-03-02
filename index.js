@@ -389,14 +389,15 @@ app.post("/webhooks/tiendanube/order-paid", async (req, res) => {
     );
 
     // 8️⃣ Marcar orden como procesada (anti-duplicado real)
-    await pool.query(
-      `
-      INSERT INTO processed_orders (order_id, processed_at)
-      VALUES ($1, NOW())
-      `,
-      [orderId]
-    );
-
+    
+await pool.query(
+  `
+  INSERT INTO processed_orders (order_id, raw_order, created_at)
+  VALUES ($1,$2,NOW())
+  ON CONFLICT (order_id) DO NOTHING
+  `,
+  [orderId, JSON.stringify(order.data)]
+);
     // 9️⃣ Enviar correo con token real
     await enviarCorreo(email, curso, rawToken);
 
@@ -2208,34 +2209,7 @@ app.get("/tutor/:area", async (req, res) => {
   }
 
 });
-/* =========================
-SETUP TEMPORAL
-CREAR TABLA processed_orders
-ELIMINAR DESPUÉS DE USAR
-========================= */
 
-app.get("/setup/create-processed-orders-table", async (req, res) => {
-
-  try {
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS processed_orders (
-        id SERIAL PRIMARY KEY,
-        order_id BIGINT UNIQUE NOT NULL,
-        processed_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    res.send("Tabla processed_orders creada correctamente");
-
-  } catch (error) {
-
-    console.error("ERROR CREANDO TABLA:", error);
-    res.status(500).send("Error creando tabla");
-
-  }
-
-});
 /* =============================
 START
 ========================= */
