@@ -2403,7 +2403,49 @@ app.get("/debug/generate-token", async (req, res) => {
   }
 });
 
+app.post("/api/validate-token", async (req, res) => {
+  try {
 
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: "Token requerido" });
+    }
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const result = await pool.query(
+      `
+      SELECT email, product_name, area, expires_at
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+      `,
+      [tokenHash]
+    );
+
+    if (!result.rowCount) {
+      return res.status(403).json({ valid: false });
+    }
+
+    res.json({
+      valid: true,
+      email: result.rows[0].email,
+      product: result.rows[0].product_name,
+      area: result.rows[0].area,
+      expires_at: result.rows[0].expires_at
+    });
+
+  } catch (error) {
+
+    console.error("ERROR VALIDATE TOKEN:", error);
+    res.status(500).json({ error: "Error validando token" });
+
+  }
+});
 
 
 /* =============================
