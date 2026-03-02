@@ -2233,6 +2233,30 @@ app.get("/setup/add-unique-processed-orders", async (req, res) => {
     res.status(500).send(error.message);
   }
 });
+
+app.get("/setup/check-processed-orders-structure", async (req, res) => {
+  try {
+
+    const result = await pool.query(`
+      SELECT
+        conname,
+        pg_get_constraintdef(c.oid)
+      FROM
+        pg_constraint c
+      JOIN
+        pg_class t ON c.conrelid = t.oid
+      WHERE
+        t.relname = 'processed_orders';
+    `);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error consultando estructura");
+  }
+});
+
 /* =============================
 START
 ========================= */
