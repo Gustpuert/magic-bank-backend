@@ -2365,9 +2365,9 @@ app.get("/debug/generate-token", async (req, res) => {
     .digest("hex");
 
   await pool.query(`
-    INSERT INTO access_tokens (token, email, expires_at)
-    VALUES ($1, $2, NOW() + interval '30 days')
-  `, [tokenHash, "prueba@test.com"]);
+  INSERT INTO access_tokens (token, email, product_id, expires_at)
+  VALUES ($1, $2, $3, NOW() + interval '30 days')
+`, [tokenHash, "prueba@test.com", 315067943]);
 
   res.json({ rawToken });
 
