@@ -2326,6 +2326,31 @@ app.post("/director/register-student", async (req, res) => {
   }
 
 });
+
+
+app.get("/test/register-student", async (req, res) => {
+
+  try {
+
+    const token = req.query.token;
+    const full_name = req.query.full_name;
+    const age = req.query.age;
+    const country = req.query.country;
+    const language = req.query.language;
+    const declared_grade = req.query.declared_grade;
+
+    if (!token || !full_name || !declared_grade) {
+      return res.status(400).send("Faltan datos");
+    }
+
+    res.send("Endpoint recibe datos correctamente");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error.message);
+  }
+
+});
 /* =============================
 START
 ========================= */
