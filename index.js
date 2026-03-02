@@ -2211,7 +2211,121 @@ app.get("/tutor/:area", async (req, res) => {
 
 });
 
+/* =========================
+DIRECTOR - REGISTRO INSTITUCIONAL
+========================= */
 
+app.post("/director/register-student", async (req, res) => {
+
+  try {
+
+    const {
+      token,
+      full_name,
+      age,
+      country,
+      language,
+      declared_grade
+    } = req.body;
+
+    if (!token || !full_name || !declared_grade) {
+      return res.status(400).json({
+        error: "Datos incompletos"
+      });
+    }
+
+    // 🔐 Hashear token
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // 1️⃣ Buscar email asociado al token
+    const access = await pool.query(`
+      SELECT email
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!access.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido o expirado"
+      });
+    }
+
+    const email = access.rows[0].email;
+
+    // 2️⃣ Verificar si el estudiante ya existe
+    const existingStudent = await pool.query(`
+      SELECT id
+      FROM students
+      WHERE email = $1
+    `, [email]);
+
+    let student_id;
+
+    if (!existingStudent.rowCount) {
+
+      // 3️⃣ Crear nuevo estudiante
+      const created = await pool.query(`
+        INSERT INTO students
+        (full_name, email, age, country, language, declared_grade, current_grade, academic_status)
+        VALUES ($1,$2,$3,$4,$5,$6,$6,'active')
+        RETURNING id
+      `, [
+        full_name,
+        email,
+        age || null,
+        country || "No especificado",
+        language || "Español",
+        declared_grade
+      ]);
+
+      student_id = created.rows[0].id;
+
+    } else {
+
+      // 4️⃣ Si ya existe, actualizamos datos básicos
+      student_id = existingStudent.rows[0].id;
+
+      await pool.query(`
+        UPDATE students
+        SET
+          full_name = $1,
+          age = $2,
+          country = $3,
+          language = $4,
+          declared_grade = $5,
+          current_grade = $5
+        WHERE id = $6
+      `, [
+        full_name,
+        age || null,
+        country || "No especificado",
+        language || "Español",
+        declared_grade,
+        student_id
+      ]);
+
+    }
+
+    res.json({
+      message: "Registro académico completado correctamente",
+      student_id
+    });
+
+  } catch (error) {
+
+    console.error("ERROR REGISTER STUDENT:", error);
+
+    res.status(500).json({
+      error: "Error registrando estudiante"
+    });
+
+  }
+
+});
 /* =============================
 START
 ========================= */
