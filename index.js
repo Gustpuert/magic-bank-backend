@@ -2210,7 +2210,28 @@ app.get("/tutor/:area", async (req, res) => {
 
 });
 
+app.get("/setup/check-access-tokens-structure", async (req, res) => {
+  try {
 
+    const result = await pool.query(`
+      SELECT
+        conname,
+        pg_get_constraintdef(c.oid)
+      FROM
+        pg_constraint c
+      JOIN
+        pg_class t ON c.conrelid = t.oid
+      WHERE
+        t.relname = 'access_tokens';
+    `);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error consultando estructura access_tokens");
+  }
+});
 /* =============================
 START
 ========================= */
