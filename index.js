@@ -2351,6 +2351,27 @@ app.get("/test/register-student", async (req, res) => {
   }
 
 });
+
+
+
+
+app.get("/debug/generate-token", async (req, res) => {
+
+  const rawToken = crypto.randomBytes(16).toString("hex");
+
+  const tokenHash = crypto
+    .createHash("sha256")
+    .update(rawToken)
+    .digest("hex");
+
+  await pool.query(`
+    INSERT INTO access_tokens (token, email, expires_at)
+    VALUES ($1, $2, NOW() + interval '30 days')
+  `, [tokenHash, "prueba@test.com"]);
+
+  res.json({ rawToken });
+
+});
 /* =============================
 START
 ========================= */
