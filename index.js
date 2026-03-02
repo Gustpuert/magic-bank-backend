@@ -2210,15 +2210,7 @@ app.get("/tutor/:area", async (req, res) => {
 
 });
 
-app.get("/debug/last-access", async (req, res) => {
-  const result = await pool.query(`
-    SELECT product_id, product_name, redirect_url, created_at
-    FROM access_tokens
-    ORDER BY created_at DESC
-    LIMIT 5
-  `);
-  res.json(result.rows);
-});
+
 /* =============================
 START
 ========================= */
