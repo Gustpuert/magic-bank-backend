@@ -2351,8 +2351,6 @@ app.get("/test/register-student", async (req, res) => {
   }
 
 });
-
-
 app.get("/debug/generate-token", async (req, res) => {
   try {
 
@@ -2365,7 +2363,11 @@ app.get("/debug/generate-token", async (req, res) => {
       .update(rawToken)
       .digest("hex");
 
-    // 3️⃣ Insertar en base de datos incluyendo TODAS las columnas obligatorias
+    // 3️⃣ URL real a la que redirige el token
+    const redirectUrl = "https://chat.openai.com/g/g-XXXXXXXXXXXX"; 
+    // ⚠️ Reemplaza por la URL real de tu Director de Bachillerato
+
+    // 4️⃣ Insertar incluyendo TODAS las columnas NOT NULL
     await pool.query(`
       INSERT INTO access_tokens (
         token,
@@ -2373,16 +2375,18 @@ app.get("/debug/generate-token", async (req, res) => {
         product_id,
         product_name,
         area,
+        redirect_url,
         expires_at,
         created_at
       )
-      VALUES ($1, $2, $3, $4, $5, NOW() + interval '30 days', NOW())
+      VALUES ($1, $2, $3, $4, $5, $6, NOW() + interval '30 days', NOW())
     `, [
       tokenHash,
       "prueba@test.com",
-      315067943, // ⚠️ usa un product_id válido
+      315067943, // ⚠️ usa un product_id válido real
       "Bachillerato MagicBank",
-      "bachillerato"
+      "bachillerato",
+      redirectUrl
     ]);
 
     res.json({ rawToken });
@@ -2398,6 +2402,8 @@ app.get("/debug/generate-token", async (req, res) => {
 
   }
 });
+
+
 
 
 /* =============================
