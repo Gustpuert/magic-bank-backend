@@ -2571,29 +2571,28 @@ app.post("/admin/fix-students-table", async (req, res) => {
   }
 });
 
-
 app.get("/debug/students", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT id, full_name, email, age, country, language, declared_grade, created_at
-      FROM students
-      ORDER BY created_at DESC
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
     `);
 
     res.json({
       success: true,
-      total: result.rows.length,
-      students: result.rows
+      tables: result.rows
     });
 
   } catch (error) {
     console.error(error);
     res.status(500).json({
       success: false,
-      error: "Error consultando tabla students"
+      error: error.message
     });
   }
 });
+
 /* =============================
 START
 ========================= */
