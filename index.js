@@ -2574,14 +2574,24 @@ app.post("/admin/fix-students-table", async (req, res) => {
 app.get("/debug/students", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT column_name, data_type
-      FROM information_schema.columns
-      WHERE table_name = 'students'
+      SELECT 
+        id,
+        full_name,
+        email,
+        age,
+        declared_grade,
+        current_grade,
+        enrollment_date,
+        active,
+        country_id
+      FROM students
+      ORDER BY enrollment_date DESC
     `);
 
     res.json({
       success: true,
-      columns: result.rows
+      total: result.rows.length,
+      students: result.rows
     });
 
   } catch (error) {
