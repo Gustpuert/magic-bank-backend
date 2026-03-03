@@ -2857,6 +2857,35 @@ app.get("/setup/optimize-indexes", async (req, res) => {
     });
   }
 });
+
+app.get("/admin/create-academy-countries-table", async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS academy_countries (
+        id SERIAL PRIMARY KEY,
+        name VARCHAR(100) UNIQUE NOT NULL
+      );
+    `);
+
+    await pool.query(`
+      INSERT INTO academy_countries (name)
+      VALUES 
+        ('Colombia'),
+        ('México'),
+        ('España'),
+        ('Argentina'),
+        ('Chile'),
+        ('Perú'),
+        ('Estados Unidos')
+      ON CONFLICT (name) DO NOTHING;
+    `);
+
+    res.send("Tabla academy_countries creada correctamente.");
+  } catch (error) {
+    console.error("Error creando tabla academy_countries:", error);
+    res.status(500).send("Error creando tabla.");
+  }
+});
 /* =============================
 START
 ========================= */
