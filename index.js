@@ -2470,11 +2470,12 @@ app.get("/debug/generate-token", async (req, res) => {
 
 app.post("/api/validate-token", async (req, res) => {
   try {
+    const { token, email } = req.body;
 
-    const { token } = req.body;
-
-    if (!token) {
-      return res.status(400).json({ error: "Token requerido" });
+    if (!token || !email) {
+      return res.status(400).json({
+        error: "Token y email son requeridos."
+      });
     }
 
     const tokenHash = crypto
@@ -2484,31 +2485,33 @@ app.post("/api/validate-token", async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT email, product_name, area, expires_at
+      SELECT email, product_name, expires_at
       FROM access_tokens
       WHERE token = $1
+      AND email = $2
       AND expires_at > NOW()
       `,
-      [tokenHash]
+      [tokenHash, email]
     );
 
-    if (!result.rowCount) {
-      return res.status(403).json({ valid: false });
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        error: "Token inválido, expirado o no pertenece a este correo."
+      });
     }
 
     res.json({
-      valid: true,
+      success: true,
       email: result.rows[0].email,
       product: result.rows[0].product_name,
-      area: result.rows[0].area,
       expires_at: result.rows[0].expires_at
     });
 
   } catch (error) {
-
-    console.error("ERROR VALIDATE TOKEN:", error);
-    res.status(500).json({ error: "Error validando token" });
-
+    console.error(error);
+    res.status(500).json({
+      error: "Error validando token."
+    });
   }
 });
 
