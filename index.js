@@ -2689,7 +2689,73 @@ app.get("/academic/dashboard", async (req, res) => {
     });
   }
 });
+app.get("/academic/student-history/:email", async (req, res) => {
+  try {
+    const { email } = req.params;
 
+    // 1️⃣ Buscar estudiante
+    const studentQuery = await pool.query(`
+      SELECT id, full_name, email, age, current_grade, enrollment_date
+      FROM students
+      WHERE email = $1
+      LIMIT 1
+    `, [email]);
+
+    if (studentQuery.rows.length === 0) {
+      return res.status(404).json({
+        success: false,
+        error: "Estudiante no encontrado"
+      });
+    }
+
+    const student = studentQuery.rows[0];
+
+    // 2️⃣ Buscar historial académico
+    let units = [];
+    let globalAverage = null;
+
+    try {
+      const historyQuery = await pool.query(`
+        SELECT 
+          area,
+          unit_name,
+          grade_level,
+          final_score,
+          performance_level,
+          closed_at
+        FROM academic_unit_closures
+        WHERE student_id = $1
+        ORDER BY closed_at DESC
+      `, [student.id]);
+
+      units = historyQuery.rows;
+
+      if (units.length > 0) {
+        const avg = units.reduce((sum, u) => sum + Number(u.final_score), 0) / units.length;
+        globalAverage = Number(avg.toFixed(2));
+      }
+
+    } catch {
+      units = [];
+      globalAverage = null;
+    }
+
+    res.json({
+      success: true,
+      student,
+      total_units: units.length,
+      global_average: globalAverage,
+      units
+    });
+
+  } catch (error) {
+    console.error("HISTORY ERROR:", error);
+    res.status(500).json({
+      success: false,
+      error: "Error obteniendo historial académico"
+    });
+  }
+});
 /* =============================
 START
 ========================= */
