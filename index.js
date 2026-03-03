@@ -2756,6 +2756,25 @@ app.get("/academic/student-history/:email", async (req, res) => {
     });
   }
 });
+
+
+app.get("/debug/create-juan", async (req, res) => {
+  try {
+    await pool.query(`
+      INSERT INTO students
+      (full_name, email, age, declared_grade, current_grade, enrollment_date, active, country_id)
+      VALUES
+      ('Juan Pérez', 'juanprueba1@email.com', 14, '8', '8', NOW(), true, 1)
+    `);
+
+    res.json({ success: true });
+
+  } catch (error) {
+    res.json({ success: false, error: error.message });
+  }
+});
+
+
 /* =============================
 START
 ========================= */
