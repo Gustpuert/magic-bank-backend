@@ -2595,6 +2595,81 @@ app.get("/debug/students", async (req, res) => {
   }
 });
 
+app.get("/academic/dashboard", async (req, res) => {
+  try {
+
+    // 1️⃣ Total estudiantes activos
+    const totalStudents = await pool.query(`
+      SELECT COUNT(*) 
+      FROM students 
+      WHERE active = true
+    `);
+
+    // 2️⃣ Estudiantes por grado
+    const byGrade = await pool.query(`
+      SELECT current_grade, COUNT(*) 
+      FROM students
+      WHERE active = true
+      GROUP BY current_grade
+      ORDER BY current_grade
+    `);
+
+    // 3️⃣ Estudiantes por país
+    const byCountry = await pool.query(`
+      SELECT c.name AS country, COUNT(*) 
+      FROM students s
+      JOIN academy_countries c ON s.country_id = c.id
+      WHERE s.active = true
+      GROUP BY c.name
+    `);
+
+    // 4️⃣ Promedio académico por grado
+    const averageByGrade = await pool.query(`
+      SELECT grade_level, AVG(final_score) 
+      FROM academic_unit_closures
+      GROUP BY grade_level
+    `);
+
+    // 5️⃣ Total unidades cerradas
+    const totalUnits = await pool.query(`
+      SELECT COUNT(*) 
+      FROM academic_unit_closures
+    `);
+
+    // 6️⃣ Tokens activos
+    const activeTokens = await pool.query(`
+      SELECT COUNT(*) 
+      FROM access_tokens
+      WHERE expires_at > NOW()
+    `);
+
+    // 7️⃣ Tokens próximos a vencer (30 días)
+    const expiringSoon = await pool.query(`
+      SELECT COUNT(*) 
+      FROM access_tokens
+      WHERE expires_at BETWEEN NOW() AND NOW() + INTERVAL '30 days'
+    `);
+
+    res.json({
+      success: true,
+      total_students: parseInt(totalStudents.rows[0].count),
+      students_by_grade: byGrade.rows,
+      students_by_country: byCountry.rows,
+      average_score_by_grade: averageByGrade.rows,
+      total_units_closed: parseInt(totalUnits.rows[0].count),
+      active_tokens: parseInt(activeTokens.rows[0].count),
+      expiring_soon: parseInt(expiringSoon.rows[0].count)
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 /* =============================
 START
 ========================= */
