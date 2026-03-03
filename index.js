@@ -2570,6 +2570,55 @@ app.post("/admin/fix-students-table", async (req, res) => {
     });
   }
 });
+
+
+app.get("/admin/fix-students-table", async (req, res) => {
+  try {
+
+    // 1️⃣ Crear tabla si no existe
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS students (
+        id SERIAL PRIMARY KEY,
+        full_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        age INTEGER NOT NULL,
+        country TEXT NOT NULL,
+        language TEXT NOT NULL,
+        declared_grade TEXT NOT NULL,
+        token_hash TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    // 2️⃣ Agregar UNIQUE al email si no existe
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1
+          FROM pg_constraint
+          WHERE conname = 'unique_student_email'
+        ) THEN
+          ALTER TABLE students
+          ADD CONSTRAINT unique_student_email UNIQUE (email);
+        END IF;
+      END
+      $$;
+    `);
+
+    res.json({
+      success: true,
+      message: "Tabla students verificada y corregida"
+    });
+
+  } catch (error) {
+    console.error("ERROR FIX STUDENTS:", error);
+    res.status(500).json({
+      error: "Error corrigiendo tabla students",
+      detail: error.message
+    });
+  }
+});
 /* =============================
 START
 ========================= */
