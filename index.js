@@ -2574,14 +2574,14 @@ app.post("/admin/fix-students-table", async (req, res) => {
 app.get("/debug/students", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT table_name
-      FROM information_schema.tables
-      WHERE table_schema = 'public'
+      SELECT column_name, data_type
+      FROM information_schema.columns
+      WHERE table_name = 'students'
     `);
 
     res.json({
       success: true,
-      tables: result.rows
+      columns: result.rows
     });
 
   } catch (error) {
