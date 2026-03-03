@@ -2073,14 +2073,13 @@ app.post("/academic/register-student", async (req, res) => {
       return res.status(400).json({ error: "Faltan datos obligatorios" });
     }
 
-    // Hashear token
     const tokenHash = crypto
       .createHash("sha256")
       .update(token)
       .digest("hex");
 
-    // Validar token activo
-    const valid = await pool.query(
+    // 1️⃣ Validar token activo
+    const validToken = await pool.query(
       `
       SELECT id FROM access_tokens
       WHERE token = $1
@@ -2089,11 +2088,41 @@ app.post("/academic/register-student", async (req, res) => {
       [tokenHash]
     );
 
-    if (!valid.rowCount) {
+    if (!validToken.rowCount) {
       return res.status(403).json({ error: "Token inválido o vencido" });
     }
 
-    // Insertar estudiante
+    // 2️⃣ Limitar estudiantes por token (máximo 1)
+    const studentCount = await pool.query(
+      `
+      SELECT COUNT(*) FROM students
+      WHERE token_hash = $1
+      `,
+      [tokenHash]
+    );
+
+    if (parseInt(studentCount.rows[0].count) >= 1) {
+      return res.status(403).json({
+        error: "Este acceso ya registró un estudiante"
+      });
+    }
+
+    // 3️⃣ Verificar duplicado por email
+    const emailCheck = await pool.query(
+      `
+      SELECT id FROM students
+      WHERE email = $1
+      `,
+      [email]
+    );
+
+    if (emailCheck.rowCount) {
+      return res.status(409).json({
+        error: "Ya existe un estudiante con este email"
+      });
+    }
+
+    // 4️⃣ Insertar estudiante
     const insert = await pool.query(
       `
       INSERT INTO students
@@ -2114,7 +2143,6 @@ app.post("/academic/register-student", async (req, res) => {
     res.status(500).json({ error: "Error registrando estudiante" });
   }
 });
-
 
 
 
