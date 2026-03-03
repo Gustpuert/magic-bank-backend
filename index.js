@@ -2065,7 +2065,55 @@ app.post("/academic/assign/:student_id", async (req, res) => {
 
 
 
+app.post("/academic/register-student", async (req, res) => {
+  try {
+    const { token, full_name, email, age, country, language, declared_grade } = req.body;
 
+    if (!token || !full_name || !email || !age || !country || !language || !declared_grade) {
+      return res.status(400).json({ error: "Faltan datos obligatorios" });
+    }
+
+    // Hashear token
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // Validar token activo
+    const valid = await pool.query(
+      `
+      SELECT id FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+      `,
+      [tokenHash]
+    );
+
+    if (!valid.rowCount) {
+      return res.status(403).json({ error: "Token inválido o vencido" });
+    }
+
+    // Insertar estudiante
+    const insert = await pool.query(
+      `
+      INSERT INTO students
+      (full_name, email, age, country, language, declared_grade, token_hash)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING id
+      `,
+      [full_name, email, age, country, language, declared_grade, tokenHash]
+    );
+
+    res.json({
+      success: true,
+      student_id: insert.rows[0].id
+    });
+
+  } catch (error) {
+    console.error("ERROR REGISTER STUDENT:", error);
+    res.status(500).json({ error: "Error registrando estudiante" });
+  }
+});
 
 
 
