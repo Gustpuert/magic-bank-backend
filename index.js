@@ -20,6 +20,9 @@ DATABASE (RAILWAY)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false },
+  max: 20,                // máximo conexiones simultáneas
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
 });
 
 /* =========================
