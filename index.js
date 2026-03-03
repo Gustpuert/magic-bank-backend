@@ -2778,22 +2778,20 @@ app.get("/setup/optimize-indexes", async (req, res) => {
   try {
 
     await pool.query(`
+      -- STUDENTS
       CREATE INDEX IF NOT EXISTS idx_students_email ON students(email);
       CREATE INDEX IF NOT EXISTS idx_students_grade ON students(current_grade);
       CREATE INDEX IF NOT EXISTS idx_students_active ON students(active);
 
+      -- ACCESS TOKENS
       CREATE INDEX IF NOT EXISTS idx_tokens_token ON access_tokens(token);
       CREATE INDEX IF NOT EXISTS idx_tokens_email ON access_tokens(email);
       CREATE INDEX IF NOT EXISTS idx_tokens_expiration ON access_tokens(expires_at);
-
-      CREATE INDEX IF NOT EXISTS idx_units_student ON academic_unit_closures(student_id);
-      CREATE INDEX IF NOT EXISTS idx_units_grade ON academic_unit_closures(grade_level);
-      CREATE INDEX IF NOT EXISTS idx_units_closed ON academic_unit_closures(closed_at);
     `);
 
     res.json({
       success: true,
-      message: "Índices optimizados correctamente"
+      message: "Índices optimizados correctamente (estructura actual)"
     });
 
   } catch (error) {
