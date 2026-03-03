@@ -2064,89 +2064,78 @@ app.post("/academic/assign/:student_id", async (req, res) => {
 });
 
 
-
 app.post("/academic/register-student", async (req, res) => {
   try {
-    const { token, full_name, email, age, country, language, declared_grade } = req.body;
+    const {
+      token,
+      full_name,
+      email,
+      age,
+      country,
+      language,
+      declared_grade
+    } = req.body;
 
-    if (!token || !full_name || !email || !age || !country || !language || !declared_grade) {
-      return res.status(400).json({ error: "Faltan datos obligatorios" });
+    if (!token) {
+      return res.status(400).json({ error: "Token requerido" });
     }
 
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
-
-    // 1️⃣ Validar token activo
-    const validToken = await pool.query(
-      `
-      SELECT id FROM access_tokens
-      WHERE token = $1
-      AND expires_at > NOW()
-      `,
-      [tokenHash]
-    );
-
-    if (!validToken.rowCount) {
-      return res.status(403).json({ error: "Token inválido o vencido" });
-    }
-
-    // 2️⃣ Limitar estudiantes por token (máximo 1)
-    const studentCount = await pool.query(
-      `
-      SELECT COUNT(*) FROM students
-      WHERE token_hash = $1
-      `,
-      [tokenHash]
-    );
-
-    if (parseInt(studentCount.rows[0].count) >= 1) {
-      return res.status(403).json({
-        error: "Este acceso ya registró un estudiante"
-      });
-    }
-
-    // 3️⃣ Verificar duplicado por email
-    const emailCheck = await pool.query(
-      `
-      SELECT id FROM students
-      WHERE email = $1
-      `,
+    // 🔎 Verificar si email ya existe
+    const existingStudent = await pool.query(
+      "SELECT id FROM students WHERE email = $1",
       [email]
     );
 
-    if (emailCheck.rowCount) {
+    if (existingStudent.rows.length > 0) {
       return res.status(409).json({
-        error: "Ya existe un estudiante con este email"
+        error: "Este correo ya está registrado en el sistema."
       });
     }
 
-    // 4️⃣ Insertar estudiante
-    const insert = await pool.query(
+    // 🔎 Obtener country_id (asumimos que ya existe Colombia id=1)
+    const countryResult = await pool.query(
+      "SELECT id FROM academy_countries WHERE name = $1",
+      [country]
+    );
+
+    if (countryResult.rows.length === 0) {
+      return res.status(400).json({
+        error: "País no válido en el sistema."
+      });
+    }
+
+    const country_id = countryResult.rows[0].id;
+
+    // ✅ Insertar estudiante
+    await pool.query(
       `
       INSERT INTO students
-      (full_name, email, age, country, language, declared_grade, token_hash)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id
+      (full_name, email, age, declared_grade, current_grade, enrollment_date, active, country_id)
+      VALUES ($1, $2, $3, $4, $4, NOW(), true, $5)
       `,
-      [full_name, email, age, country, language, declared_grade, tokenHash]
+      [full_name, email, age, declared_grade, country_id]
     );
 
     res.json({
       success: true,
-      student_id: insert.rows[0].id
+      message: "Estudiante registrado correctamente"
     });
 
   } catch (error) {
-    console.error("ERROR REGISTER STUDENT:", error);
-    res.status(500).json({ error: "Error registrando estudiante" });
+    console.error(error);
+
+    // Si el error es por unique constraint
+    if (error.code === "23505") {
+      return res.status(409).json({
+        error: "Este correo ya está registrado."
+      });
+    }
+
+    res.status(500).json({
+      error: "Error interno registrando estudiante."
+    });
   }
 });
-
-
-
-
 
 app.post("/director/assign-tutors", async (req, res) => {
 
