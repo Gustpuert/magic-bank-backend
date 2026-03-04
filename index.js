@@ -13,7 +13,7 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json());
-
+const QRCode = require("qrcode");
 /* =========================
 DATABASE (RAILWAY)
 ========================= */
@@ -3086,7 +3086,74 @@ app.get("/verify-diploma/:code", async (req, res) => {
 });
 
 
+app.get("/academic/generate-diploma-secure/:studentId", async (req, res) => {
 
+  try {
+
+    const studentId = req.params.studentId;
+
+    const student = await pool.query(
+      "SELECT * FROM students WHERE id=$1",
+      [studentId]
+    );
+
+    const record = await pool.query(
+      "SELECT * FROM academic_records WHERE student_id=$1 ORDER BY generated_at DESC LIMIT 1",
+      [studentId]
+    );
+
+    if (record.rows.length === 0) {
+      return res.status(400).json({ error: "No hay expediente académico" });
+    }
+
+    if (!record.rows[0].graduation_eligible) {
+      return res.status(400).json({
+        error: "El estudiante aún no cumple requisitos"
+      });
+    }
+
+    const code =
+      "MB-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    const verificationURL =
+      "https://magic-bank-backend-production-713e.up.railway.app/verify-diploma/" + code;
+
+    const qrCode = await QRCode.toDataURL(verificationURL);
+
+    await pool.query(
+      `
+      INSERT INTO academic_certificates
+      (student_id, certificate_code, student_name, program_name, academic_average, qr_code)
+      VALUES ($1,$2,$3,$4,$5,$6)
+      `,
+      [
+        studentId,
+        code,
+        student.rows[0].full_name,
+        "Bachillerato MagicBank",
+        record.rows[0].academic_average,
+        qrCode
+      ]
+    );
+
+    res.json({
+      success: true,
+      diploma_code: code,
+      verification_url: verificationURL,
+      qr: qrCode
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  }
+
+});
 
 /* =============================
 START
