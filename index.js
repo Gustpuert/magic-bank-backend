@@ -3415,7 +3415,198 @@ app.get("/debug/students", async (req, res) => {
 
   }
 });
+// ==========================================
+// MAGICBANK DIPLOMA + BLOCKCHAIN + NFT
+// ==========================================
 
+import { ethers } from "ethers";
+
+app.get("/academic/generate-diploma/:code", async (req, res) => {
+
+try {
+
+const { code } = req.params;
+
+const result = await pool.query(
+"SELECT * FROM diplomas WHERE certificate_code=$1",
+[code]
+);
+
+if(result.rows.length === 0){
+return res.status(404).json({error:"Diploma no encontrado"});
+}
+
+const diploma = result.rows[0];
+
+
+// ===============================
+// HASH ANTIFALSIFICACIÓN
+// ===============================
+
+const dataString =
+diploma.student_name +
+diploma.program_name +
+diploma.academic_average +
+diploma.certificate_code +
+diploma.issued_at;
+
+const hash = crypto
+.createHash("sha256")
+.update(dataString)
+.digest("hex");
+
+
+// ===============================
+// CONEXIÓN BLOCKCHAIN
+// ===============================
+
+const provider = new ethers.JsonRpcProvider(process.env.POLYGON_RPC);
+
+const wallet = new ethers.Wallet(
+process.env.PRIVATE_KEY,
+provider
+);
+
+
+// ===============================
+// REGISTRO HASH EN BLOCKCHAIN
+// ===============================
+
+const tx = await wallet.sendTransaction({
+to: wallet.address,
+value: 0,
+data: ethers.hexlify(
+ethers.toUtf8Bytes(hash)
+)
+});
+
+await tx.wait();
+
+const blockchainTX = tx.hash;
+
+
+// ===============================
+// CREAR METADATA NFT
+// ===============================
+
+const metadata = {
+name: "MagicBank Diploma",
+student: diploma.student_name,
+program: diploma.program_name,
+certificate_code: diploma.certificate_code,
+hash: hash,
+blockchain_tx: blockchainTX
+};
+
+
+// ===============================
+// QR VERIFICACIÓN
+// ===============================
+
+const verifyURL =
+"https://magic-bank-backend-production-713e.up.railway.app/verify-diploma/" +
+code;
+
+const qrImage = await QRCode.toDataURL(verifyURL);
+
+const qrBuffer = Buffer.from(
+qrImage.replace(/^data:image\/png;base64,/,""),
+"base64"
+);
+
+
+// ===============================
+// GENERAR PDF
+// ===============================
+
+const doc = new PDFDocument({
+layout:"landscape",
+size:"A4"
+});
+
+res.setHeader("Content-Type","application/pdf");
+
+res.setHeader(
+"Content-Disposition",
+"inline; filename=diploma-"+code+".pdf"
+);
+
+doc.pipe(res);
+
+doc.rect(0,0,doc.page.width,doc.page.height)
+.fill("#071c3d");
+
+doc.fontSize(40)
+.fillColor("#d4af37")
+.text("MAGIC BANK UNIVERSITY",{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(20)
+.fillColor("white")
+.text("CERTIFICATE OF COMPLETION",{align:"center"});
+
+doc.moveDown(2);
+
+doc.fontSize(16)
+.text("This certifies that",{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(36)
+.fillColor("#d4af37")
+.text(diploma.student_name,{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(16)
+.fillColor("white")
+.text("has successfully completed the program",{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(24)
+.fillColor("#d4af37")
+.text(diploma.program_name,{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(16)
+.fillColor("white")
+.text("Academic Average: "+diploma.academic_average,{align:"center"});
+
+doc.moveDown(2);
+
+doc.fontSize(12)
+.text("Certificate Code: "+diploma.certificate_code,{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(8)
+.text("Security Hash: "+hash,{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(8)
+.text("Blockchain TX: "+blockchainTX,{align:"center"});
+
+doc.image(qrBuffer,doc.page.width-140,doc.page.height-140,{width:90});
+
+doc.end();
+
+}catch(err){
+
+console.error(err);
+
+if(!res.headersSent){
+res.status(500).json({
+error:"Error generando diploma"
+});
+}
+
+}
+
+});
 /* =============================
 START
 ========================= */
