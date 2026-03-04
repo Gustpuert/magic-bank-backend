@@ -3156,6 +3156,18 @@ app.get("/academic/generate-diploma-secure/:studentId", async (req, res) => {
 
 });
 
+app.get("/debug/graduate-student/:id", async (req,res)=>{
+
+  const id = req.params.id;
+
+  await pool.query(`
+  UPDATE student_subject_progress
+  SET progress_percentage = 100
+  WHERE student_id = $1
+  `,[id]);
+
+  res.json({message:"materias completadas"});
+});
 /* =============================
 START
 ========================= */
