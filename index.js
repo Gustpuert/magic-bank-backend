@@ -2818,7 +2818,104 @@ app.post("/academic/certification-evaluation", async (req, res) => {
 
 });
 
+app.get("/setup/install-academic-system", async (req, res) => {
 
+  try {
+
+    await pool.query(`
+
+CREATE TABLE IF NOT EXISTS students (
+  id SERIAL PRIMARY KEY,
+  full_name TEXT NOT NULL,
+  age INTEGER,
+  country TEXT,
+  language TEXT,
+  current_grade INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS student_diagnostic (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER,
+  diagnostic_data JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS student_subject_progress (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER,
+  subject TEXT,
+  progress_percentage INTEGER DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS student_academic_status (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER,
+  status TEXT DEFAULT 'activo',
+  certification_ready BOOLEAN DEFAULT false
+);
+
+CREATE TABLE IF NOT EXISTS student_certification_path (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER,
+  approved BOOLEAN DEFAULT false,
+  certification_ready BOOLEAN DEFAULT false,
+  certification_date TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS student_schedule_control (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER,
+  subject TEXT,
+  schedule JSONB
+);
+
+CREATE TABLE IF NOT EXISTS academic_unit_closures (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER,
+  subject TEXT,
+  final_score NUMERIC
+);
+
+CREATE TABLE IF NOT EXISTS academic_records (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER NOT NULL,
+  total_subjects INTEGER,
+  completed_subjects INTEGER,
+  graduation_eligible BOOLEAN,
+  academic_average NUMERIC,
+  generated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS academic_certificates (
+  id SERIAL PRIMARY KEY,
+  student_id INTEGER,
+  certificate_code VARCHAR(20) UNIQUE,
+  student_name TEXT,
+  program_name TEXT,
+  academic_average NUMERIC,
+  qr_code TEXT,
+  issued_at TIMESTAMP DEFAULT NOW()
+);
+
+`);
+
+    res.json({
+      success: true,
+      message: "Sistema académico MagicBank instalado correctamente"
+    });
+
+  } catch (error) {
+
+    console.error("ERROR INSTALL ACADEMIC SYSTEM:", error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  }
+
+});
 
 /* =============================
 START
