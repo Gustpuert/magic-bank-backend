@@ -2916,7 +2916,72 @@ CREATE TABLE IF NOT EXISTS academic_certificates (
   }
 
 });
+app.get("/academic/build-record/:studentId", async (req, res) => {
 
+  try {
+
+    const studentId = req.params.studentId;
+
+    const progress = await pool.query(
+      "SELECT * FROM student_subject_progress WHERE student_id=$1",
+      [studentId]
+    );
+
+    const totalSubjects = progress.rows.length;
+
+    let completedSubjects = 0;
+    let totalScore = 0;
+
+    progress.rows.forEach(p => {
+      if (p.progress_percentage >= 100) {
+        completedSubjects++;
+        totalScore += 100;
+      } else {
+        totalScore += p.progress_percentage;
+      }
+    });
+
+    const average =
+      totalSubjects > 0 ? totalScore / totalSubjects : 0;
+
+    const graduationEligible =
+      completedSubjects >= totalSubjects && totalSubjects > 0;
+
+    await pool.query(
+      `
+      INSERT INTO academic_records
+      (student_id, total_subjects, completed_subjects, graduation_eligible, academic_average, generated_at)
+      VALUES ($1,$2,$3,$4,$5,NOW())
+      `,
+      [
+        studentId,
+        totalSubjects,
+        completedSubjects,
+        graduationEligible,
+        average
+      ]
+    );
+
+    res.json({
+      success: true,
+      studentId,
+      totalSubjects,
+      completedSubjects,
+      graduationEligible,
+      academicAverage: average
+    });
+
+  } catch (error) {
+
+    console.error("ERROR BUILD RECORD:", error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  }
+
+});
 /* =============================
 START
 ========================= */
