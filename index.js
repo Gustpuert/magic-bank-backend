@@ -3087,72 +3087,38 @@ app.get("/verify-diploma/:code", async (req, res) => {
 });
 
 
-app.get("/academic/generate-diploma-secure/:studentId", async (req, res) => {
+app.get("/academic/generate-diploma-secure/:studentId", async (req,res)=>{
 
-  try {
+try{
 
-    const studentId = req.params.studentId;
+const { studentId } = req.params;
 
-    const student = await pool.query(
-      "SELECT * FROM students WHERE id=$1",
-      [studentId]
-    );
+const code = "MB-"+crypto.randomBytes(4).toString("hex").toUpperCase();
 
-    const record = await pool.query(
-      "SELECT * FROM academic_records WHERE student_id=$1 ORDER BY generated_at DESC LIMIT 1",
-      [studentId]
-    );
+await pool.query(
+`INSERT INTO academic_certificates
+(student_id, certificate_code, issued_at)
+VALUES ($1,$2,NOW())`,
+[studentId, code]
+);
 
-    if (record.rows.length === 0) {
-      return res.status(400).json({ error: "No hay expediente académico" });
-    }
+const verification_url =
+`https://magic-bank-backend-production-713e.up.railway.app/verify-diploma/${code}`;
 
-    if (!record.rows[0].graduation_eligible) {
-      return res.status(400).json({
-        error: "El estudiante aún no cumple requisitos"
-      });
-    }
+const qr = await QRCode.toDataURL(verification_url);
 
-    const code =
-      "MB-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+res.json({
+success:true,
+diploma_code:code,
+verification_url,
+qr
+});
 
-    const verificationURL =
-      "https://magic-bank-backend-production-713e.up.railway.app/verify-diploma/" + code;
+}catch(err){
 
-    const qrCode = await QRCode.toDataURL(verificationURL);
+res.status(500).json({error:err.message})
 
-    await pool.query(
-      `
-      INSERT INTO academic_certificates
-      (student_id, certificate_code, student_name, program_name, academic_average, qr_code)
-      VALUES ($1,$2,$3,$4,$5,$6)
-      `,
-      [
-        studentId,
-        code,
-        student.rows[0].full_name,
-        "Bachillerato MagicBank",
-        record.rows[0].academic_average,
-        qrCode
-      ]
-    );
-
-    res.json({
-      success: true,
-      diploma_code: code,
-      verification_url: verificationURL,
-      qr: qrCode
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      error: error.message
-    });
-
-  }
+}
 
 });
 
