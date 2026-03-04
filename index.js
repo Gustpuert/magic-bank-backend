@@ -13,7 +13,7 @@ const { Pool } = pkg;
 
 const app = express();
 
-const PORT = process.env.PORT || 8080;
+
 app.use(cors());
 app.use(express.json());
 
@@ -3096,73 +3096,98 @@ app.get("/academic/generate-diploma-pdf/:code", async (req,res)=>{
 
 try{
 
-const { code } = req.params;
+const code = req.params.code;
 
-const result = await pool.query(
-"SELECT * FROM academic_certificates WHERE certificate_code=$1",
+const diploma = await pool.query(
+`SELECT d.code, s.full_name, s.declared_grade
+FROM diplomas d
+JOIN students s ON d.student_id=s.id
+WHERE d.code=$1`,
 [code]
 );
 
-if(result.rows.length===0){
+if(diploma.rows.length===0){
 return res.status(404).json({error:"Diploma no encontrado"});
 }
 
-const diploma = result.rows[0];
-
-const doc = new PDFDocument();
+const data=diploma.rows[0];
 
 res.setHeader("Content-Type","application/pdf");
-res.setHeader(
-"Content-Disposition",
-`attachment; filename=diploma-${code}.pdf`
-);
+res.setHeader("Content-Disposition",`inline; filename=diploma-${code}.pdf`);
+
+const doc = new PDFDocument({
+size:"A4",
+layout:"landscape",
+margin:50
+});
 
 doc.pipe(res);
 
-doc.fontSize(26).text("MagicBank University",{align:"center"});
-doc.moveDown();
+/* fondo elegante */
 
-doc.fontSize(20).text("Diploma Oficial",{align:"center"});
-doc.moveDown();
+doc.rect(0,0,842,595)
+.fill("#0b132b");
 
-doc.fontSize(16).text(`Código de diploma: ${code}`,{align:"center"});
-doc.moveDown();
-
-doc.text(`Fecha de emisión: ${diploma.issued_at}`,{align:"center"});
-doc.moveDown();
-
-doc.text(
-"Este diploma certifica que el estudiante ha completado exitosamente su programa académico.",
-{align:"center"}
-);
+doc.fillColor("#d4af37")
+.fontSize(40)
+.text("MAGIC BANK UNIVERSITY",0,120,{align:"center"});
 
 doc.moveDown();
 
-const verifyURL =
-`https://magic-bank-backend-production-713e.up.railway.app/verify-diploma/${code}`;
-
-const qr = await QRCode.toDataURL(verifyURL);
-
-const base64Data = qr.replace(/^data:image\/png;base64,/,"");
-const imgBuffer = Buffer.from(base64Data,"base64");
-
-doc.image(imgBuffer,{
-fit:[150,150],
-align:"center"
-});
+doc.fontSize(26)
+.text("CERTIFICATE OF COMPLETION",{align:"center"});
 
 doc.moveDown();
 
-doc.fontSize(10).text(
-"Escanee el QR para verificar el diploma.",
-{align:"center"}
-);
+doc.fontSize(22)
+.text("This certifies that",{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(30)
+.text(data.full_name,{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(20)
+.text(`Has successfully completed the program`,{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(22)
+.text(`Level: ${data.declared_grade}`,{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(16)
+.text(`Diploma Code: ${code}`,{align:"center"});
+
+doc.moveDown();
+
+doc.fontSize(14)
+.text("Verify at:",{align:"center"});
+
+doc.fontSize(14)
+.text(`magicbank.org/verify/${code}`,{align:"center"});
+
+/* QR de verificación */
+
+const qr = `https://magic-bank-backend-production-713e.up.railway.app/verify-diploma/${code}`;
+
+QRCode.toDataURL(qr,(err,url)=>{
+
+if(!err){
+doc.image(url,370,420,{width:100});
+}
 
 doc.end();
 
-}catch(err){
+});
 
-res.status(500).json({error:err.message})
+}catch(e){
+
+console.log(e);
+res.status(500).json({error:"Error generando diploma"});
 
 }
 
