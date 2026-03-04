@@ -843,28 +843,7 @@ app.post("/tutor/report", async (req, res) => {
     res.status(500).send("Error guardando reporte");
   }
 });
-app.get("/test/create-student", async (req, res) => {
-  try {
-    await pool.query(
-      `
-      INSERT INTO students (full_name, email, age, declared_grade, current_grade)
-      VALUES ($1,$2,$3,$4,$4)
-      `,
-      [
-        "Estudiante Prueba",
-        "prueba@magicbank.org",
-        15,
-        9
-      ]
-    );
 
-    res.send("Estudiante creado correctamente");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(error.message);
-  }
-});
 /* =========================
 DIRECTOR - VER REPORTES
 ========================= */
@@ -916,22 +895,7 @@ app.post("/director/review/:id", async (req, res) => {
     res.status(500).send("Error revisando reporte");
   }
 }); 
-app.get("/director/review/test/:id", async (req, res) => {
-  try {
 
-    await pool.query(`
-      UPDATE tutor_reports
-      SET reviewed_by_director = TRUE
-      WHERE id = $1
-    `, [req.params.id]);
-
-    res.send("Director revisó reporte correctamente");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send("Error revisando reporte");
-  }
-});
 app.get("/director/reports/pending", async (req, res) => {
   try {
 
@@ -2448,81 +2412,6 @@ app.post("/director/register-student", async (req, res) => {
 });
 
 
-app.get("/test/register-student", async (req, res) => {
-
-  try {
-
-    const token = req.query.token;
-    const full_name = req.query.full_name;
-    const age = req.query.age;
-    const country = req.query.country;
-    const language = req.query.language;
-    const declared_grade = req.query.declared_grade;
-
-    if (!token || !full_name || !declared_grade) {
-      return res.status(400).send("Faltan datos");
-    }
-
-    res.send("Endpoint recibe datos correctamente");
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).send(error.message);
-  }
-
-});
-app.get("/debug/generate-token", async (req, res) => {
-  try {
-
-    // 1️⃣ Generar token plano
-    const rawToken = crypto.randomBytes(16).toString("hex");
-
-    // 2️⃣ Hashear token
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(rawToken)
-      .digest("hex");
-
-    // 3️⃣ URL real a la que redirige el token
-    const redirectUrl = "https://chatgpt.com/g/g-699e59962d20819194b173b12f4857ed-bachillerato-director-academico-tutor-pro";
-    // ⚠️ Reemplaza por la URL real de tu Director de Bachillerato
-
-    // 4️⃣ Insertar incluyendo TODAS las columnas NOT NULL
-    await pool.query(`
-      INSERT INTO access_tokens (
-        token,
-        email,
-        product_id,
-        product_name,
-        area,
-        redirect_url,
-        expires_at,
-        created_at
-      )
-      VALUES ($1, $2, $3, $4, $5, $6, NOW() + interval '30 days', NOW())
-    `, [
-      tokenHash,
-      "prueba@test.com",
-      315067943, // ⚠️ usa un product_id válido real
-      "Bachillerato MagicBank",
-      "bachillerato",
-      redirectUrl
-    ]);
-
-    res.json({ rawToken });
-
-  } catch (error) {
-
-    console.error("ERROR DEBUG GENERATE TOKEN:", error);
-
-    res.status(500).json({
-      error: "Error generando token de prueba",
-      detail: error.message
-    });
-
-  }
-});
-
 app.post("/api/validate-token", async (req, res) => {
   try {
     const { token, email } = req.body;
@@ -2618,37 +2507,7 @@ app.post("/admin/fix-students-table", async (req, res) => {
   }
 });
 
-app.get("/debug/students", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        id,
-        full_name,
-        email,
-        age,
-        declared_grade,
-        current_grade,
-        enrollment_date,
-        active,
-        country_id
-      FROM students
-      ORDER BY enrollment_date DESC
-    `);
 
-    res.json({
-      success: true,
-      total: result.rows.length,
-      students: result.rows
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
 
 app.get("/academic/dashboard", async (req, res) => {
   try {
@@ -2813,79 +2672,7 @@ app.get("/academic/student-history/:email", async (req, res) => {
 });
 
 
-app.get("/debug/create-juan", async (req, res) => {
-  try {
-    await pool.query(`
-      INSERT INTO students
-      (full_name, email, age, declared_grade, current_grade, enrollment_date, active, country_id)
-      VALUES
-      ('Juan Pérez', 'juanprueba1@email.com', 14, '8', '8', NOW(), true, 1)
-    `);
 
-    res.json({ success: true });
-
-  } catch (error) {
-    res.json({ success: false, error: error.message });
-  }
-});
-
-app.get("/setup/optimize-indexes", async (req, res) => {
-  try {
-
-    await pool.query(`
-      -- STUDENTS
-      CREATE INDEX IF NOT EXISTS idx_students_email ON students(email);
-      CREATE INDEX IF NOT EXISTS idx_students_grade ON students(current_grade);
-      CREATE INDEX IF NOT EXISTS idx_students_active ON students(active);
-
-      -- ACCESS TOKENS
-      CREATE INDEX IF NOT EXISTS idx_tokens_token ON access_tokens(token);
-      CREATE INDEX IF NOT EXISTS idx_tokens_email ON access_tokens(email);
-      CREATE INDEX IF NOT EXISTS idx_tokens_expiration ON access_tokens(expires_at);
-    `);
-
-    res.json({
-      success: true,
-      message: "Índices optimizados correctamente (estructura actual)"
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-  }
-});
-
-app.get("/admin/create-academy-countries-table", async (req, res) => {
-  try {
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS academy_countries (
-        id SERIAL PRIMARY KEY,
-        name VARCHAR(100) UNIQUE NOT NULL
-      );
-    `);
-
-    await pool.query(`
-      INSERT INTO academy_countries (name)
-      VALUES 
-        ('Colombia'),
-        ('México'),
-        ('España'),
-        ('Argentina'),
-        ('Chile'),
-        ('Perú'),
-        ('Estados Unidos')
-      ON CONFLICT (name) DO NOTHING;
-    `);
-
-    res.send("Tabla academy_countries creada correctamente.");
-  } catch (error) {
-    console.error("Error creando tabla academy_countries:", error);
-    res.status(500).send("Error creando tabla.");
-  }
-});
 /* =============================
 START
 ========================= */
