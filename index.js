@@ -2982,6 +2982,112 @@ app.get("/academic/build-record/:studentId", async (req, res) => {
   }
 
 });
+app.get("/academic/generate-diploma/:studentId", async (req, res) => {
+
+  try {
+
+    const studentId = req.params.studentId;
+
+    const student = await pool.query(
+      "SELECT * FROM students WHERE id=$1",
+      [studentId]
+    );
+
+    if (student.rows.length === 0) {
+      return res.status(404).json({ error: "Estudiante no encontrado" });
+    }
+
+    const record = await pool.query(
+      "SELECT * FROM academic_records WHERE student_id=$1 ORDER BY generated_at DESC LIMIT 1",
+      [studentId]
+    );
+
+    if (record.rows.length === 0) {
+      return res.status(400).json({
+        error: "No existe expediente académico"
+      });
+    }
+
+    const academic = record.rows[0];
+
+    if (!academic.graduation_eligible) {
+      return res.status(400).json({
+        error: "El estudiante aún no cumple requisitos de graduación"
+      });
+    }
+
+    const certificateCode =
+      "MB-" + Math.random().toString(36).substring(2, 10).toUpperCase();
+
+    await pool.query(
+      `
+      INSERT INTO academic_certificates
+      (student_id, certificate_code, student_name, program_name, academic_average)
+      VALUES ($1,$2,$3,$4,$5)
+      `,
+      [
+        studentId,
+        certificateCode,
+        student.rows[0].full_name,
+        "Bachillerato MagicBank",
+        academic.academic_average
+      ]
+    );
+
+    res.json({
+      success: true,
+      message: "Diploma generado correctamente",
+      certificateCode: certificateCode
+    });
+
+  } catch (error) {
+
+    console.error("ERROR GENERATING DIPLOMA:", error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  }
+
+});
+
+app.get("/verify-diploma/:code", async (req, res) => {
+
+  try {
+
+    const code = req.params.code;
+
+    const diploma = await pool.query(
+      "SELECT * FROM academic_certificates WHERE certificate_code=$1",
+      [code]
+    );
+
+    if (diploma.rows.length === 0) {
+      return res.status(404).json({
+        valid: false,
+        message: "Diploma no encontrado"
+      });
+    }
+
+    res.json({
+      valid: true,
+      diploma: diploma.rows[0]
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  }
+
+});
+
+
+
+
 /* =============================
 START
 ========================= */
