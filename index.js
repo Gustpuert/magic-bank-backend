@@ -3093,7 +3093,7 @@ try{
 
 const { studentId } = req.params;
 
-const code = "MB-"+crypto.randomBytes(4).toString("hex").toUpperCase();
+const code = "MB-" + crypto.randomBytes(4).toString("hex").toUpperCase();
 
 await pool.query(
 `INSERT INTO academic_certificates
