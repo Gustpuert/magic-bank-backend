@@ -3333,7 +3333,24 @@ res.status(500).json({error:err.message})
 }
 });
 
+app.get("/debug/create-diploma", async (req,res)=>{
 
+await pool.query(`
+INSERT INTO academic_certificates
+(student_name, program_name, academic_average, certificate_code, issued_at)
+VALUES
+(
+'Juan Perez',
+'Bachillerato MagicBank',
+4.8,
+'MB-TEST001',
+NOW()
+)
+`);
+
+res.json({created:true})
+
+});
 /* =============================
 START
 ========================= */
