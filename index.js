@@ -3090,7 +3090,7 @@ app.get("/verify-diploma/:code", async (req, res) => {
 });
 
 
-import PDFDocument from "pdfkit";
+
 
 app.get("/academic/generate-diploma-pdf/:code", async (req,res)=>{
 
@@ -3206,9 +3206,6 @@ app.get("/debug/graduate-student/:id", async (req,res)=>{
   res.json({message:"materias completadas"});
 });
 
-
-import PDFDocument from "pdfkit";
-import QRCode from "qrcode";
 
 app.get("/academic/generate-diploma-luxury/:code", async (req,res)=>{
 try{
