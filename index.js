@@ -3177,6 +3177,163 @@ app.get("/debug/graduate-student/:id", async (req,res)=>{
 
   res.json({message:"materias completadas"});
 });
+
+
+import PDFDocument from "pdfkit";
+import QRCode from "qrcode";
+
+app.get("/academic/generate-diploma-luxury/:code", async (req,res)=>{
+try{
+
+const { code } = req.params;
+
+const result = await pool.query(
+"SELECT * FROM academic_certificates WHERE certificate_code=$1",
+[code]
+);
+
+if(result.rows.length===0){
+return res.status(404).json({error:"Diploma no encontrado"});
+}
+
+const diploma = result.rows[0];
+
+// URL de verificación
+const verifyURL = `https://magic-bank-backend-production-713e.up.railway.app/verify-diploma/${code}`;
+
+// crear QR
+const qr = await QRCode.toDataURL(verifyURL);
+const base64Data = qr.replace(/^data:image\/png;base64,/,"");
+const qrBuffer = Buffer.from(base64Data,"base64");
+
+const doc = new PDFDocument({
+size:"A4",
+layout:"landscape",
+margin:50
+});
+
+res.setHeader("Content-Type","application/pdf");
+res.setHeader(
+"Content-Disposition",
+`attachment; filename=diploma-${code}.pdf`
+);
+
+doc.pipe(res);
+
+// fondo elegante
+doc.rect(0,0,doc.page.width,doc.page.height)
+.fill("#0b0b0b");
+
+// marco dorado
+doc.lineWidth(8)
+.strokeColor("#d4af37")
+.rect(20,20,doc.page.width-40,doc.page.height-40)
+.stroke();
+
+// logo
+doc.image("logo-mb.png", doc.page.width/2-70, 60, {
+width:140
+});
+
+// título
+doc.moveDown(6);
+
+doc.fillColor("#d4af37")
+.fontSize(38)
+.text("MAGICBANK UNIVERSITY",{
+align:"center"
+});
+
+doc.moveDown(0.5);
+
+doc.fontSize(24)
+.text("CERTIFICADO OFICIAL",{
+align:"center"
+});
+
+// texto
+doc.moveDown(2);
+
+doc.fillColor("white")
+.fontSize(18)
+.text("Este certificado acredita que",{align:"center"});
+
+doc.moveDown(1);
+
+// nombre estudiante
+doc.fontSize(34)
+.fillColor("#d4af37")
+.text(diploma.student_name || "Estudiante MagicBank",{
+align:"center"
+});
+
+// programa
+doc.moveDown(1);
+
+doc.fontSize(18)
+.fillColor("white")
+.text(
+`ha completado satisfactoriamente el programa académico de`,
+{align:"center"}
+);
+
+doc.moveDown(0.5);
+
+doc.fontSize(22)
+.fillColor("#d4af37")
+.text(diploma.program_name || "Programa Académico",{
+align:"center"
+});
+
+doc.moveDown(2);
+
+// datos académicos
+doc.fontSize(14)
+.fillColor("white")
+.text(`Código del Diploma: ${code}`,{align:"center"});
+
+doc.text(`Promedio Académico: ${diploma.academic_average || "—"}`,{
+align:"center"
+});
+
+doc.text(`Fecha de emisión: ${diploma.issued_at}`,{
+align:"center"
+});
+
+// QR
+doc.image(qrBuffer, doc.page.width/2-60, doc.page.height-180,{
+width:120
+});
+
+doc.moveDown(10);
+
+doc.fontSize(12)
+.fillColor("#d4af37")
+.text("Escanee el QR para verificar la autenticidad del diploma.",{
+align:"center"
+});
+
+// firma
+doc.moveDown(2);
+
+doc.fontSize(14)
+.fillColor("white")
+.text("Director Académico",{
+align:"center"
+});
+
+doc.text("MagicBank University",{
+align:"center"
+});
+
+doc.end();
+
+}catch(err){
+res.status(500).json({error:err.message})
+}
+});
+
+
 /* =============================
 START
 ========================= */
