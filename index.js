@@ -2671,7 +2671,186 @@ app.get("/academic/student-history/:email", async (req, res) => {
   }
 });
 
+app.post("/academic/certification-evaluation", async (req, res) => {
 
+  const client = await pool.connect();
+
+  try {
+
+    const { student_id } = req.body;
+
+    if (!student_id) {
+      return res.status(400).json({
+        error: "student_id requerido"
+      });
+    }
+
+    await client.query("BEGIN");
+
+    // 1️⃣ Verificar estudiante
+    const student = await client.query(
+      "SELECT id, full_name, current_grade FROM students WHERE id = $1",
+      [student_id]
+    );
+
+    if (!student.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(404).json({
+        error: "Estudiante no encontrado"
+      });
+    }
+
+    // 2️⃣ Obtener materias
+    const subjects = await client.query(`
+      SELECT subject, progress_percentage
+      FROM student_subject_progress
+      WHERE student_id = $1
+    `, [student_id]);
+
+    if (!subjects.rowCount) {
+      await client.query("ROLLBACK");
+      return res.status(400).json({
+        error: "No existen materias registradas"
+      });
+    }
+
+    let totalSubjects = subjects.rows.length;
+    let completed = 0;
+
+    for (let s of subjects.rows) {
+      if (Number(s.progress_percentage) >= 100) {
+        completed++;
+      }
+    }
+
+    // 3️⃣ Evaluar graduación
+    const graduationEligible = completed === totalSubjects;
+
+    // 4️⃣ Calcular promedio académico
+    const scores = await client.query(`
+      SELECT final_score
+      FROM academic_unit_closures
+      WHERE student_id = $1
+    `, [student_id]);
+
+    let averageScore = null;
+
+    if (scores.rowCount > 0) {
+      const sum = scores.rows.reduce(
+        (acc, s) => acc + Number(s.final_score),
+        0
+      );
+
+      averageScore = Number(
+        (sum / scores.rowCount).toFixed(2)
+      );
+    }
+
+    // 5️⃣ Actualizar certificación
+    if (graduationEligible) {
+
+      await client.query(`
+        UPDATE student_certification_path
+        SET
+          approved = true,
+          certification_ready = true,
+          certification_date = NOW(),
+          readiness_level = 'graduado'
+        WHERE student_id = $1
+      `, [student_id]);
+
+      await client.query(`
+        UPDATE student_academic_status
+        SET certification_ready = true
+        WHERE student_id = $1
+      `, [student_id]);
+
+    }
+
+    // 6️⃣ Crear expediente académico
+    await client.query(`
+      INSERT INTO academic_records
+      (
+        student_id,
+        total_subjects,
+        completed_subjects,
+        graduation_eligible,
+        academic_average,
+        generated_at
+      )
+      VALUES ($1,$2,$3,$4,$5,NOW())
+    `,
+    [
+      student_id,
+      totalSubjects,
+      completed,
+      graduationEligible,
+      averageScore
+    ]);
+
+    await client.query("COMMIT");
+
+    res.json({
+      success: true,
+      student: student.rows[0].full_name,
+      total_subjects: totalSubjects,
+      completed_subjects: completed,
+      graduation_eligible: graduationEligible,
+      academic_average: averageScore
+    });
+
+  } catch (error) {
+
+    await client.query("ROLLBACK");
+
+    console.error("CERTIFICATION ERROR:", error);
+
+    res.status(500).json({
+      error: "Error evaluando certificación",
+      detail: error.message
+    });
+
+  } finally {
+
+    client.release();
+
+  }
+
+});
+
+app.get("/setup/create-academic-records", async (req, res) => {
+
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS academic_records (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER NOT NULL,
+        total_subjects INTEGER,
+        completed_subjects INTEGER,
+        graduation_eligible BOOLEAN,
+        academic_average NUMERIC,
+        generated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.json({
+      success: true,
+      message: "Tabla academic_records creada correctamente"
+    });
+
+  } catch (error) {
+
+    console.error("ERROR CREATE TABLE academic_records:", error);
+
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+
+  }
+
+});
 
 /* =============================
 START
