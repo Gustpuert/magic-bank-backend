@@ -6,6 +6,9 @@ import axios from "axios";
 import crypto from "crypto";
 import pkg from "pg";
 import cors from "cors";
+import QRCode from "qrcode";
+import PDFDocument from "pdfkit";
+
 const { Pool } = pkg;
 
 const app = express();
@@ -13,7 +16,7 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json());
-import QRCode from "qrcode";
+
 
 /* =========================
 DATABASE (RAILWAY)
