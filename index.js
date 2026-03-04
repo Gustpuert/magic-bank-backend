@@ -13,7 +13,8 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 app.use(cors());
 app.use(express.json());
-const QRCode = require("qrcode");
+import QRCode from "qrcode";
+
 /* =========================
 DATABASE (RAILWAY)
 ========================= */
