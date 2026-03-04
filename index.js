@@ -3087,32 +3087,75 @@ app.get("/verify-diploma/:code", async (req, res) => {
 });
 
 
-app.get("/academic/generate-diploma-secure/:studentId", async (req,res)=>{
+import PDFDocument from "pdfkit";
+
+app.get("/academic/generate-diploma-pdf/:code", async (req,res)=>{
 
 try{
 
-const { studentId } = req.params;
+const { code } = req.params;
 
-const code = "MB-" + crypto.randomBytes(4).toString("hex").toUpperCase();
-
-await pool.query(
-`INSERT INTO academic_certificates
-(student_id, certificate_code, issued_at)
-VALUES ($1,$2,NOW())`,
-[studentId, code]
+const result = await pool.query(
+"SELECT * FROM academic_certificates WHERE certificate_code=$1",
+[code]
 );
 
-const verification_url =
+if(result.rows.length===0){
+return res.status(404).json({error:"Diploma no encontrado"});
+}
+
+const diploma = result.rows[0];
+
+const doc = new PDFDocument();
+
+res.setHeader("Content-Type","application/pdf");
+res.setHeader(
+"Content-Disposition",
+`attachment; filename=diploma-${code}.pdf`
+);
+
+doc.pipe(res);
+
+doc.fontSize(26).text("MagicBank University",{align:"center"});
+doc.moveDown();
+
+doc.fontSize(20).text("Diploma Oficial",{align:"center"});
+doc.moveDown();
+
+doc.fontSize(16).text(`Código de diploma: ${code}`,{align:"center"});
+doc.moveDown();
+
+doc.text(`Fecha de emisión: ${diploma.issued_at}`,{align:"center"});
+doc.moveDown();
+
+doc.text(
+"Este diploma certifica que el estudiante ha completado exitosamente su programa académico.",
+{align:"center"}
+);
+
+doc.moveDown();
+
+const verifyURL =
 `https://magic-bank-backend-production-713e.up.railway.app/verify-diploma/${code}`;
 
-const qr = await QRCode.toDataURL(verification_url);
+const qr = await QRCode.toDataURL(verifyURL);
 
-res.json({
-success:true,
-diploma_code:code,
-verification_url,
-qr
+const base64Data = qr.replace(/^data:image\/png;base64,/,"");
+const imgBuffer = Buffer.from(base64Data,"base64");
+
+doc.image(imgBuffer,{
+fit:[150,150],
+align:"center"
 });
+
+doc.moveDown();
+
+doc.fontSize(10).text(
+"Escanee el QR para verificar el diploma.",
+{align:"center"}
+);
+
+doc.end();
 
 }catch(err){
 
