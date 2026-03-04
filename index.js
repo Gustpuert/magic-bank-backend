@@ -2818,39 +2818,7 @@ app.post("/academic/certification-evaluation", async (req, res) => {
 
 });
 
-app.get("/setup/create-academic-records", async (req, res) => {
 
-  try {
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS academic_records (
-        id SERIAL PRIMARY KEY,
-        student_id INTEGER NOT NULL,
-        total_subjects INTEGER,
-        completed_subjects INTEGER,
-        graduation_eligible BOOLEAN,
-        academic_average NUMERIC,
-        generated_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    res.json({
-      success: true,
-      message: "Tabla academic_records creada correctamente"
-    });
-
-  } catch (error) {
-
-    console.error("ERROR CREATE TABLE academic_records:", error);
-
-    res.status(500).json({
-      success: false,
-      error: error.message
-    });
-
-  }
-
-});
 
 /* =============================
 START
