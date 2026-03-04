@@ -3376,6 +3376,28 @@ NOW()
 res.json({created:true})
 
 });
+
+
+app.get("/debug/students", async (req, res) => {
+  try {
+
+    const students = await pool.query(
+      "SELECT * FROM students LIMIT 50"
+    );
+
+    res.json(students.rows);
+
+  } catch (error) {
+
+    console.error("DEBUG STUDENTS ERROR:", error);
+
+    res.status(500).json({
+      error: error.message
+    });
+
+  }
+});
+
 /* =============================
 START
 ========================= */
