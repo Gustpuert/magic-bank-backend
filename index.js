@@ -1509,6 +1509,156 @@ res.status(500).send("Error consultando perfil");
 }
 
 });
+
+/* =========================================================
+34 - INSTALL DATABASE (TEMPORAL)
+Crea todas las tablas del sistema MagicBank
+Eliminar después de ejecutarlo una vez
+========================================================= */
+
+app.get("/install-db", async (req, res) => {
+
+try {
+
+await pool.query(`
+
+CREATE TABLE IF NOT EXISTS tiendanube_stores (
+id SERIAL PRIMARY KEY,
+store_id BIGINT UNIQUE,
+access_token TEXT,
+created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS processed_orders (
+id SERIAL PRIMARY KEY,
+order_id BIGINT UNIQUE,
+raw_order JSONB,
+created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS access_tokens (
+id SERIAL PRIMARY KEY,
+token TEXT,
+email TEXT,
+product_id BIGINT,
+product_name TEXT,
+area TEXT,
+redirect_url TEXT,
+created_at TIMESTAMP DEFAULT NOW(),
+expires_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS students (
+id SERIAL PRIMARY KEY,
+full_name TEXT,
+email TEXT UNIQUE,
+age INT,
+declared_grade INT,
+current_grade INT,
+academic_status TEXT DEFAULT 'pending',
+enrollment_type TEXT,
+initial_diagnosis TEXT,
+recommended_grade INT,
+director_initialized BOOLEAN DEFAULT FALSE,
+enrolled_at TIMESTAMP,
+created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tutor_reports (
+id SERIAL PRIMARY KEY,
+student_id INT,
+tutor_name TEXT,
+subject TEXT,
+report_type TEXT,
+summary TEXT,
+recommendation TEXT,
+priority_level INT,
+reviewed_by_director BOOLEAN DEFAULT FALSE,
+created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS tutor_actions (
+id SERIAL PRIMARY KEY,
+student_id INT,
+tutor_name TEXT,
+subject TEXT,
+action_type TEXT,
+description TEXT,
+created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS director_decisions (
+id SERIAL PRIMARY KEY,
+student_id INT,
+decision_type TEXT,
+subject TEXT,
+notes TEXT,
+priority_level INT,
+created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS director_actions (
+id SERIAL PRIMARY KEY,
+student_id INT,
+action_type TEXT,
+subject TEXT,
+description TEXT,
+created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS vocational_profiles (
+id SERIAL PRIMARY KEY,
+student_id INT,
+logical_score INT,
+linguistic_score INT,
+social_score INT,
+artistic_score INT,
+technical_score INT,
+evaluated_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS student_intelligence_profiles (
+student_id INT PRIMARY KEY,
+logical_score INT,
+linguistic_score INT,
+social_score INT,
+artistic_score INT,
+technical_score INT,
+learning_speed TEXT,
+learning_style TEXT,
+last_updated TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS academic_records (
+id SERIAL PRIMARY KEY,
+student_id INT,
+total_subjects INT,
+completed_subjects INT,
+graduation_eligible BOOLEAN,
+academic_average NUMERIC,
+generated_at TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS diplomas (
+id SERIAL PRIMARY KEY,
+student_id INT,
+diploma_code TEXT UNIQUE,
+blockchain_tx TEXT,
+created_at TIMESTAMP DEFAULT NOW()
+);
+
+`);
+
+res.send("MAGICBANK DATABASE INSTALLED");
+
+} catch (error) {
+
+console.error(error);
+res.status(500).send("ERROR INSTALLING DATABASE");
+
+}
+
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
