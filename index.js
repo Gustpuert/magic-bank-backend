@@ -1671,7 +1671,121 @@ res.status(500).send("Error consultando perfil");
 
 });
 
+/* =========================================================
+34 - AUDITORÍA DE ACCESO DE TUTORES
+Registro institucional de activaciones
+========================================================= */
 
+app.post("/tutor/access-audit", async (req, res) => {
+
+try {
+
+const {
+student_id,
+email,
+product_name,
+area,
+tutor_name
+} = req.body;
+
+const ip =
+req.headers["x-forwarded-for"] ||
+req.socket.remoteAddress ||
+"unknown";
+
+const userAgent =
+req.headers["user-agent"] || "unknown";
+
+await pool.query(`
+INSERT INTO tutor_access_audit
+(
+student_id,
+email,
+product_name,
+area,
+tutor_name,
+ip_address,
+user_agent
+)
+VALUES ($1,$2,$3,$4,$5,$6,$7)
+`,
+[
+student_id,
+email,
+product_name,
+area,
+tutor_name,
+ip,
+userAgent
+]);
+
+res.json({
+status: "audit_logged"
+});
+
+} catch (error) {
+
+console.error("AUDIT ERROR:", error);
+
+res.status(500).json({
+error: "Error registrando auditoría"
+});
+
+}
+
+});
+app.get("/audit/tutor-access", async (req, res) => {
+
+const logs = await pool.query(`
+SELECT *
+FROM tutor_access_audit
+ORDER BY created_at DESC
+LIMIT 100
+`);
+
+res.json(logs.rows);
+
+});
+/* =========================================================
+TEMPORAL - CREAR TABLA AUDITORÍA TUTOR
+Ejecutar una sola vez
+========================================================= */
+
+app.get("/install-tutor-audit-table", async (req, res) => {
+
+try {
+
+await pool.query(`
+CREATE TABLE IF NOT EXISTS tutor_access_audit (
+
+id SERIAL PRIMARY KEY,
+
+student_id INTEGER,
+email TEXT,
+product_name TEXT,
+area TEXT,
+
+tutor_name TEXT,
+
+ip_address TEXT,
+user_agent TEXT,
+
+created_at TIMESTAMP DEFAULT NOW()
+
+)
+`);
+
+res.send("Tabla tutor_access_audit creada correctamente");
+
+} catch (error) {
+
+console.error("ERROR CREANDO TABLA:", error);
+
+res.status(500).send("Error creando tabla");
+
+}
+
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
