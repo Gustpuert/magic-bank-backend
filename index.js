@@ -264,32 +264,100 @@ Envío automático de accesos académicos
 ========================================================= */
 
 async function enviarCorreo(destino, curso, token) {
-try {
+  try {
 
-await axios.post(
-  "https://api.resend.com/emails",
-  {
-    from: "MagicBank <info@send.magicbank.org>",
-    to: destino,
-    subject: `🎓 Acceso oficial a ${curso.nombre}`,
-    html: `<p>Tu acceso ha sido activado</p>`
-  },
-  {
-    headers: {
-      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-      "Content-Type": "application/json"
-    }
+    await axios.post(
+      "https://api.resend.com/emails",
+      {
+        from: "MagicBank <info@send.magicbank.org>",
+        to: destino,
+        subject: `🎓 Acceso oficial a ${curso.nombre}`,
+        html: `
+<div style="font-family:Arial, sans-serif; line-height:1.6;">
+
+<h2>🎓 Activación Confirmada</h2>
+
+<p>Hola,</p>
+
+<p>Tu acceso a <strong>${curso.nombre}</strong> ha sido activado correctamente.</p>
+
+<hr>
+
+<h3>🔐 PRIMER INGRESO (OBLIGATORIO)</h3>
+
+<p>1️⃣ Haz clic en el siguiente botón:</p>
+
+<p>
+<a href="${curso.url}?token=${token}"
+style="background-color:#0a1f44;
+color:#ffffff;
+padding:12px 20px;
+text-decoration:none;
+border-radius:6px;
+font-weight:bold;
+display:inline-block;">
+ACCEDER AL TUTOR
+</a>
+</p>
+
+<p>2️⃣ Cuando se abra el tutor, pega inmediatamente el siguiente bloque en la parte inferior del chat:</p>
+
+<pre style="background:#f4f4f4;
+padding:15px;
+border-radius:6px;
+font-size:14px;
+white-space:pre-wrap;">
+
+Correo: ${destino}
+Token: ${token}
+
+</pre>
+
+<p>3️⃣ Haz clic en la flecha de envío y sigue las instrucciones del Director Académico para iniciar la matrícula.</p>
+
+<hr>
+
+<h3>🔁 INGRESOS DURANTE 30 DÍAS</h3>
+
+<p>Durante los próximos 30 días, simplemente haz clic en <strong>Acceder al Tutor</strong> y continúa tu proceso académico.</p>
+
+<p>No necesitas volver a pegar el bloque mientras tu acceso esté vigente.</p>
+
+<hr>
+
+<h3>⏳ VIGENCIA</h3>
+
+<p>Tu acceso es válido por 30 días.</p>
+
+<p>Al finalizar el periodo, el sistema invalidará automáticamente el token y será necesario renovar la suscripción para generar uno nuevo.</p>
+
+<hr>
+
+<p style="font-size:12px; color:#555;">
+Dirección Académica MagicBank<br>
+Formación estructurada · Control institucional · Certificación con criterio
+</p>
+
+</div>
+`
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+
+    console.log("EMAIL ENVIADO OK");
+
+  } catch (error) {
+    console.error(
+      "ERROR RESEND:",
+      error.response?.data || error.message
+    );
   }
-);
-
-} catch (error) {
-console.error(
-"ERROR RESEND:",
-error.response?.data || error.message
-);
 }
-}
-
 
 /* =========================================================
 10 - WEBHOOK TIENDANUBE
