@@ -1746,46 +1746,9 @@ LIMIT 100
 res.json(logs.rows);
 
 });
-/* =========================================================
-TEMPORAL - CREAR TABLA AUDITORÍA TUTOR
-Ejecutar una sola vez
-========================================================= */
 
-app.get("/install-tutor-audit-table", async (req, res) => {
 
-try {
 
-await pool.query(`
-CREATE TABLE IF NOT EXISTS tutor_access_audit (
-
-id SERIAL PRIMARY KEY,
-
-student_id INTEGER,
-email TEXT,
-product_name TEXT,
-area TEXT,
-
-tutor_name TEXT,
-
-ip_address TEXT,
-user_agent TEXT,
-
-created_at TIMESTAMP DEFAULT NOW()
-
-)
-`);
-
-res.send("Tabla tutor_access_audit creada correctamente");
-
-} catch (error) {
-
-console.error("ERROR CREANDO TABLA:", error);
-
-res.status(500).send("Error creando tabla");
-
-}
-
-});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
