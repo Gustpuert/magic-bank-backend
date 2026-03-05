@@ -545,7 +545,7 @@ ingles:"https://chatgpt.com/g/g-699e366421f08191b14fc6af17f251fd-bachillerato-tu
 };
 
 /* =========================================================
-12 - SISTEMA DE ACCESO CON TOKEN
+12 - SISTEMA DE ACCESO CON TOKEN (CONTROL USO)
 ========================================================= */
 
 app.get("/access/:token", async (req, res) => {
@@ -555,30 +555,76 @@ try {
 const rawToken = req.params.token;
 
 const tokenHash = crypto
-  .createHash("sha256")
-  .update(rawToken)
-  .digest("hex");
+.createHash("sha256")
+.update(rawToken)
+.digest("hex");
 
 const r = await pool.query(
-  `
-  SELECT redirect_url
-  FROM access_tokens
-  WHERE token = $1
-  AND expires_at > NOW()
-  `,
-  [tokenHash]
+`
+SELECT redirect_url, token_uses, max_uses
+FROM access_tokens
+WHERE token = $1
+AND expires_at > NOW()
+`,
+[tokenHash]
 );
 
 if (!r.rowCount) {
-  return res.status(403).send("Acceso inválido");
+return res.status(403).send("Acceso inválido");
 }
 
-res.redirect(r.rows[0].redirect_url);
+const tokenData = r.rows[0];
+
+if (tokenData.token_uses >= tokenData.max_uses) {
+return res.status(403).send("Token excedió número máximo de usos");
+}
+
+/* aumentar contador */
+
+await pool.query(`
+UPDATE access_tokens
+SET token_uses = token_uses + 1
+WHERE token = $1
+`, [tokenHash]);
+
+res.redirect(tokenData.redirect_url);
 
 } catch (error) {
 
 console.error(error);
+
 res.status(500).send("Error validando acceso");
+
+}
+
+});
+
+
+/* =========================================================
+TEMPORAL - AGREGAR CONTROL DE USO DE TOKEN
+========================================================= */
+
+app.get("/install-token-usage", async (req, res) => {
+
+try {
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS token_uses INTEGER DEFAULT 0;
+`);
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS max_uses INTEGER DEFAULT 3;
+`);
+
+res.send("Control de uso de token instalado correctamente");
+
+} catch (error) {
+
+console.error("ERROR INSTALANDO CONTROL TOKEN:", error);
+
+res.status(500).send("Error instalando control token");
 
 }
 
