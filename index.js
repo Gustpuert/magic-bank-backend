@@ -3607,6 +3607,50 @@ error:"Error generando diploma"
 }
 
 });
+
+
+
+/* =========================================================
+31 - SETUP PERFIL INTELECTUAL DEL ESTUDIANTE
+Crea tabla de inteligencia académica
+========================================================= */
+
+app.get("/setup/create-intelligence-profiles", async (req, res) => {
+
+try {
+
+await pool.query(`
+CREATE TABLE IF NOT EXISTS student_intelligence_profiles (
+
+id SERIAL PRIMARY KEY,
+
+student_id INTEGER UNIQUE,
+
+logical_score INTEGER DEFAULT 0,
+linguistic_score INTEGER DEFAULT 0,
+social_score INTEGER DEFAULT 0,
+artistic_score INTEGER DEFAULT 0,
+technical_score INTEGER DEFAULT 0,
+
+learning_speed TEXT,
+learning_style TEXT,
+
+last_updated TIMESTAMP DEFAULT NOW()
+
+);
+`);
+
+res.send("Tabla student_intelligence_profiles creada correctamente");
+
+} catch (error) {
+
+console.error(error);
+
+res.status(500).send("Error creando tabla");
+
+}
+
+});
 /* =============================
 START
 ========================= */
