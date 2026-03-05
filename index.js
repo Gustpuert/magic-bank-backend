@@ -1780,6 +1780,9 @@ error: "Error registrando auditoría"
 }
 
 });
+/*================================================
+Endpoint  35. Auditoria al acceso del tutor
+==================================================*/
 app.get("/audit/tutor-access", async (req, res) => {
 
 const logs = await pool.query(`
@@ -1794,7 +1797,70 @@ res.json(logs.rows);
 });
 
 
+// ======================================================
+// ENDPOINT 36 — VALIDAR TOKEN DE ACCESO (validateAccess)
+// ======================================================
 
+app.post("/api/validate-token", async (req, res) => {
+
+  try {
+
+    const { token, email } = req.body;
+
+    if (!token || !email) {
+      return res.status(400).json({
+        valid: false,
+        error: "Token y email son requeridos"
+      });
+    }
+
+    // Generar hash SHA256 del token
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const result = await pool.query(
+      `
+      SELECT email, product_name, expires_at
+      FROM access_tokens
+      WHERE token = $1
+      AND email = $2
+      AND expires_at > NOW()
+      `,
+      [tokenHash, email]
+    );
+
+    // Token no encontrado o expirado
+    if (result.rows.length === 0) {
+      return res.status(401).json({
+        valid: false,
+        error: "Token inválido, expirado o no corresponde al correo"
+      });
+    }
+
+    const access = result.rows[0];
+
+    // Acceso válido
+    res.json({
+      valid: true,
+      email: access.email,
+      product: access.product_name,
+      expires_at: access.expires_at
+    });
+
+  } catch (error) {
+
+    console.error("ERROR VALIDATE TOKEN:", error);
+
+    res.status(500).json({
+      valid: false,
+      error: "Error interno validando token"
+    });
+
+  }
+
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
