@@ -1407,6 +1407,99 @@ res.status(500).send("Sistema con errores");
 }
 
 });
+
+
+/* =========================================================
+31 - ACTIVAR ESTUDIANTE DESDE TUTOR
+El tutor envía el token recibido por el alumno
+========================================================= */
+
+app.post("/activate-student", async (req, res) => {
+
+try {
+
+const { token } = req.body;
+
+if (!token) {
+return res.status(400).json({
+error: "Token requerido"
+});
+}
+
+/* 1 - convertir token a hash */
+
+const tokenHash = crypto
+.createHash("sha256")
+.update(token)
+.digest("hex");
+
+/* 2 - buscar token en base de datos */
+
+const result = await pool.query(
+"SELECT email, product_name, area FROM access_tokens WHERE token = $1 AND expires_at > NOW()",
+[tokenHash]
+);
+
+if (!result.rowCount) {
+return res.status(403).json({
+error: "Token inválido o expirado"
+});
+}
+
+const { email, product_name, area } = result.rows[0];
+
+/* 3 - verificar si el estudiante ya existe */
+
+let student = await pool.query(
+"SELECT id FROM students WHERE email = $1",
+[email]
+);
+
+let student_id;
+
+if (!student.rowCount) {
+
+/* crear estudiante nuevo */
+
+const created = await pool.query("INSERT INTO students (full_name,email,academic_status,created_at) VALUES ($1,$2,'active',NOW()) RETURNING id",
+[
+"Alumno MagicBank",
+email
+]);
+
+student_id = created.rows[0].id;
+
+} else {
+
+student_id = student.rows[0].id;
+
+}
+
+/* 4 - devolver datos al tutor */
+
+res.json({
+
+status: "student_activated",
+
+student_id,
+email,
+course: product_name,
+area
+
+});
+
+} catch (error) {
+
+console.error("ACTIVATE STUDENT ERROR:", error);
+
+res.status(500).json({
+error: "Error activando estudiante"
+});
+
+}
+
+});
+
 /* =========================================================
 32 - ACTUALIZAR PERFIL INTELECTUAL DEL ESTUDIANTE
 Director académico analiza progreso cognitivo
