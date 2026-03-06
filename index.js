@@ -1590,7 +1590,18 @@ student_id = student.rows[0].id;
 }
 
 /* 4 - devolver datos al tutor */
-
+await pool.query(
+`
+INSERT INTO tutor_access_logs (student_id,email,tutor_name,program)
+VALUES ($1,$2,$3,$4)
+`,
+[
+student_id,
+email,
+product_name,
+area
+]
+);
 res.json({
 
 status: "student_activated",
@@ -1884,55 +1895,7 @@ app.post("/log-tutor-access", async (req, res) => {
     res.status(500).json({ error: "log_failed" });
   }
 });
-app.get("/debug/tutor-access-logs", async (req, res) => {
-  try {
 
-    const result = await pool.query(
-      "SELECT * FROM tutor_access_logs ORDER BY access_time DESC LIMIT 50"
-    );
-
-    res.json({
-      status: "ok",
-      total: result.rows.length,
-      logs: result.rows
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({
-      error: "cannot_read_tutor_logs"
-    });
-  }
-});
-app.get("/debug/create-tutor-access-table", async (req, res) => {
-  try {
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS tutor_access_logs (
-        id SERIAL PRIMARY KEY,
-        student_id INTEGER,
-        email TEXT,
-        tutor_name TEXT,
-        program TEXT,
-        access_time TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    res.json({
-      status: "table_ready",
-      table: "tutor_access_logs"
-    });
-
-  } catch (error) {
-
-    console.error(error);
-
-    res.status(500).json({
-      error: "table_creation_failed"
-    });
-
-  }
-});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
