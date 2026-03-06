@@ -1884,6 +1884,26 @@ app.post("/log-tutor-access", async (req, res) => {
     res.status(500).json({ error: "log_failed" });
   }
 });
+app.get("/debug/tutor-access-logs", async (req, res) => {
+  try {
+
+    const result = await pool.query(
+      "SELECT * FROM tutor_access_logs ORDER BY access_time DESC LIMIT 50"
+    );
+
+    res.json({
+      status: "ok",
+      total: result.rows.length,
+      logs: result.rows
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "cannot_read_tutor_logs"
+    });
+  }
+});
 
 const PORT = process.env.PORT || 3000;
 
