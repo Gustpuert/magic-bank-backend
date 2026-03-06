@@ -1904,7 +1904,35 @@ app.get("/debug/tutor-access-logs", async (req, res) => {
     });
   }
 });
+app.get("/debug/create-tutor-access-table", async (req, res) => {
+  try {
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tutor_access_logs (
+        id SERIAL PRIMARY KEY,
+        student_id INTEGER,
+        email TEXT,
+        tutor_name TEXT,
+        program TEXT,
+        access_time TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.json({
+      status: "table_ready",
+      table: "tutor_access_logs"
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      error: "table_creation_failed"
+    });
+
+  }
+});
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
