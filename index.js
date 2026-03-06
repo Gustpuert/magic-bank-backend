@@ -1861,6 +1861,30 @@ app.post("/api/validate-token", async (req, res) => {
   }
 
 });
+
+
+app.post("/log-tutor-access", async (req, res) => {
+  try {
+    const { student_id, email, tutor_name, program } = req.body;
+
+    const result = await pool.query(
+      `INSERT INTO tutor_access_logs (student_id, email, tutor_name, program)
+       VALUES ($1,$2,$3,$4)
+       RETURNING *`,
+      [student_id, email, tutor_name, program]
+    );
+
+    res.json({
+      status: "access_logged",
+      log: result.rows[0]
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "log_failed" });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
