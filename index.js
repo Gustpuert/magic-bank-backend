@@ -95,55 +95,246 @@ res.status(500).send("Error analytics");
 }
 });
 
-/* =========================================================
+/* =======================================================
 06 - DASHBOARD VISUAL
-Panel básico para monitoreo rápido
-========================================================= */
+Panel administrativo MagicBank
+======================================================= */
 
 app.get("/dashboard", async (req, res) => {
+
 try {
 
+/* TOTAL TOKENS (alumnos registrados) */
+
 const totalAlumnos = await pool.query(`
-  SELECT COUNT(*) FROM access_tokens
+SELECT COUNT(*) FROM access_tokens
 `);
+
+
+/* CURSOS MÁS VENDIDOS */
 
 const cursosTop = await pool.query(`
-  SELECT product_name, COUNT(*) as total
-  FROM access_tokens
-  GROUP BY product_name
-  ORDER BY total DESC
+SELECT product_name, COUNT(*) as total
+FROM access_tokens
+GROUP BY product_name
+ORDER BY total DESC
 `);
+
+
+/* ÁREAS MÁS ACTIVAS */
 
 const areasTop = await pool.query(`
-  SELECT area, COUNT(*) as total
-  FROM access_tokens
-  GROUP BY area
-  ORDER BY total DESC
+SELECT area, COUNT(*) as total
+FROM access_tokens
+GROUP BY area
+ORDER BY total DESC
 `);
+
+
+/* VENTAS POR DÍA */
 
 const ventasPorDia = await pool.query(`
-  SELECT DATE(created_at) as fecha, COUNT(*) as total
-  FROM access_tokens
-  GROUP BY DATE(created_at)
-  ORDER BY fecha DESC
+SELECT DATE(created_at) as fecha, COUNT(*) as total
+FROM access_tokens
+GROUP BY DATE(created_at)
+ORDER BY fecha DESC
 `);
 
+
+/* =========================
+RENDER DASHBOARD
+========================= */
+
 res.send(`
-  <html>
-  <head>
-    <title>MagicBank Analytics</title>
-  </head>
-  <body>
-    <h1>MAGICBANK DASHBOARD</h1>
-    <p>Total alumnos: ${totalAlumnos.rows[0].count}</p>
-  </body>
-  </html>
+
+<html>
+
+<head>
+
+<title>MagicBank Dashboard</title>
+
+<style>
+
+body{
+font-family: Inter, Arial;
+background:#070C2A;
+color:white;
+margin:0;
+padding:40px;
+}
+
+h1{
+color:#D6B15A;
+margin-bottom:30px;
+}
+
+.cards{
+display:flex;
+gap:20px;
+margin-bottom:40px;
+flex-wrap:wrap;
+}
+
+.card{
+background:#0f163f;
+padding:25px;
+border-radius:12px;
+flex:1;
+min-width:200px;
+}
+
+.card h3{
+margin:0;
+color:#CFCFD6;
+font-size:14px;
+}
+
+.card p{
+font-size:32px;
+margin-top:10px;
+color:#D6B15A;
+font-weight:bold;
+}
+
+.section{
+margin-bottom:40px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+}
+
+th,td{
+padding:10px;
+text-align:left;
+border-bottom:1px solid rgba(255,255,255,0.1);
+}
+
+th{
+color:#D6B15A;
+}
+
+tr:hover{
+background:#0f163f;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+<h1>MagicBank Analytics Dashboard</h1>
+
+
+<div class="cards">
+
+<div class="card">
+<h3>Total Tokens Generados</h3>
+<p>${totalAlumnos.rows[0].count}</p>
+</div>
+
+<div class="card">
+<h3>Cursos Activos</h3>
+<p>${cursosTop.rows.length}</p>
+</div>
+
+<div class="card">
+<h3>Áreas Activas</h3>
+<p>${areasTop.rows.length}</p>
+</div>
+
+</div>
+
+
+<div class="section">
+
+<h2>Cursos más vendidos</h2>
+
+<table>
+
+<tr>
+<th>Curso</th>
+<th>Total</th>
+</tr>
+
+${cursosTop.rows.map(c => `
+<tr>
+<td>${c.product_name}</td>
+<td>${c.total}</td>
+</tr>
+`).join("")}
+
+</table>
+
+</div>
+
+
+
+<div class="section">
+
+<h2>Áreas más activas</h2>
+
+<table>
+
+<tr>
+<th>Área</th>
+<th>Total</th>
+</tr>
+
+${areasTop.rows.map(a => `
+<tr>
+<td>${a.area}</td>
+<td>${a.total}</td>
+</tr>
+`).join("")}
+
+</table>
+
+</div>
+
+
+
+<div class="section">
+
+<h2>Ventas por día</h2>
+
+<table>
+
+<tr>
+<th>Fecha</th>
+<th>Total</th>
+</tr>
+
+${ventasPorDia.rows.map(v => `
+<tr>
+<td>${v.fecha}</td>
+<td>${v.total}</td>
+</tr>
+`).join("")}
+
+</table>
+
+</div>
+
+
+</body>
+
+</html>
+
 `);
 
 } catch (error) {
-console.error(error);
+
+console.error("Dashboard error:", error);
+
 res.status(500).send("Error cargando dashboard");
+
 }
+
 });
 /* =========================================================
 07 - AUTENTICACIÓN TIENDANUBE (OAUTH)
