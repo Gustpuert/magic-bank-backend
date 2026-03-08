@@ -449,15 +449,14 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 
 };
 
-/* =========================================================
-09 - SISTEMA DE CORREO (RESEND)
-Envío automático de accesos académicos
-========================================================= */
+
 
 const axios = require("axios")
 
+// ===================================================
 // SISTEMA DE CORREO (RESEND)
 // Envío automático de accesos académicos
+// ===================================================
 
 async function enviarCorreo(destino, curso, token) {
 
@@ -557,7 +556,7 @@ Mantén presionado el bloque, cópialo completo y pégalo en el tutor.
 
 <hr>
 
-<p style="font-size:12px; color:#555;">
+<p style="font-size:12px;color:#555;">
 Dirección Académica MagicBank<br>
 Formación estructurada · Control institucional · Certificación con criterio
 </p>
@@ -565,7 +564,6 @@ Formación estructurada · Control institucional · Certificación con criterio
 </div>
 `
       },
-
       {
         headers: {
           Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
@@ -582,9 +580,11 @@ Formación estructurada · Control institucional · Certificación con criterio
     console.error(error.response?.data || error.message)
 
   }
+
 }
 
 module.exports = enviarCorreo
+
 /* =========================================================
 10 - WEBHOOK TIENDANUBE
 Procesa compras pagadas
