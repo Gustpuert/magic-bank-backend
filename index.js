@@ -454,7 +454,13 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 Envío automático de accesos académicos
 ========================================================= */
 
+const axios = require("axios")
+
+// SISTEMA DE CORREO (RESEND)
+// Envío automático de accesos académicos
+
 async function enviarCorreo(destino, curso, token) {
+
   try {
 
     await axios.post(
@@ -463,9 +469,8 @@ async function enviarCorreo(destino, curso, token) {
         from: "MagicBank <info@send.magicbank.org>",
         to: destino,
         subject: `🎓 Acceso oficial a ${curso.nombre}`,
-        html: `
 
-`html: `
+        html: `
 <div style="font-family:Arial, sans-serif; line-height:1.6;">
 
 <h2>🎓 Activación Confirmada</h2>
@@ -480,7 +485,7 @@ async function enviarCorreo(destino, curso, token) {
 
 <p>1️⃣ Haz clic en el siguiente botón:</p>
 
-<p>
+<p style="text-align:center;">
 <a href="${curso.url}?token=${token}"
 style="background-color:#0a1f44;
 color:#ffffff;
@@ -513,7 +518,7 @@ background:white;
 padding:12px;
 border-radius:6px;
 border:1px solid #e3e3e3;
-white-space:pre-wrap;
+white-space:pre;
 font-family:monospace;
 ">
 
@@ -560,24 +565,26 @@ Formación estructurada · Control institucional · Certificación con criterio
 </div>
 `
       },
+
       {
         headers: {
           Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
           "Content-Type": "application/json"
         }
       }
-    );
+    )
 
-    console.log("EMAIL ENVIADO OK");
+    console.log("✅ Correo enviado correctamente a:", destino)
 
   } catch (error) {
-    console.error(
-      "ERROR RESEND:",
-      error.response?.data || error.message
-    );
+
+    console.error("❌ Error enviando correo:")
+    console.error(error.response?.data || error.message)
+
   }
 }
 
+module.exports = enviarCorreo
 /* =========================================================
 10 - WEBHOOK TIENDANUBE
 Procesa compras pagadas
