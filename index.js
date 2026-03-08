@@ -464,6 +464,8 @@ async function enviarCorreo(destino, curso, token) {
         to: destino,
         subject: `🎓 Acceso oficial a ${curso.nombre}`,
         html: `
+
+`html: `
 <div style="font-family:Arial, sans-serif; line-height:1.6;">
 
 <h2>🎓 Activación Confirmada</h2>
@@ -493,16 +495,42 @@ ACCEDER AL TUTOR
 
 <p>2️⃣ Cuando se abra el tutor, pega inmediatamente el siguiente bloque en la parte inferior del chat:</p>
 
-<pre style="background:#f4f4f4;
-padding:15px;
-border-radius:6px;
+<div style="
+background:#f4f4f4;
+padding:16px;
+border-radius:8px;
+border:1px solid #ddd;
+font-family:monospace;
 font-size:14px;
-white-space:pre-wrap;">
+line-height:1.6;
+">
 
+<b>📋 COPIAR BLOQUE COMPLETO</b>
+
+<pre style="
+margin-top:10px;
+background:white;
+padding:12px;
+border-radius:6px;
+border:1px solid #e3e3e3;
+white-space:pre-wrap;
+font-family:monospace;
+">
+
+━━━━━━━━━━━━━━━━━━━━━━━
 Correo: ${destino}
-Token: ${token}
+
+Token:
+${token}
+━━━━━━━━━━━━━━━━━━━━━━━
 
 </pre>
+
+<p style="font-size:12px;color:#555;margin-top:6px">
+Mantén presionado el bloque, cópialo completo y pégalo en el tutor.
+</p>
+
+</div>
 
 <p>3️⃣ Haz clic en la flecha de envío y sigue las instrucciones del Director Académico para iniciar la matrícula.</p>
 
@@ -516,11 +544,11 @@ Token: ${token}
 
 <hr>
 
-<h3>⏳ VIGENCIA</h3>
+<h3>📅 VIGENCIA</h3>
 
 <p>Tu acceso es válido por 30 días.</p>
 
-<p>Al finalizar el periodo, el sistema invalidará automáticamente el token y será necesario renovar la suscripción para generar uno nuevo.</p>
+<p>Al finalizar el periodo, el sistema invalidará automáticamente el token y será necesario renovar la suscripción.</p>
 
 <hr>
 
