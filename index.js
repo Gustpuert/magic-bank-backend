@@ -482,9 +482,9 @@ async function enviarCorreo(destino, curso, token) {
 
 <h3>🔐 PRIMER INGRESO (OBLIGATORIO)</h3>
 
-<p>1️⃣ Haz clic en el siguiente botón:</p>
+<p>📌 Haz clic en el siguiente botón:</p>
 
-<p style="text-align:center;">
+<p>
 <a href="${curso.url}?token=${token}"
 style="background-color:#0a1f44;
 color:#ffffff;
@@ -497,7 +497,7 @@ ACCEDER AL TUTOR
 </a>
 </p>
 
-<p>2️⃣ Cuando se abra el tutor, pega inmediatamente el siguiente bloque en la parte inferior del chat:</p>
+<p>📋 Cuando se abra el tutor, copia el siguiente bloque y pégalo en el chat:</p>
 
 <div style="
 background:#f4f4f4;
@@ -509,16 +509,17 @@ font-size:14px;
 line-height:1.6;
 ">
 
-<b>📋 COPIAR BLOQUE COMPLETO</b>
+<b>📋 COPIAR BLOQUE COMPLETO (1 clic)</b>
 
-<pre style="
+<pre id="bloqueToken" style="
 margin-top:10px;
 background:white;
 padding:12px;
 border-radius:6px;
 border:1px solid #e3e3e3;
-white-space:pre;
+white-space:pre-wrap;
 font-family:monospace;
+cursor:pointer;
 ">
 
 ━━━━━━━━━━━━━━━━━━━━━━━
@@ -531,10 +532,46 @@ ${token}
 </pre>
 
 <p style="font-size:12px;color:#555;margin-top:6px">
-Mantén presionado el bloque, cópialo completo y pégalo en el tutor.
+Haz clic en el bloque para copiar automáticamente.
 </p>
 
 </div>
+
+<script>
+document.getElementById("bloqueToken").onclick = function() {
+  const texto = this.innerText;
+  navigator.clipboard.writeText(texto);
+  alert("Bloque copiado. Ahora pégalo en el tutor.");
+}
+</script>
+
+<p>➡️ Haz clic en la flecha de envío y sigue las instrucciones del Director Académico para iniciar la matrícula.</p>
+
+<hr>
+
+<h3>🔁 INGRESOS DURANTE 30 DÍAS</h3>
+
+<p>Durante los próximos 30 días, simplemente haz clic en <strong>Acceder al Tutor</strong> y continúa tu proceso académico.</p>
+
+<p>No necesitas volver a pegar el bloque mientras tu acceso esté vigente.</p>
+
+<hr>
+
+<h3>📅 VIGENCIA</h3>
+
+<p>Tu acceso es válido por 30 días.</p>
+
+<p>Al finalizar el periodo, el sistema invalidará automáticamente el token y será necesario renovar la suscripción.</p>
+
+<hr>
+
+<p style="font-size:12px; color:#555;">
+Dirección Académica MagicBank<br>
+Formación estructurada · Control institucional · Certificación con criterio
+</p>
+
+</div>
+`
 
 <p>3️⃣ Haz clic en la flecha de envío y sigue las instrucciones del Director Académico para iniciar la matrícula.</p>
 
