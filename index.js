@@ -1895,60 +1895,41 @@ app.post("/log-tutor-access", async (req, res) => {
     res.status(500).json({ error: "log_failed" });
   }
 });
+
+
 // ============================================================
 // ENDPOINT TEMPORAL
-// Crear colección tokens con campo activated
-// Se ejecuta una sola vez y luego puede eliminarse
+// Agrega el campo "activated:false" a todos los tokens existentes
+// Solo se ejecuta una vez
+// Luego puede eliminarse
 // ============================================================
 
-app.get("/api/setup/create-token-table", async (req, res) => {
+app.get("/api/setup/patch-tokens-activated", async (req, res) => {
 
   try {
 
-    const collectionName = "tokens";
-
-    const collections = await db.listCollections({ name: collectionName }).toArray();
-
-    if (collections.length > 0) {
-
-      return res.json({
-        status: "already_exists",
-        message: "La colección tokens ya existe."
-      });
-
-    }
-
-    await db.createCollection(collectionName);
-
-    await db.collection(collectionName).createIndex(
-      { token: 1 },
-      { unique: true }
+    const result = await req.app.locals.db.collection("tokens").updateMany(
+      { activated: { $exists: false } },
+      { $set: { activated: false } }
     );
 
     res.json({
-      status: "created",
-      message: "Colección tokens creada correctamente.",
-      structure: {
-        token: "string",
-        email: "string",
-        product: "string",
-        expires_at: "string",
-        activated: "boolean"
-      }
+      status: "success",
+      message: "Campo activated agregado a los tokens existentes",
+      modified_tokens: result.modifiedCount
     });
 
   } catch (error) {
 
     res.status(500).json({
       status: "error",
-      message: "Error creando la colección tokens.",
+      message: "Error actualizando tokens",
       error: error.message
     });
 
   }
 
 });
-
 
 const PORT = process.env.PORT || 3000;
 
