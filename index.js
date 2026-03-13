@@ -1833,7 +1833,14 @@ app.post("/api/validate-token", async (req, res) => {
 
     const result = await pool.query(
       `
-      SELECT email, product_name, expires_at
+      SELECT
+        token,
+        email,
+        product_name,
+        expires_at,
+        activated,
+        first_ip,
+        first_user_agent
       FROM access_tokens
       WHERE token = $1
       AND email = $2
@@ -1852,7 +1859,60 @@ app.post("/api/validate-token", async (req, res) => {
 
     const access = result.rows[0];
 
-    // Acceso válido
+    // Detectar IP y navegador
+    const currentIP =
+      req.headers["x-forwarded-for"] ||
+      req.socket.remoteAddress ||
+      "unknown";
+
+    const currentAgent =
+      req.headers["user-agent"] || "unknown";
+
+    // ==================================================
+    // PRIMER ACCESO: activar token y registrar dispositivo
+    // ==================================================
+
+    if (!access.activated) {
+
+      await pool.query(`
+        UPDATE access_tokens
+        SET
+          activated = TRUE,
+          first_ip = $2,
+          first_user_agent = $3
+        WHERE token = $1
+      `, [
+        tokenHash,
+        currentIP,
+        currentAgent
+      ]);
+
+    }
+
+    // ==================================================
+    // ACCESOS POSTERIORES: verificar dispositivo
+    // ==================================================
+
+    else {
+
+      if (
+        access.first_ip &&
+        access.first_ip !== currentIP
+      ) {
+
+        return res.status(403).json({
+          valid: false,
+          error: "Este token ya fue activado en otro dispositivo"
+        });
+
+      }
+
+    }
+
+    // ==================================================
+    // ACCESO VÁLIDO
+    // ==================================================
+
     res.json({
       valid: true,
       email: access.email,
@@ -1900,7 +1960,7 @@ app.post("/log-tutor-access", async (req, res) => {
 /* =========================================================
 START
 ==========≈================================================*/
-app.get("/install-token-security", a
+
 
 const PORT = process.env.PORT || 3000;
 
