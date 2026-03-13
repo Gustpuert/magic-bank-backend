@@ -1896,6 +1896,58 @@ app.post("/log-tutor-access", async (req, res) => {
   }
 });
 
+// ============================================================
+// ENDPOINT TEMPORAL
+// Crear estructura de tabla/colección tokens con campo activated
+// Este endpoint se ejecuta una sola vez para preparar la base de datos
+// Luego puede eliminarse del backend
+// ============================================================
+
+app.post("/api/setup/create-token-table", async (req, res) => {
+
+  try {
+
+    const collectionName = "tokens";
+
+    const exists = await db.listCollections({ name: collectionName }).hasNext();
+
+    if (exists) {
+
+      return res.json({
+        status: "already_exists",
+        message: "La colección tokens ya existe."
+      });
+
+    }
+
+    await db.createCollection(collectionName);
+
+    await db.collection(collectionName).createIndex({ token: 1 }, { unique: true });
+
+    res.json({
+      status: "created",
+      message: "Colección tokens creada correctamente con índice único para token.",
+      fields: [
+        "token",
+        "email",
+        "product",
+        "expires_at",
+        "activated"
+      ]
+    });
+
+  } catch (error) {
+
+    res.status(500).json({
+      status: "error",
+      message: "Error creando la colección tokens.",
+      error: error.message
+    });
+
+  }
+
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
