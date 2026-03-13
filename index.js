@@ -2020,7 +2020,40 @@ res.status(500).send("Error instalando control de sesión");
 
 });
 
+/* =========================================================
+TEMPORAL - INSTALAR SEGURIDAD AVANZADA DE SESIÓN
+========================================================= */
 
+app.get("/install-advanced-session-security", async (req, res) => {
+
+try {
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS device_hash TEXT;
+`);
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS active_session_id TEXT;
+`);
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS last_access TIMESTAMP;
+`);
+
+res.send("Seguridad avanzada de sesión instalada");
+
+} catch (error) {
+
+console.error(error);
+
+res.status(500).send("Error instalando seguridad");
+
+}
+
+});
 
 /* =========================================================
 START
