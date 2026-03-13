@@ -1894,7 +1894,7 @@ const sessionId = crypto.randomBytes(16).toString("hex");
 // PRIMER ACCESO
 // ==================================================
 
-if (!access.activated){
+if (!access.activated && access.email === email){
 
 await pool.query(`
 UPDATE access_tokens
@@ -2015,6 +2015,30 @@ res.send("Control de sesión instalado");
 console.error(error);
 
 res.status(500).send("Error instalando control de sesión");
+
+}
+
+});
+/* =========================================================
+TEMPORAL - INSTALAR BLOQUEO POR DISPOSITIVO
+========================================================= */
+
+app.get("/install-device-lock", async (req, res) => {
+
+try {
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS device_hash TEXT;
+`);
+
+res.send("Bloqueo de dispositivo instalado");
+
+} catch (error) {
+
+console.error(error);
+
+res.status(500).send("Error instalando device lock");
 
 }
 
