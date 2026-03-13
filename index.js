@@ -1956,6 +1956,36 @@ app.post("/log-tutor-access", async (req, res) => {
   }
 });
 
+/* =========================================================
+TEMPORAL - INSTALAR CONTROL DE SESIÓN ACTIVA
+========================================================= */
+
+app.get("/install-session-security", async (req, res) => {
+
+try {
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS active_session_id TEXT;
+`);
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS last_access TIMESTAMP;
+`);
+
+res.send("Control de sesión instalado");
+
+} catch (error) {
+
+console.error(error);
+
+res.status(500).send("Error instalando control de sesión");
+
+}
+
+});
+
 
 /* =========================================================
 START
