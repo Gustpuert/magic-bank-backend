@@ -248,6 +248,26 @@ area:"university",
 nombre:"Bachillerato completo MagicBank",
 url:"https://chatgpt.com/g/g-699e59962d20819194b173b12f4857ed-bachillerato-director-academivo-tutor-pro"
 },
+  331400543:{
+variant:null,
+area:"academy",
+nombre:"Tutor de Español",
+url:"https://chatgpt.com/g/g-69b43351db6081919e0dcfb02e5fb003-tutor-de-espanol"
+},
+
+331389115:{
+variant:null,
+area:"academy",
+nombre:"Tutor de Diseño de Interiores",
+url:"https://chatgpt.com/g/g-69b406bccf808191b16ff30d805f3255-tutor-de-diseno-de-interiores"
+},
+
+331390008:{
+variant:null,
+area:"conservatorio",
+nombre:"Conservatorio MagicBank - Director Musical",
+url:"https://chatgpt.com/g/g-69b0f60650e88191bfdb5508f1b17254-director-musical-magicbank"
+},
 
 324464294:{
 variant:1438540878,
