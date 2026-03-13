@@ -1896,40 +1896,91 @@ app.post("/log-tutor-access", async (req, res) => {
   }
 });
 
-
 // ============================================================
-// ENDPOINT TEMPORAL
-// Agrega el campo "activated:false" a todos los tokens existentes
-// Solo se ejecuta una vez
-// Luego puede eliminarse
+// ENDPOINT 35
+// Validate MagicBank Access Token (con protección de activación)
 // ============================================================
 
-app.get("/api/setup/patch-tokens-activated", async (req, res) => {
+app.post("/api/validate-token", async (req, res) => {
 
   try {
 
-    const result = await req.app.locals.db.collection("tokens").updateMany(
-      { activated: { $exists: false } },
-      { $set: { activated: false } }
-    );
+    const { token, email } = req.body;
 
-    res.json({
-      status: "success",
-      message: "Campo activated agregado a los tokens existentes",
-      modified_tokens: result.modifiedCount
+    if (!token || !email) {
+      return res.status(400).json({
+        valid: false,
+        message: "Token y email son requeridos"
+      });
+    }
+
+    const tokenRecord = await Token.findOne({ token: token });
+
+    if (!tokenRecord) {
+      return res.json({
+        valid: false,
+        message: "Token no encontrado"
+      });
+    }
+
+    if (tokenRecord.email !== email) {
+      return res.json({
+        valid: false,
+        message: "Email no coincide con el token"
+      });
+    }
+
+    const now = new Date();
+
+    if (tokenRecord.expires_at && new Date(tokenRecord.expires_at) < now) {
+      return res.json({
+        valid: false,
+        message: "Token expirado"
+      });
+    }
+
+    // =====================================================
+    // ACTIVACIÓN AUTOMÁTICA DEL TOKEN
+    // =====================================================
+
+    if (!tokenRecord.activated) {
+
+      tokenRecord.activated = true;
+      tokenRecord.first_ip = req.ip;
+      tokenRecord.first_user_agent = req.headers["user-agent"];
+
+      await tokenRecord.save();
+
+    } else {
+
+      if (tokenRecord.first_ip !== req.ip) {
+        return res.json({
+          valid: false,
+          message: "Este token ya fue activado en otro dispositivo"
+        });
+      }
+
+    }
+
+    return res.json({
+      valid: true,
+      email: tokenRecord.email,
+      product: tokenRecord.product,
+      expires_at: tokenRecord.expires_at
     });
 
   } catch (error) {
 
-    res.status(500).json({
-      status: "error",
-      message: "Error actualizando tokens",
+    return res.status(500).json({
+      valid: false,
+      message: "Error validando token",
       error: error.message
     });
 
   }
 
 });
+
 
 const PORT = process.env.PORT || 3000;
 
