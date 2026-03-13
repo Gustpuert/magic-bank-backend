@@ -1895,23 +1895,21 @@ app.post("/log-tutor-access", async (req, res) => {
     res.status(500).json({ error: "log_failed" });
   }
 });
-
 // ============================================================
 // ENDPOINT TEMPORAL
-// Crear estructura de tabla/colección tokens con campo activated
-// Este endpoint se ejecuta una sola vez para preparar la base de datos
-// Luego puede eliminarse del backend
+// Crear colección tokens con campo activated
+// Se ejecuta una sola vez y luego puede eliminarse
 // ============================================================
 
-app.post("/api/setup/create-token-table", async (req, res) => {
+app.get("/api/setup/create-token-table", async (req, res) => {
 
   try {
 
     const collectionName = "tokens";
 
-    const exists = await db.listCollections({ name: collectionName }).hasNext();
+    const collections = await db.listCollections({ name: collectionName }).toArray();
 
-    if (exists) {
+    if (collections.length > 0) {
 
       return res.json({
         status: "already_exists",
@@ -1922,18 +1920,21 @@ app.post("/api/setup/create-token-table", async (req, res) => {
 
     await db.createCollection(collectionName);
 
-    await db.collection(collectionName).createIndex({ token: 1 }, { unique: true });
+    await db.collection(collectionName).createIndex(
+      { token: 1 },
+      { unique: true }
+    );
 
     res.json({
       status: "created",
-      message: "Colección tokens creada correctamente con índice único para token.",
-      fields: [
-        "token",
-        "email",
-        "product",
-        "expires_at",
-        "activated"
-      ]
+      message: "Colección tokens creada correctamente.",
+      structure: {
+        token: "string",
+        email: "string",
+        product: "string",
+        expires_at: "string",
+        activated: "boolean"
+      }
     });
 
   } catch (error) {
@@ -1947,6 +1948,7 @@ app.post("/api/setup/create-token-table", async (req, res) => {
   }
 
 });
+
 
 const PORT = process.env.PORT || 3000;
 
