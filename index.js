@@ -1897,7 +1897,40 @@ app.post("/log-tutor-access", async (req, res) => {
 });
 
 
+/* =========================================================
+TEMPORAL - INSTALAR SEGURIDAD DE TOKEN
+========================================================= */
 
+app.get("/install-token-security", async (req, res) => {
+
+try {
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS first_ip TEXT;
+`);
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS first_user_agent TEXT;
+`);
+
+await pool.query(`
+ALTER TABLE access_tokens
+ADD COLUMN IF NOT EXISTS activated BOOLEAN DEFAULT FALSE;
+`);
+
+res.send("Seguridad de token instalada");
+
+} catch (error) {
+
+console.error(error);
+
+res.status(500).send("Error instalando seguridad");
+
+}
+
+});
 
 const PORT = process.env.PORT || 3000;
 
