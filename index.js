@@ -1809,127 +1809,141 @@ res.json(logs.rows);
 
 
 // ======================================================
-// ENDPOINT 36 — VALIDAR TOKEN DE ACCESO (validateAccess)
+// ENDPOINT 36 — VALIDAR TOKEN DE ACCESO (SESIÓN SEGURA)
 // ======================================================
 
 app.post("/api/validate-token", async (req, res) => {
 
-  try {
+try {
 
-    const { token, email } = req.body;
+const { token, email } = req.body;
 
-    if (!token || !email) {
-      return res.status(400).json({
-        valid: false,
-        error: "Token y email son requeridos"
-      });
-    }
+if (!token || !email) {
+return res.status(400).json({
+valid:false,
+error:"Token y email son requeridos"
+});
+}
 
-    // Generar hash SHA256 del token
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
+// hash del token
+const tokenHash = crypto
+.createHash("sha256")
+.update(token)
+.digest("hex");
 
-    const result = await pool.query(
-      `
-      SELECT
-        token,
-        email,
-        product_name,
-        expires_at,
-        activated,
-        first_ip,
-        first_user_agent
-      FROM access_tokens
-      WHERE token = $1
-      AND email = $2
-      AND expires_at > NOW()
-      `,
-      [tokenHash, email]
-    );
+const result = await pool.query(`
+SELECT
+token,
+email,
+product_name,
+expires_at,
+activated,
+first_ip,
+first_user_agent,
+active_session_id
+FROM access_tokens
+WHERE token = $1
+AND email = $2
+AND expires_at > NOW()
+`,[tokenHash,email]);
 
-    // Token no encontrado o expirado
-    if (result.rows.length === 0) {
-      return res.status(401).json({
-        valid: false,
-        error: "Token inválido, expirado o no corresponde al correo"
-      });
-    }
+if (!result.rows.length){
+return res.status(401).json({
+valid:false,
+error:"Token inválido o expirado"
+});
+}
 
-    const access = result.rows[0];
+const access = result.rows[0];
 
-    // Detectar IP y navegador
-    const currentIP =
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress ||
-      "unknown";
+// detectar IP y navegador
 
-    const currentAgent =
-      req.headers["user-agent"] || "unknown";
+const currentIP =
+req.headers["x-forwarded-for"] ||
+req.socket.remoteAddress ||
+"unknown";
 
-    // ==================================================
-    // PRIMER ACCESO: activar token y registrar dispositivo
-    // ==================================================
+const currentAgent =
+req.headers["user-agent"] || "unknown";
 
-    if (!access.activated) {
+// generar ID de sesión
 
-      await pool.query(`
-        UPDATE access_tokens
-        SET
-          activated = TRUE,
-          first_ip = $2,
-          first_user_agent = $3
-        WHERE token = $1
-      `, [
-        tokenHash,
-        currentIP,
-        currentAgent
-      ]);
+const sessionId = crypto.randomBytes(16).toString("hex");
 
-    }
+// ==================================================
+// PRIMER ACCESO
+// ==================================================
 
-    // ==================================================
-    // ACCESOS POSTERIORES: verificar dispositivo
-    // ==================================================
+if (!access.activated){
 
-    else {
+await pool.query(`
+UPDATE access_tokens
+SET
+activated = TRUE,
+first_ip = $2,
+first_user_agent = $3,
+active_session_id = $4,
+last_access = NOW()
+WHERE token = $1
+`,[
+tokenHash,
+currentIP,
+currentAgent,
+sessionId
+]);
 
-      if (
-        access.first_ip &&
-        access.first_ip !== currentIP
-      ) {
+}
 
-        return res.status(403).json({
-          valid: false,
-          error: "Este token ya fue activado en otro dispositivo"
-        });
+// ==================================================
+// ACCESOS POSTERIORES
+// ==================================================
 
-      }
+else{
 
-    }
+// bloquear cambio de dispositivo
 
-    // ==================================================
-    // ACCESO VÁLIDO
-    // ==================================================
+if(access.first_ip && access.first_ip !== currentIP){
 
-    res.json({
-      valid: true,
-      email: access.email,
-      product: access.product_name,
-      expires_at: access.expires_at
-    });
+return res.status(403).json({
+valid:false,
+error:"Token ya activado en otro dispositivo"
+});
 
-  } catch (error) {
+}
 
-    console.error("ERROR VALIDATE TOKEN:", error);
+// actualizar sesión
 
-    res.status(500).json({
-      valid: false,
-      error: "Error interno validando token"
-    });
+await pool.query(`
+UPDATE access_tokens
+SET
+active_session_id = $2,
+last_access = NOW()
+WHERE token = $1
+`,[
+tokenHash,
+sessionId
+]);
 
-  }
+}
+
+res.json({
+valid:true,
+email:access.email,
+product:access.product_name,
+session_id:sessionId,
+expires_at:access.expires_at
+});
+
+}catch(error){
+
+console.error("ERROR VALIDATE TOKEN:",error);
+
+res.status(500).json({
+valid:false,
+error:"Error validando token"
+});
+
+}
 
 });
 
