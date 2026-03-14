@@ -1827,16 +1827,15 @@ res.json(logs.rows);
 
 });
 
-
-// ======================================================
-// ENDPOINT 36 — VALIDAR TOKEN DE ACCESO
-// ======================================================
-
 app.post("/api/validate-token", async (req, res) => {
   try {
-    const { token, email } = req.body;
+    const rawToken = req.body.token;
+    const rawEmail = req.body.email;
 
-    if (!token || !email) {
+    const cleanToken = String(rawToken || "").replace(/\s+/g, "").trim();
+    const cleanEmail = String(rawEmail || "").trim().toLowerCase();
+
+    if (!cleanToken || !cleanEmail) {
       return res.status(400).json({
         valid: false,
         error: "Token y email son requeridos"
@@ -1845,7 +1844,7 @@ app.post("/api/validate-token", async (req, res) => {
 
     const tokenHash = crypto
       .createHash("sha256")
-      .update(token)
+      .update(cleanToken)
       .digest("hex");
 
     const result = await pool.query(`
@@ -1863,9 +1862,9 @@ app.post("/api/validate-token", async (req, res) => {
         last_access
       FROM access_tokens
       WHERE token = $1
-      AND email = $2
+      AND LOWER(email) = $2
       AND expires_at > NOW()
-    `, [tokenHash, email]);
+    `, [tokenHash, cleanEmail]);
 
     if (!result.rowCount) {
       return res.status(401).json({
@@ -1885,16 +1884,14 @@ app.post("/api/validate-token", async (req, res) => {
       "unknown";
 
     const currentAgent = req.headers["user-agent"] || "unknown";
-    const currentLang = req.headers["accept-language"] || "unknown";
 
-    // Huella estable sin depender solo de IP
-    const fingerprintSource = `${email}|${currentAgent}|${currentLang}`;
+    // Fase mínima: huella estable para pruebas reales
+    const fingerprintSource = `${cleanEmail}|${currentAgent}`;
     const currentFingerprint = crypto
       .createHash("sha256")
       .update(fingerprintSource)
       .digest("hex");
 
-    // Primer acceso
     if (!access.activated) {
       await pool.query(`
         UPDATE access_tokens
@@ -1921,7 +1918,6 @@ app.post("/api/validate-token", async (req, res) => {
       });
     }
 
-    // Accesos posteriores
     if (!access.device_fingerprint) {
       return res.status(403).json({
         valid: false,
