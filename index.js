@@ -1829,7 +1829,7 @@ res.json(logs.rows);
 
 
 // ======================================================
-// ENDPOINT 36 — VALIDAR TOKEN DE ACCESO (DISPOSITIVO FIJO)
+// ENDPOINT 36 — VALIDAR TOKEN DE ACCESO
 // ======================================================
 
 app.post("/api/validate-token", async (req, res) => {
@@ -1848,8 +1848,7 @@ app.post("/api/validate-token", async (req, res) => {
       .update(token)
       .digest("hex");
 
-    const result = await pool.query(
-      `
+    const result = await pool.query(`
       SELECT
         token,
         email,
@@ -1866,9 +1865,7 @@ app.post("/api/validate-token", async (req, res) => {
       WHERE token = $1
       AND email = $2
       AND expires_at > NOW()
-      `,
-      [tokenHash, email]
-    );
+    `, [tokenHash, email]);
 
     if (!result.rowCount) {
       return res.status(401).json({
@@ -1890,19 +1887,16 @@ app.post("/api/validate-token", async (req, res) => {
     const currentAgent = req.headers["user-agent"] || "unknown";
     const currentLang = req.headers["accept-language"] || "unknown";
 
-    // Huella simple y estable del dispositivo/navegador
+    // Huella estable sin depender solo de IP
     const fingerprintSource = `${email}|${currentAgent}|${currentLang}`;
     const currentFingerprint = crypto
       .createHash("sha256")
       .update(fingerprintSource)
       .digest("hex");
 
-    // ==================================================
-    // PRIMER ACCESO
-    // ==================================================
+    // Primer acceso
     if (!access.activated) {
-      await pool.query(
-        `
+      await pool.query(`
         UPDATE access_tokens
         SET
           activated = TRUE,
@@ -1911,33 +1905,27 @@ app.post("/api/validate-token", async (req, res) => {
           first_user_agent = $4,
           last_access = NOW()
         WHERE token = $1
-        `,
-        [
-          tokenHash,
-          currentFingerprint,
-          currentIP,
-          currentAgent
-        ]
-      );
+      `, [
+        tokenHash,
+        currentFingerprint,
+        currentIP,
+        currentAgent
+      ]);
 
       return res.json({
         valid: true,
         email: access.email,
         product: access.product_name,
         area: access.area,
-        redirect_url: access.redirect_url,
-        expires_at: access.expires_at,
-        first_activation: true
+        expires_at: access.expires_at
       });
     }
 
-    // ==================================================
-    // ACCESOS POSTERIORES
-    // ==================================================
+    // Accesos posteriores
     if (!access.device_fingerprint) {
       return res.status(403).json({
         valid: false,
-        error: "Token activado sin huella registrada. Requiere soporte."
+        error: "Token activado sin huella registrada"
       });
     }
 
@@ -1948,23 +1936,18 @@ app.post("/api/validate-token", async (req, res) => {
       });
     }
 
-    await pool.query(
-      `
+    await pool.query(`
       UPDATE access_tokens
       SET last_access = NOW()
       WHERE token = $1
-      `,
-      [tokenHash]
-    );
+    `, [tokenHash]);
 
     return res.json({
       valid: true,
       email: access.email,
       product: access.product_name,
       area: access.area,
-      redirect_url: access.redirect_url,
-      expires_at: access.expires_at,
-      first_activation: false
+      expires_at: access.expires_at
     });
 
   } catch (error) {
@@ -1974,59 +1957,6 @@ app.post("/api/validate-token", async (req, res) => {
       error: "Error validando token"
     });
   }
-});
-
-
-app.post("/log-tutor-access", async (req, res) => {
-  try {
-    const { student_id, email, tutor_name, program } = req.body;
-
-    const result = await pool.query(
-      `INSERT INTO tutor_access_logs (student_id, email, tutor_name, program)
-       VALUES ($1,$2,$3,$4)
-       RETURNING *`,
-      [student_id, email, tutor_name, program]
-    );
-
-    res.json({
-      status: "access_logged",
-      log: result.rows[0]
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "log_failed" });
-  }
-});
-
-/* =========================================================
-TEMPORAL - INSTALAR CONTROL DE SESIÓN ACTIVA
-========================================================= */
-
-app.get("/install-session-security", async (req, res) => {
-
-try {
-
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS active_session_id TEXT;
-`);
-
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS last_access TIMESTAMP;
-`);
-
-res.send("Control de sesión instalado");
-
-} catch (error) {
-
-console.error(error);
-
-res.status(500).send("Error instalando control de sesión");
-
-}
-
 });
 
 /* =========================================================
