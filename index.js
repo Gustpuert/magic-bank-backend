@@ -1829,155 +1829,151 @@ res.json(logs.rows);
 
 
 // ======================================================
-// ENDPOINT 36 — VALIDAR TOKEN (SEGURIDAD AVANZADA)
+// ENDPOINT 36 — VALIDAR TOKEN DE ACCESO (DISPOSITIVO FIJO)
 // ======================================================
 
 app.post("/api/validate-token", async (req, res) => {
+  try {
+    const { token, email } = req.body;
 
-try {
+    if (!token || !email) {
+      return res.status(400).json({
+        valid: false,
+        error: "Token y email son requeridos"
+      });
+    }
 
-const { token, email } = req.body;
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
 
-if (!token || !email) {
-return res.status(400).json({
-valid:false,
-error:"Token y email requeridos"
-});
-}
+    const result = await pool.query(
+      `
+      SELECT
+        token,
+        email,
+        product_name,
+        area,
+        redirect_url,
+        expires_at,
+        activated,
+        device_fingerprint,
+        first_ip,
+        first_user_agent,
+        last_access
+      FROM access_tokens
+      WHERE token = $1
+      AND email = $2
+      AND expires_at > NOW()
+      `,
+      [tokenHash, email]
+    );
 
-// hash token
+    if (!result.rowCount) {
+      return res.status(401).json({
+        valid: false,
+        error: "Token inválido o expirado"
+      });
+    }
 
-const tokenHash = crypto
-.createHash("sha256")
-.update(token)
-.digest("hex");
+    const access = result.rows[0];
 
-// buscar token
+    const currentIP =
+      (req.headers["x-forwarded-for"] || "")
+        .toString()
+        .split(",")[0]
+        .trim() ||
+      req.socket.remoteAddress ||
+      "unknown";
 
-const result = await pool.query(`
-SELECT
-token,
-email,
-product_name,
-expires_at,
-activated,
-device_hash,
-active_session_id
-FROM access_tokens
-WHERE token=$1
-AND email=$2
-AND expires_at > NOW()
-`,[tokenHash,email]);
+    const currentAgent = req.headers["user-agent"] || "unknown";
+    const currentLang = req.headers["accept-language"] || "unknown";
 
-if(!result.rows.length){
+    // Huella simple y estable del dispositivo/navegador
+    const fingerprintSource = `${email}|${currentAgent}|${currentLang}`;
+    const currentFingerprint = crypto
+      .createHash("sha256")
+      .update(fingerprintSource)
+      .digest("hex");
 
-return res.status(401).json({
-valid:false,
-error:"Token inválido o expirado"
-});
+    // ==================================================
+    // PRIMER ACCESO
+    // ==================================================
+    if (!access.activated) {
+      await pool.query(
+        `
+        UPDATE access_tokens
+        SET
+          activated = TRUE,
+          device_fingerprint = $2,
+          first_ip = $3,
+          first_user_agent = $4,
+          last_access = NOW()
+        WHERE token = $1
+        `,
+        [
+          tokenHash,
+          currentFingerprint,
+          currentIP,
+          currentAgent
+        ]
+      );
 
-}
+      return res.json({
+        valid: true,
+        email: access.email,
+        product: access.product_name,
+        area: access.area,
+        redirect_url: access.redirect_url,
+        expires_at: access.expires_at,
+        first_activation: true
+      });
+    }
 
-const access = result.rows[0];
+    // ==================================================
+    // ACCESOS POSTERIORES
+    // ==================================================
+    if (!access.device_fingerprint) {
+      return res.status(403).json({
+        valid: false,
+        error: "Token activado sin huella registrada. Requiere soporte."
+      });
+    }
 
-// detectar dispositivo
+    if (access.device_fingerprint !== currentFingerprint) {
+      return res.status(403).json({
+        valid: false,
+        error: "Token ya activado en otro dispositivo"
+      });
+    }
 
-const ip =
-req.headers["x-forwarded-for"] ||
-req.socket.remoteAddress ||
-"unknown";
+    await pool.query(
+      `
+      UPDATE access_tokens
+      SET last_access = NOW()
+      WHERE token = $1
+      `,
+      [tokenHash]
+    );
 
-const agent =
-req.headers["user-agent"] || "unknown";
+    return res.json({
+      valid: true,
+      email: access.email,
+      product: access.product_name,
+      area: access.area,
+      redirect_url: access.redirect_url,
+      expires_at: access.expires_at,
+      first_activation: false
+    });
 
-// hash dispositivo
-
-const deviceHash = crypto
-.createHash("sha256")
-.update(ip + agent)
-.digest("hex");
-
-// generar sesión
-
-const sessionId = crypto.randomBytes(24).toString("hex");
-
-// =================================
-// PRIMER ACCESO
-// =================================
-
-if(!access.activated){
-
-await pool.query(`
-UPDATE access_tokens
-SET
-activated = TRUE,
-device_hash = $2,
-active_session_id = $3,
-last_access = NOW()
-WHERE token = $1
-`,[
-tokenHash,
-deviceHash,
-sessionId
-]);
-
-}
-
-// =================================
-// ACCESOS POSTERIORES
-// =================================
-
-else{
-
-// bloquear otro dispositivo
-
-if(access.device_hash !== deviceHash){
-
-return res.status(403).json({
-valid:false,
-error:"Token activado en otro dispositivo"
-});
-
-}
-
-// bloquear otra sesión
-
-if(access.active_session_id && access.active_session_id !== sessionId){
-
-await pool.query(`
-UPDATE access_tokens
-SET
-active_session_id = $2,
-last_access = NOW()
-WHERE token = $1
-`,[
-tokenHash,
-sessionId
-]);
-
-}
-
-}
-
-res.json({
-valid:true,
-email:access.email,
-product:access.product_name,
-session_id:sessionId,
-expires_at:access.expires_at
-});
-
-}catch(error){
-
-console.error("ERROR VALIDATE TOKEN:",error);
-
-res.status(500).json({
-valid:false,
-error:"Error validando token"
-});
-
-}
-
+  } catch (error) {
+    console.error("ERROR VALIDATE TOKEN:", error);
+    return res.status(500).json({
+      valid: false,
+      error: "Error validando token"
+    });
+  }
 });
 
 
@@ -2034,38 +2030,42 @@ res.status(500).send("Error instalando control de sesión");
 });
 
 /* =========================================================
-TEMPORAL - INSTALAR SEGURIDAD AVANZADA DE SESIÓN
+TEMPORAL - INSTALAR SEGURIDAD DE DISPOSITIVO
 ========================================================= */
 
-app.get("/install-advanced-session-security", async (req, res) => {
+app.get("/install-session-security", async (req, res) => {
+  try {
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS activated BOOLEAN DEFAULT FALSE;
+    `);
 
-try {
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS device_fingerprint TEXT;
+    `);
 
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS device_hash TEXT;
-`);
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS first_ip TEXT;
+    `);
 
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS active_session_id TEXT;
-`);
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS first_user_agent TEXT;
+    `);
 
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS last_access TIMESTAMP;
-`);
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS last_access TIMESTAMP;
+    `);
 
-res.send("Seguridad avanzada de sesión instalada");
+    res.send("Seguridad de dispositivo instalada correctamente");
 
-} catch (error) {
-
-console.error(error);
-
-res.status(500).send("Error instalando seguridad");
-
-}
-
+  } catch (error) {
+    console.error("ERROR INSTALL SESSION SECURITY:", error);
+    res.status(500).send("Error instalando seguridad de dispositivo");
+  }
 });
 
 /* =========================================================
