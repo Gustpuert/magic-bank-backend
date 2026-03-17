@@ -2219,6 +2219,102 @@ app.get("/analytics/abandonment", async (req, res) => {
 
 });
 
+/* =========================================================
+ENDPOINT — OPTIMIZACIÓN AUTOMÁTICA
+========================================================= */
+
+app.get("/analytics/optimization", async (req, res) => {
+
+  try {
+
+    const result = await pool.query(`
+
+      SELECT
+        f.product_name,
+
+        COUNT(*) as total_reviews,
+        ROUND(AVG(f.rating),2) as avg_rating,
+
+        COUNT(*) FILTER (WHERE f.category = 'interaction') as interaction_issues,
+        COUNT(*) FILTER (WHERE f.category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE f.category = 'clarity') as clarity_issues,
+
+        d.abandonment_rate
+
+      FROM student_feedback f
+
+      LEFT JOIN (
+        SELECT
+          product_name,
+          ROUND(
+            COUNT(*) FILTER (
+              WHERE last_access < NOW() - INTERVAL '3 days'
+            ) * 100.0 / COUNT(*)
+          ,2) as abandonment_rate
+        FROM access_tokens
+        GROUP BY product_name
+      ) d
+
+      ON d.product_name = f.product_name
+
+      GROUP BY f.product_name, d.abandonment_rate
+
+    `);
+
+    const analysis = result.rows.map(r => {
+
+      let actions = [];
+
+      // 🔴 rating bajo
+      if (r.avg_rating < 4) {
+        actions.push("Revisar tutor completo (rating bajo)");
+      }
+
+      // 🚪 abandono alto
+      if (r.abandonment_rate > 30) {
+        actions.push("Mejorar onboarding / reducir fricción inicial");
+      }
+
+      // ❓ demasiadas preguntas
+      if (r.interaction_issues > r.total_reviews * 0.3) {
+        actions.push("Reducir número de preguntas");
+      }
+
+      // ⚡ velocidad problema
+      if (r.speed_issues > r.total_reviews * 0.3) {
+        actions.push("Ajustar ritmo de enseñanza");
+      }
+
+      // 🧠 claridad
+      if (r.clarity_issues > r.total_reviews * 0.3) {
+        actions.push("Mejorar explicaciones (más ejemplos)");
+      }
+
+      return {
+        product_name: r.product_name,
+        avg_rating: r.avg_rating,
+        abandonment_rate: r.abandonment_rate,
+        actions
+      };
+
+    });
+
+    res.json({
+      optimization: analysis
+    });
+
+  } catch (error) {
+
+    console.error("ERROR OPTIMIZATION:", error);
+
+    res.status(500).json({
+      error: "Error en optimización"
+    });
+
+  }
+
+});
+
 
 /*=========================================================
 START
