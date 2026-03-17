@@ -2404,78 +2404,66 @@ app.get("/analytics/auto-adjust", async (req, res) => {
 
 });
 
-/* =========================================================
-ENDPOINT — OBTENER CONFIGURACIÓN DEL TUTOR
-========================================================= */
-
 app.get("/api/tutor-config", async (req, res) => {
-
   try {
+    const rawToken = req.query.token;
 
-    const { token } = req.query;
-
-    if (!token) {
+    if (!rawToken) {
       return res.status(400).json({
         error: "Token requerido"
       });
     }
 
-    // detectar si viene hash o normal
-    let tokenHash;
+    // 🔐 MISMO PROCESO QUE VALIDATE-TOKEN
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
 
-    if (token.length === 64) {
-      tokenHash = token;
-    } else {
-      tokenHash = crypto
-        .createHash("sha256")
-        .update(token)
-        .digest("hex");
-    }
-
-    // obtener producto
-    const access = await pool.query(`
+    const result = await pool.query(`
       SELECT product_name
       FROM access_tokens
       WHERE token = $1
+      AND expires_at > NOW()
     `, [tokenHash]);
 
-    if (!access.rowCount) {
+    if (!result.rowCount) {
       return res.status(403).json({
         error: "Token inválido"
       });
     }
 
-    const { product_name } = access.rows[0];
+    const { product_name } = result.rows[0];
 
-    // obtener config
+    // 🔽 CONFIG DEFAULT (luego se autoajusta)
     const config = await pool.query(`
       SELECT *
       FROM tutor_config
       WHERE product_name = $1
     `, [product_name]);
 
-    // default seguro
-    const tutorConfig = config.rows[0] || {
-      max_questions: 3,
-      explanation_depth: 3,
-      pacing_level: 3
-    };
+    if (!config.rowCount) {
+      return res.json({
+        product_name,
+        tutor_config: {
+          max_questions: 3,
+          explanation_depth: 3,
+          pacing_level: 3
+        }
+      });
+    }
 
-    res.json({
+    return res.json({
       product_name,
-      tutor_config: tutorConfig
+      tutor_config: config.rows[0]
     });
 
   } catch (error) {
-
     console.error("ERROR TUTOR CONFIG:", error);
-
     res.status(500).json({
       error: "Error obteniendo configuración"
     });
-
   }
-
 });
 
 /*=========================================================
