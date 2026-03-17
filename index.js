@@ -2314,7 +2314,35 @@ app.get("/analytics/optimization", async (req, res) => {
   }
 
 });
+/* =========================================================
+TEMPORAL — CREAR CONFIGURACIÓN DE TUTORES
+========================================================= */
 
+app.get("/install-tutor-config", async (req, res) => {
+
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS tutor_config (
+        product_name TEXT PRIMARY KEY,
+        max_questions INTEGER DEFAULT 3,
+        explanation_depth INTEGER DEFAULT 3,
+        pacing_level INTEGER DEFAULT 3,
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.send("Tabla tutor_config creada correctamente");
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).send("Error creando tutor_config");
+
+  }
+
+});
 
 /*=========================================================
 START
