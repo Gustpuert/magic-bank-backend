@@ -2081,33 +2081,46 @@ app.get("/api/collect-review", async (req, res) => {
 });
 
 /* =========================================================
-TEMPORAL — CREAR TABLA DE FEEDBACK
+ENDPOINT — ANALYTICS BÁSICO DE REVIEWS
 ========================================================= */
 
-app.get("/install-feedback-table", async (req, res) => {
+app.get("/analytics/reviews", async (req, res) => {
 
   try {
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS student_feedback (
-        id SERIAL PRIMARY KEY,
-        email TEXT,
-        product_name TEXT,
-        rating INTEGER,
-        useful TEXT,
-        improve TEXT,
-        category TEXT,
-        created_at TIMESTAMP DEFAULT NOW()
-      );
+    const result = await pool.query(`
+
+      SELECT
+        product_name,
+
+        COUNT(*) as total_reviews,
+
+        ROUND(AVG(rating),2) as avg_rating,
+
+        COUNT(*) FILTER (WHERE category = 'clarity') as clarity_issues,
+        COUNT(*) FILTER (WHERE category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE category = 'interaction') as interaction_issues,
+        COUNT(*) FILTER (WHERE category = 'difficulty') as difficulty_issues
+
+      FROM student_feedback
+
+      GROUP BY product_name
+
+      ORDER BY avg_rating DESC
+
     `);
 
-    res.send("Tabla student_feedback creada correctamente");
+    res.json({
+      analytics: result.rows
+    });
 
   } catch (error) {
 
-    console.error(error);
+    console.error("ERROR ANALYTICS:", error);
 
-    res.status(500).send("Error creando tabla feedback");
+    res.status(500).json({
+      error: "Error obteniendo analytics"
+    });
 
   }
 
