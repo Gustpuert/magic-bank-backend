@@ -1995,6 +1995,125 @@ app.get("/install-session-security", async (req, res) => {
 });
 
 /* =========================================================
+ENDPOINT — GUARDAR FEEDBACK DEL ESTUDIANTE
+========================================================= */
+
+app.get("/api/collect-review", async (req, res) => {
+
+  try {
+
+    const {
+      token,
+      rating,
+      useful,
+      improve
+    } = req.query;
+
+    if (!token || !rating) {
+      return res.status(400).json({
+        error: "Token y rating requeridos"
+      });
+    }
+
+    // 🔐 convertir token a hash
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // 🔍 buscar token
+    const access = await pool.query(`
+      SELECT email, product_name
+      FROM access_tokens
+      WHERE token = $1
+    `, [tokenHash]);
+
+    if (!access.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido"
+      });
+    }
+
+    const { email, product_name } = access.rows[0];
+
+    // 🧠 clasificador simple
+    function classifyFeedback(text = "") {
+      const t = text.toLowerCase();
+
+      if (t.includes("difícil") || t.includes("hard")) return "difficulty";
+      if (t.includes("rápido") || t.includes("lento")) return "speed";
+      if (t.includes("confuso") || t.includes("claro")) return "clarity";
+      if (t.includes("pregunta")) return "interaction";
+
+      return "content";
+    }
+
+    const category = classifyFeedback(improve || "");
+
+    // 💾 guardar feedback
+    await pool.query(`
+      INSERT INTO student_feedback
+      (email, product_name, rating, useful, improve, category, created_at)
+      VALUES ($1,$2,$3,$4,$5,$6,NOW())
+    `, [
+      email,
+      product_name,
+      rating,
+      useful || "",
+      improve || "",
+      category
+    ]);
+
+    res.json({
+      status: "review_saved"
+    });
+
+  } catch (error) {
+
+    console.error("ERROR REVIEW:", error);
+
+    res.status(500).json({
+      error: "Error guardando review"
+    });
+
+  }
+
+});
+
+/* =========================================================
+TEMPORAL — CREAR TABLA DE FEEDBACK
+========================================================= */
+
+app.get("/install-feedback-table", async (req, res) => {
+
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS student_feedback (
+        id SERIAL PRIMARY KEY,
+        email TEXT,
+        product_name TEXT,
+        rating INTEGER,
+        useful TEXT,
+        improve TEXT,
+        category TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.send("Tabla student_feedback creada correctamente");
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).send("Error creando tabla feedback");
+
+  }
+
+});
+
+/* =========================================================
 START
 ==========≈================================================*/
 
