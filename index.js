@@ -2314,31 +2314,165 @@ app.get("/analytics/optimization", async (req, res) => {
   }
 
 });
+
 /* =========================================================
-TEMPORAL — CREAR CONFIGURACIÓN DE TUTORES
+ENDPOINT — AUTOAJUSTE AUTOMÁTICO DE TUTORES
 ========================================================= */
 
-app.get("/install-tutor-config", async (req, res) => {
+app.get("/analytics/auto-adjust", async (req, res) => {
 
   try {
 
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS tutor_config (
-        product_name TEXT PRIMARY KEY,
-        max_questions INTEGER DEFAULT 3,
-        explanation_depth INTEGER DEFAULT 3,
-        pacing_level INTEGER DEFAULT 3,
-        updated_at TIMESTAMP DEFAULT NOW()
-      );
+    const data = await pool.query(`
+
+      SELECT
+        product_name,
+
+        COUNT(*) as total_reviews,
+
+        COUNT(*) FILTER (WHERE category = 'interaction') as interaction_issues,
+        COUNT(*) FILTER (WHERE category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE category = 'clarity') as clarity_issues,
+
+        ROUND(AVG(rating),2) as avg_rating
+
+      FROM student_feedback
+
+      GROUP BY product_name
+
     `);
 
-    res.send("Tabla tutor_config creada correctamente");
+    for (const r of data.rows) {
+
+      let max_questions = 3;
+      let explanation_depth = 3;
+      let pacing_level = 3;
+
+      // ❓ demasiadas preguntas
+      if (r.interaction_issues > r.total_reviews * 0.3) {
+        max_questions = 2;
+      }
+
+      // ⚡ problema de velocidad
+      if (r.speed_issues > r.total_reviews * 0.3) {
+        pacing_level = 2;
+      }
+
+      // 🧠 falta de claridad
+      if (r.clarity_issues > r.total_reviews * 0.3) {
+        explanation_depth = 4;
+      }
+
+      // 🔴 rating bajo general
+      if (r.avg_rating < 4) {
+        explanation_depth = 4;
+        pacing_level = 2;
+      }
+
+      await pool.query(`
+        INSERT INTO tutor_config
+        (product_name, max_questions, explanation_depth, pacing_level, updated_at)
+        VALUES ($1,$2,$3,$4,NOW())
+        ON CONFLICT (product_name)
+        DO UPDATE SET
+          max_questions = EXCLUDED.max_questions,
+          explanation_depth = EXCLUDED.explanation_depth,
+          pacing_level = EXCLUDED.pacing_level,
+          updated_at = NOW()
+      `, [
+        r.product_name,
+        max_questions,
+        explanation_depth,
+        pacing_level
+      ]);
+
+    }
+
+    res.json({
+      status: "auto_adjust_completed"
+    });
 
   } catch (error) {
 
-    console.error(error);
+    console.error("AUTO ADJUST ERROR:", error);
 
-    res.status(500).send("Error creando tutor_config");
+    res.status(500).json({
+      error: "Error en autoajuste"
+    });
+
+  }
+
+});
+
+/* =========================================================
+ENDPOINT — OBTENER CONFIGURACIÓN DEL TUTOR
+========================================================= */
+
+app.get("/api/tutor-config", async (req, res) => {
+
+  try {
+
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({
+        error: "Token requerido"
+      });
+    }
+
+    // detectar si viene hash o normal
+    let tokenHash;
+
+    if (token.length === 64) {
+      tokenHash = token;
+    } else {
+      tokenHash = crypto
+        .createHash("sha256")
+        .update(token)
+        .digest("hex");
+    }
+
+    // obtener producto
+    const access = await pool.query(`
+      SELECT product_name
+      FROM access_tokens
+      WHERE token = $1
+    `, [tokenHash]);
+
+    if (!access.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido"
+      });
+    }
+
+    const { product_name } = access.rows[0];
+
+    // obtener config
+    const config = await pool.query(`
+      SELECT *
+      FROM tutor_config
+      WHERE product_name = $1
+    `, [product_name]);
+
+    // default seguro
+    const tutorConfig = config.rows[0] || {
+      max_questions: 3,
+      explanation_depth: 3,
+      pacing_level: 3
+    };
+
+    res.json({
+      product_name,
+      tutor_config: tutorConfig
+    });
+
+  } catch (error) {
+
+    console.error("ERROR TUTOR CONFIG:", error);
+
+    res.status(500).json({
+      error: "Error obteniendo configuración"
+    });
 
   }
 
