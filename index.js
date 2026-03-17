@@ -2125,6 +2125,50 @@ app.get("/analytics/reviews", async (req, res) => {
   }
 
 });
+/* =========================================================
+ENDPOINT — RANKING DE TUTORES
+========================================================= */
+
+app.get("/analytics/ranking", async (req, res) => {
+
+  try {
+
+    const result = await pool.query(`
+
+      SELECT
+        product_name,
+
+        COUNT(*) as total_reviews,
+
+        ROUND(AVG(rating),2) as avg_rating,
+
+        RANK() OVER (ORDER BY AVG(rating) DESC) as ranking_position
+
+      FROM student_feedback
+
+      GROUP BY product_name
+
+      HAVING COUNT(*) >= 3
+
+      ORDER BY avg_rating DESC
+
+    `);
+
+    res.json({
+      ranking: result.rows
+    });
+
+  } catch (error) {
+
+    console.error("ERROR RANKING:", error);
+
+    res.status(500).json({
+      error: "Error obteniendo ranking"
+    });
+
+  }
+
+});
 
 /* =========================================================
 START
