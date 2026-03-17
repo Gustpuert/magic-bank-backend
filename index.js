@@ -2170,7 +2170,57 @@ app.get("/analytics/ranking", async (req, res) => {
 
 });
 
-/* =========================================================
+/*=========================================================
+ENDPOINT — ANÁLISIS DE ABANDONO
+========================================================= */
+
+app.get("/analytics/abandonment", async (req, res) => {
+
+  try {
+
+    const result = await pool.query(`
+
+      SELECT
+        product_name,
+
+        COUNT(*) as total_users,
+
+        COUNT(*) FILTER (
+          WHERE last_access < NOW() - INTERVAL '3 days'
+        ) as abandoned_users,
+
+        ROUND(
+          COUNT(*) FILTER (
+            WHERE last_access < NOW() - INTERVAL '3 days'
+          ) * 100.0 / COUNT(*)
+        ,2) as abandonment_rate
+
+      FROM access_tokens
+
+      GROUP BY product_name
+
+      ORDER BY abandonment_rate DESC
+
+    `);
+
+    res.json({
+      abandonment: result.rows
+    });
+
+  } catch (error) {
+
+    console.error("ERROR ABANDONMENT:", error);
+
+    res.status(500).json({
+      error: "Error analizando abandono"
+    });
+
+  }
+
+});
+
+
+/*=========================================================
 START
 ==========≈================================================*/
 
