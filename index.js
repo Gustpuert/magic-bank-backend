@@ -280,92 +280,75 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 
 /* =========================================================
 09 - SISTEMA DE CORREO (RESEND)
-Envío automático de accesos académicos
+Envío automático de acceso simplificado
 ========================================================= */
 
 async function enviarCorreo(destino, curso, token) {
   try {
+
+    const linkAcceso = `${curso.url}?token=${token}&email=${encodeURIComponent(destino)}&curso=${encodeURIComponent(curso.nombre)}`;
 
     await axios.post(
       "https://api.resend.com/emails",
       {
         from: "MagicBank <info@send.magicbank.org>",
         to: destino,
-        subject: `🎓 Acceso oficial a ${curso.nombre}`,
+        subject: `🎓 Tu acceso a ${curso.nombre} está listo`,
         html: `
-<div style="font-family:Arial; max-width:600px; margin:auto; line-height:1.6;">
+<div style="font-family:Arial, sans-serif; line-height:1.6; max-width:600px; margin:auto;">
 
-<h2>🎓 Tu acceso está listo</h2>
+<h2>🎓 Bienvenido a MagicBank</h2>
 
-<p>Tu acceso a <strong>${curso.nombre}</strong> ha sido activado correctamente.</p>
+<p>Tu acceso al programa <strong>${curso.nombre}</strong> ha sido activado correctamente.</p>
 
-<p>Activa tu tutor en segundos:</p>
-
-<a href="${curso.url}" 
-style="display:block;
-background:#0a1f44;
-color:white;
-padding:14px;
-text-align:center;
-border-radius:8px;
-text-decoration:none;
-font-weight:bold;
-margin:20px 0;">
-Entrar al Tutor
-</a>
-
-<div onclick="copyAccess()" 
-style="background:#f4f6fb;
-padding:15px;
-border-radius:10px;
-border:2px solid #5b4ee6;
-cursor:pointer;">
-
-<strong>Tu acceso (clic para copiar):</strong>
-
-<pre id="accessText" style="margin-top:10px;">
-Correo: ${destino}
-Token: ${token}
-</pre>
-
-</div>
-
-<p style="margin-top:15px;">
-1. Entra al tutor  
-<br>2. Pega el acceso  
-<br>3. Presiona enviar
+<p>
+Estás a punto de entrar a una experiencia de aprendizaje guiada por inteligencia artificial.
 </p>
 
 <hr>
 
-<p style="font-size:13px;">
-⏳ Acceso válido por <strong>30 días</strong>
+<h3>🚀 Acceso directo</h3>
+
+<p>
+Haz clic en el siguiente botón para continuar:
 </p>
 
-<p style="font-size:12px;color:#666;">
-Este acceso es personal e intransferible.  
-El tutor se activará automáticamente al recibir el acceso.
+<p style="text-align:center;">
+<a href="${linkAcceso}"
+style="background-color:#0a1f44;
+color:#ffffff;
+padding:14px 24px;
+text-decoration:none;
+border-radius:8px;
+font-weight:bold;
+display:inline-block;">
+Ingresar a tu experiencia
+</a>
 </p>
 
-<p style="font-size:12px;color:#555;margin-top:20px;">
-Dirección Académica MagicBank<br>
-Formación estructurada · Control institucional · Certificación real
+<hr>
+
+<h3>📌 Importante</h3>
+
+<ul>
+<li>Este acceso es personal y válido por <strong>30 días</strong>.</li>
+<li>Debes usar el mismo correo con el que realizaste la compra.</li>
+<li>Dentro encontrarás instrucciones para iniciar tu tutor.</li>
+</ul>
+
+<hr>
+
+<p style="font-size:12px; color:#555; text-align:center;">
+MagicBank Educational Ecosystem<br>
+Formación inteligente · Acceso global · Aprendizaje real
 </p>
 
 </div>
-
-<script>
-function copyAccess(){
-const text = document.getElementById("accessText").innerText;
-navigator.clipboard.writeText(text);
-alert("Acceso copiado. Ahora pégalo en el tutor.");
-}
-</script>
 `
       },
       {
         headers: {
-          Authorization: \`Bearer \${process.env.RESEND_API_KEY}\`,
+          Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
           "Content-Type": "application/json"
         }
       }
