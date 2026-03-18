@@ -278,15 +278,16 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 
 };
 
+
 /* =========================================================
 09 - SISTEMA DE CORREO (RESEND)
-Envío automático de acceso simplificado
+Flujo con página intermedia activar.html
 ========================================================= */
 
 async function enviarCorreo(destino, curso, token) {
   try {
 
-    const linkAcceso = `${curso.url}?token=${token}&email=${encodeURIComponent(destino)}&curso=${encodeURIComponent(curso.nombre)}`;
+    const linkAcceso = `https://magicbank.org/activar.html?token=${token}&email=${encodeURIComponent(destino)}&curso=${encodeURIComponent(curso.nombre)}`;
 
     await axios.post(
       "https://api.resend.com/emails",
@@ -299,15 +300,17 @@ async function enviarCorreo(destino, curso, token) {
 
 <h2>🎓 Bienvenido a MagicBank</h2>
 
-<p>Tu acceso al programa <strong>${curso.nombre}</strong> ha sido activado correctamente.</p>
+<p>
+Tu acceso al programa <strong>${curso.nombre}</strong> ha sido activado correctamente.
+</p>
 
 <p>
-Estás a punto de entrar a una experiencia de aprendizaje guiada por inteligencia artificial.
+Ahora estás a un paso de ingresar a tu tutor inteligente.
 </p>
 
 <hr>
 
-<h3>🚀 Acceso directo</h3>
+<h3>🚀 Continuar acceso</h3>
 
 <p>
 Haz clic en el siguiente botón para continuar:
@@ -322,7 +325,7 @@ text-decoration:none;
 border-radius:8px;
 font-weight:bold;
 display:inline-block;">
-Ingresar a tu experiencia
+Continuar al acceso
 </a>
 </p>
 
@@ -331,9 +334,9 @@ Ingresar a tu experiencia
 <h3>📌 Importante</h3>
 
 <ul>
-<li>Este acceso es personal y válido por <strong>30 días</strong>.</li>
+<li>Tu acceso es personal y válido por <strong>30 días</strong>.</li>
+<li>En la siguiente página recibirás instrucciones claras para iniciar tu tutor.</li>
 <li>Debes usar el mismo correo con el que realizaste la compra.</li>
-<li>Dentro encontrarás instrucciones para iniciar tu tutor.</li>
 </ul>
 
 <hr>
