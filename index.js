@@ -2061,11 +2061,6 @@ app.get("/api/catalog", (req, res) => {
  STAR
  ================================================*/
 
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Error obteniendo tutor" });
-  }
-});
 
 const PORT = process.env.PORT || 3000;
 
