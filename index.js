@@ -1896,6 +1896,42 @@ app.post("/log-tutor-access", async (req, res) => {
   }
 });
 
+
+app.get("/api/get-tutor-url", async (req, res) => {
+  try {
+
+    const { token } = req.query;
+
+    if (!token) {
+      return res.status(400).json({ error: "Token requerido" });
+    }
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const result = await pool.query(`
+      SELECT redirect_url
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!result.rowCount) {
+      return res.status(404).json({ error: "Token inválido" });
+    }
+
+    res.json({
+      tutor_url: result.rows[0].redirect_url
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Error obteniendo tutor" });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
