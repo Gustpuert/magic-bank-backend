@@ -2057,13 +2057,8 @@ app.get("/api/catalog", (req, res) => {
 
 });
 
- /*≈==≈=≈=========================================
- STAR
- ================================================*/
-
-
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-console.log("MagicBank backend running on port", PORT);
+  console.log("MagicBank backend running on port", PORT);
 });
