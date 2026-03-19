@@ -258,13 +258,15 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 
 };
 
-/* =========================================================
-09 - SISTEMA DE CORREO (RESEND)
-Envío automático de accesos académicos
-========================================================= */
+/*≈====================================================
+09- CORREO RESEND
+≈=====================================================*/
+
 
 async function enviarCorreo(destino, curso, token) {
   try {
+
+    console.log("ENVIANDO CORREO A:", destino);
 
     await axios.post(
       "https://api.resend.com/emails",
@@ -283,12 +285,12 @@ async function enviarCorreo(destino, curso, token) {
 
 <hr>
 
-<h3>🔐 PRIMER INGRESO (OBLIGATORIO)</h3>
+<h3>🔐 PRIMER INGRESO</h3>
 
-<p>1️⃣ Haz clic en el siguiente botón:</p>
+<p>Haz clic en el siguiente botón:</p>
 
 <p>
-<a href="${curso.url}?token=${token}"
+<a href="https://magicbank.org/activar.html?token=${token}&email=${destino}&curso=${encodeURIComponent(curso.nombre)}"
 style="background-color:#0a1f44;
 color:#ffffff;
 padding:12px 20px;
@@ -296,32 +298,19 @@ text-decoration:none;
 border-radius:6px;
 font-weight:bold;
 display:inline-block;">
-ACCEDER AL TUTOR
+ACTIVAR ACCESO
 </a>
 </p>
 
-<p>2️⃣ Cuando se abra el tutor, pega inmediatamente el siguiente bloque en la parte inferior del chat:</p>
-
-<pre style="background:#f4f4f4;
-padding:15px;
-border-radius:6px;
-font-size:14px;
-white-space:pre-wrap;">
-
-Correo: ${destino}
-Token: ${token}
-
-</pre>
-
-<p>3️⃣ Haz clic en la flecha de envío y sigue las instrucciones del Director Académico para iniciar la matrícula.</p>
+<p>
+En la siguiente página podrás copiar tu acceso y entrar directamente al tutor.
+</p>
 
 <hr>
 
 <h3>🔁 INGRESOS DURANTE 30 DÍAS</h3>
 
-<p>Durante los próximos 30 días, simplemente haz clic en <strong>Acceder al Tutor</strong> y continúa tu proceso académico.</p>
-
-<p>No necesitas volver a pegar el bloque mientras tu acceso esté vigente.</p>
+<p>Durante los próximos 30 días, simplemente accede desde el mismo enlace.</p>
 
 <hr>
 
@@ -352,13 +341,14 @@ Formación estructurada · Control institucional · Certificación con criterio
     console.log("EMAIL ENVIADO OK");
 
   } catch (error) {
+
     console.error(
       "ERROR RESEND:",
       error.response?.data || error.message
     );
+
   }
 }
-
 /* =========================================================
 10 - WEBHOOK TIENDANUBE
 Procesa compras pagadas
