@@ -263,6 +263,8 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 
 };
 
+
+
 /*≈====================================================
 09- CORREO RESEND
 ≈=====================================================*/
@@ -1868,6 +1870,82 @@ app.post("/api/validate-token", async (req, res) => {
 
 });
 
+// ======================================================
+// 37- CATÁLOGO PÚBLICO (SOLO PARA BUSCADOR Y TIENDA)
+// ======================================================
+
+const CATALOGO_PUBLICO = [
+
+{nombre:"Inglés",area:"academy",slug:"curso-avanzado-de-ingles-con-magic-tutorpro"},
+{nombre:"Francés",area:"academy",slug:"curso-avanzado-de-frances-con-tutor-ia"},
+{nombre:"Chino",area:"academy",slug:"curso-de-chino"},
+{nombre:"Italiano",area:"academy",slug:"curso-de-italiano"},
+{nombre:"Portugués",area:"academy",slug:"curso-de-portugues"},
+{nombre:"Alemán",area:"academy",slug:"curso-de-aleman"},
+{nombre:"Español",area:"academy",slug:"curso-de-espanol-gj55x"},
+
+{nombre:"Cocina avanzada",area:"academy",slug:"curso-de-cocina-avanzado-con-tutor-con-ia"},
+{nombre:"Nutrición inteligente",area:"academy",slug:"nutricion-inteligente-avanzada-con-tutor-ia"},
+{nombre:"Curso avanzado ChatGPT",area:"academy",slug:"curso-profesional-de-chatgpt"},
+{nombre:"Banca digital",area:"academy",slug:"magicbank-curso-de-banca-digital1"},
+{nombre:"Trading cíclico",area:"academy",slug:"trading-ciclico-social"},
+{nombre:"Artes y oficios",area:"academy",slug:"artes-y-oficios-magicbank"},
+
+{nombre:"Bachillerato MagicBank",area:"university",slug:"magicbank-university1"},
+
+{nombre:"Desarrollo software",area:"university",slug:"facultad-de-desarrollo-de-software"},
+{nombre:"Marketing",area:"university",slug:"facultad-de-marketing"},
+{nombre:"Contaduría",area:"university",slug:"facultad-de-contaduria"},
+{nombre:"Derecho",area:"university",slug:"curso-facultad-de-derecho"},
+{nombre:"Administración",area:"university",slug:"facultad-de-administracion-y-negocios"},
+
+{nombre:"Conservatorio musical",area:"academy",slug:"facultad-de-musica-6k2ph"},
+
+{nombre:"TAP Empresas",area:"tutor",slug:"tap-empresas"},
+{nombre:"TAP Administración",area:"tutor",slug:"tap-administracion-publica"},
+{nombre:"TAP Educación",area:"tutor",slug:"tap-educacion"},
+{nombre:"TAP Derecho",area:"tutor",slug:"tap-derecho"},
+{nombre:"TAP Ingeniería",area:"tutor",slug:"tap-ingenieros"},
+{nombre:"TAP Salud",area:"tutor",slug:"tap-salud"},
+{nombre:"TAP Contaduría",area:"tutor",slug:"asistente-profesional-para-contabilidad-b14t5"}
+
+];
+
+// ======================================================
+// 38- API CATÁLOGO PÚBLICO (BUSCADOR)
+// ======================================================
+
+app.get("/api/catalogo-publico", (req, res) => {
+
+  try {
+
+    const data = CATALOGO_PUBLICO.map(item => ({
+
+      nombre: item.nombre,
+      area: item.area,
+
+      store_url:
+        "https://magicbank2.mitiendanube.com/productos/" +
+        item.slug
+
+    }));
+
+    res.json(data);
+
+  } catch (error) {
+
+    console.error("ERROR catalogo-publico:", error);
+
+    res.status(500).json({
+      error: "Error catálogo público"
+    });
+
+  }
+
+});
+/*==≈≈============≈≈==============================
+39- log- tutor-access
+≈==≈==============================================*/
 
 app.post("/log-tutor-access", async (req, res) => {
   try {
@@ -1890,7 +1968,9 @@ app.post("/log-tutor-access", async (req, res) => {
     res.status(500).json({ error: "log_failed" });
   }
 });
-
+/*≈=============================================
+40- get-tutor-url
+≈===============================================*/
 
 app.get("/api/get-tutor-url", async (req, res) => {
   try {
@@ -1922,7 +2002,7 @@ app.get("/api/get-tutor-url", async (req, res) => {
     });
 
 /* ====================================================== 
-39- CATÁLOGO DINÁMICO (FRONTEND + BUSCADOR)
+41- CATÁLOGO DINÁMICO (FRONTEND + BUSCADOR)
 Entrega catálogo completo estructurado
 ========================================================= */
 
