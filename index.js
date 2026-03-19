@@ -1789,33 +1789,7 @@ error: "Error registrando auditoría"
 
 });
 
-/*================================================
-Endpoint 35 - Auditoría al acceso del tutor
-==================================================*/
-app.get("/audit/tutor-access", async (req, res) => {
 
-  try {
-
-    const logs = await pool.query(`
-      SELECT *
-      FROM tutor_access_audit
-      ORDER BY created_at DESC
-      LIMIT 100
-    `);
-
-    res.json(logs.rows);
-
-  } catch (error) {
-
-    console.error("ERROR audit tutor access:", error);
-
-    res.status(500).json({
-      error: "Error obteniendo auditoría"
-    });
-
-  }
-
-});
 
 
 // ======================================================
