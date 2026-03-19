@@ -1788,19 +1788,32 @@ error: "Error registrando auditoría"
 }
 
 });
+
 /*================================================
-Endpoint  35. Auditoria al acceso del tutor
+Endpoint 35 - Auditoría al acceso del tutor
 ==================================================*/
 app.get("/audit/tutor-access", async (req, res) => {
 
-const logs = await pool.query(`
-SELECT *
-FROM tutor_access_audit
-ORDER BY created_at DESC
-LIMIT 100
-`);
+  try {
 
-res.json(logs.rows);
+    const logs = await pool.query(`
+      SELECT *
+      FROM tutor_access_audit
+      ORDER BY created_at DESC
+      LIMIT 100
+    `);
+
+    res.json(logs.rows);
+
+  } catch (error) {
+
+    console.error("ERROR audit tutor access:", error);
+
+    res.status(500).json({
+      error: "Error obteniendo auditoría"
+    });
+
+  }
 
 });
 
@@ -1822,7 +1835,6 @@ app.post("/api/validate-token", async (req, res) => {
       });
     }
 
-    // Generar hash SHA256 del token
     const tokenHash = crypto
       .createHash("sha256")
       .update(token)
@@ -1839,7 +1851,6 @@ app.post("/api/validate-token", async (req, res) => {
       [tokenHash, email]
     );
 
-    // Token no encontrado o expirado
     if (result.rows.length === 0) {
       return res.status(401).json({
         valid: false,
@@ -1849,7 +1860,6 @@ app.post("/api/validate-token", async (req, res) => {
 
     const access = result.rows[0];
 
-    // Acceso válido
     res.json({
       valid: true,
       email: access.email,
@@ -1869,6 +1879,7 @@ app.post("/api/validate-token", async (req, res) => {
   }
 
 });
+
 
 // ======================================================
 // 37- CATÁLOGO PÚBLICO (SOLO PARA BUSCADOR Y TIENDA)
@@ -1911,6 +1922,7 @@ const CATALOGO_PUBLICO = [
 
 ];
 
+
 // ======================================================
 // 38- API CATÁLOGO PÚBLICO (BUSCADOR)
 // ======================================================
@@ -1920,14 +1932,11 @@ app.get("/api/catalogo-publico", (req, res) => {
   try {
 
     const data = CATALOGO_PUBLICO.map(item => ({
-
       nombre: item.nombre,
       area: item.area,
-
       store_url:
         "https://magicbank2.mitiendanube.com/productos/" +
         item.slug
-
     }));
 
     res.json(data);
@@ -1943,12 +1952,16 @@ app.get("/api/catalogo-publico", (req, res) => {
   }
 
 });
-/*==≈≈============≈≈==============================
-39- log- tutor-access
-≈==≈==============================================*/
+
+
+/*================================================
+39- log tutor-access
+==================================================*/
 
 app.post("/log-tutor-access", async (req, res) => {
+
   try {
+
     const { student_id, email, tutor_name, program } = req.body;
 
     const result = await pool.query(
@@ -1964,15 +1977,22 @@ app.post("/log-tutor-access", async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+
+    console.error("ERROR log tutor access:", error);
+
     res.status(500).json({ error: "log_failed" });
+
   }
+
 });
-/*≈=============================================
+
+
+/*================================================
 40- get-tutor-url
-≈===============================================*/
+==================================================*/
 
 app.get("/api/get-tutor-url", async (req, res) => {
+
   try {
 
     const { token } = req.query;
@@ -2002,9 +2022,13 @@ app.get("/api/get-tutor-url", async (req, res) => {
     });
 
   } catch (error) {
+
     console.error("ERROR get-tutor-url:", error);
+
     res.status(500).json({ error: "Error obteniendo tutor" });
+
   }
+
 });
 
 
@@ -2025,7 +2049,6 @@ app.get("/api/catalog", (req, res) => {
         nombre: item.nombre,
         area: item.area,
         tutor_url: item.url,
-
         store_url:
           "https://magicbank2.mitiendanube.com/productos/" +
           item.nombre
@@ -2033,12 +2056,10 @@ app.get("/api/catalog", (req, res) => {
             .normalize("NFD")
             .replace(/[\u0300-\u036f]/g, "")
             .replace(/\s+/g, "-"),
-
         keywords: [
           item.nombre.toLowerCase(),
           item.area.toLowerCase()
         ]
-
       };
 
     });
@@ -2057,8 +2078,14 @@ app.get("/api/catalog", (req, res) => {
 
 });
 
+
+/*================================================
+START SERVER
+==================================================*/
+
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
   console.log("MagicBank backend running on port", PORT);
 });
+
