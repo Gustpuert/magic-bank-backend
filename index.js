@@ -1921,8 +1921,8 @@ app.get("/api/get-tutor-url", async (req, res) => {
       tutor_url: result.rows[0].redirect_url
     });
 
-    /* =========================================================
-37 - CATÁLOGO DINÁMICO (FRONTEND + BUSCADOR)
+/* ====================================================== 
+39- CATÁLOGO DINÁMICO (FRONTEND + BUSCADOR)
 Entrega catálogo completo estructurado
 ========================================================= */
 
@@ -1972,6 +1972,10 @@ app.get("/api/catalog", (req, res) => {
   }
 
 });
+
+ /*≈==≈=≈=========================================
+ STAR
+ ================================================*/
 
   } catch (error) {
     console.error(error);
