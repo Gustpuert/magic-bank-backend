@@ -1,3 +1,7 @@
+/* =========================================================
+01 - CONFIGURACIÓN GLOBAL DEL SISTEMA
+========================================================= */
+
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -13,19 +17,164 @@ const { Pool } = pkg;
 
 const app = express();
 
+/* =========================================================
+02 - MIDDLEWARE DEL SERVIDOR
+========================================================= */
+
 app.use(cors());
 app.use(express.json());
 
+/* =========================================================
+03 - CONEXIÓN BASE DE DATOS
+========================================================= */
+
 const pool = new Pool({
-connectionString: process.env.DATABASE_URL,
-ssl: { rejectUnauthorized: false },
-max: 20,
-idleTimeoutMillis: 30000,
-connectionTimeoutMillis: 2000
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false },
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 2000
 });
 
+/* =========================================================
+04 - HEALTHCHECK DEL BACKEND
+========================================================= */
+
 app.get("/", (_, res) => {
-res.send("MAGICBANK BACKEND ACTIVO");
+  res.send("MAGICBANK BACKEND ACTIVO");
+});
+
+/* =========================================================
+05 - ANALYTICS DEL SISTEMA
+========================================================= */
+
+app.get("/analytics", async (req, res) => {
+  try {
+
+    const totalAlumnos = await pool.query(`
+      SELECT COUNT(*) FROM access_tokens
+    `);
+
+    const cursosTop = await pool.query(`
+      SELECT product_name, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY product_name
+      ORDER BY total DESC
+    `);
+
+    const areasTop = await pool.query(`
+      SELECT area, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY area
+      ORDER BY total DESC
+    `);
+
+    const ventasPorDia = await pool.query(`
+      SELECT DATE(created_at) as fecha, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY DATE(created_at)
+      ORDER BY fecha DESC
+    `);
+
+    res.json({
+      total_alumnos: Number(totalAlumnos.rows[0].count),
+      cursos_top: cursosTop.rows,
+      areas_top: areasTop.rows,
+      ventas_por_dia: ventasPorDia.rows
+    });
+
+  } catch (err) {
+    console.error("ERROR ANALYTICS:", err.message);
+    res.status(500).send("Error analytics");
+  }
+});
+
+/* =========================================================
+06 - DASHBOARD VISUAL
+========================================================= */
+
+app.get("/dashboard", async (req, res) => {
+  try {
+
+    const totalAlumnos = await pool.query(`
+      SELECT COUNT(*) FROM access_tokens
+    `);
+
+    res.send(`
+      <html>
+      <head>
+        <title>MagicBank Analytics</title>
+      </head>
+      <body>
+        <h1>MAGICBANK DASHBOARD</h1>
+        <p>Total alumnos: ${totalAlumnos.rows[0].count}</p>
+      </body>
+      </html>
+    `);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error cargando dashboard");
+  }
+});
+
+/* =========================================================
+07 - AUTENTICACIÓN TIENDANUBE (OAUTH)
+========================================================= */
+
+app.get("/auth/tiendanube", (req, res) => {
+
+  const redirectUri =
+  "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback";
+
+  const url =
+  "https://www.tiendanube.com/apps/24551/authorize" +
+  "?response_type=code" +
+  `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+  "&scope=read_orders,write_webhooks";
+
+  res.redirect(url);
+
+});
+
+app.get("/auth/tiendanube/callback", async (req, res) => {
+
+  try {
+
+    const { code } = req.query;
+
+    const response = await axios.post(
+      "https://www.tiendanube.com/apps/authorize/token",
+      {
+        client_id: 24551,
+        client_secret: process.env.TIENDANUBE_CLIENT_SECRET,
+        grant_type: "authorization_code",
+        code,
+        redirect_uri:
+        "https://magic-bank-backend-production-713e.up.railway.app/auth/tiendanube/callback"
+      }
+    );
+
+    const { access_token, user_id } = response.data;
+
+    await pool.query(
+      `INSERT INTO tiendanube_stores (store_id, access_token)
+       VALUES ($1,$2)
+       ON CONFLICT (store_id)
+       DO UPDATE SET access_token = EXCLUDED.access_token`,
+      [user_id, access_token]
+    );
+
+    res.send("Tienda conectada correctamente");
+
+  } catch (err) {
+
+    console.error("OAuth error:", err.response?.data || err.message);
+
+    res.status(500).send("Error OAuth");
+
+  }
+
 });
 
 const CATALOGO = {
