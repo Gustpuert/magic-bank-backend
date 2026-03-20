@@ -88,7 +88,7 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 
 const CATALOGO_PUBLICO = [
 
-{nombre:"Inglés",area:"academy",slug:"curso-avanzado-de-ingles-con-magic-tutorpro"},
+{nombre:"Inglés",area:"academy",slug:"curso-avanzado-de-ingles-con-magic-tutor-pro"},
 {nombre:"Francés",area:"academy",slug:"curso-avanzado-de-frances-con-tutor-ia"},
 {nombre:"Chino",area:"academy",slug:"curso-de-chino"},
 {nombre:"Italiano",area:"academy",slug:"curso-de-italiano"},
