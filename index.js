@@ -232,59 +232,172 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 };
 
 // ======================================================
-// 37- CATÁLOGO PÚBLICO (SOLO PARA BUSCADOR Y TIENDA)
+// 37 - CATÁLOGO PÚBLICO CONGELADO (OFICIAL)
+// NO MODIFICAR DINÁMICAMENTE
 // ======================================================
 
 const CATALOGO_PUBLICO = [
 
-{nombre:"Artes y oficios",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/artes-y-oficios-magicbank/"},
-{nombre:"Cocina avanzada",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-de-cocina-avanzado-con-tutor-con-ia/"},
-{nombre:"Diseño de interiores",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-diseno-de-interiores-profesional-gj1bk/"},
-{nombre:"Nutrición inteligente",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/nutricion-inteligente-avanzada-con-tutor-ia/"},
-{nombre:"Chino",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-de-chino/"},
-{nombre:"Francés",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-frances-con-tutor-ia/"},
-{nombre:"Inglés",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-ingles-con-magic-tutor-pro/"},
-{nombre:"Curso avanzado ChatGPT",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-profesional-de-chatgpt/"},
-{nombre:"Banca digital",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/magicbank-curso-de-banca-digital1/"},
-{nombre:"Trading cíclico",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/trading-ciclico-social/"},
-{nombre:"Italiano",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-de-italiano/"},
-{nombre:"Portugués",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-de-portugues/"},
-{nombre:"Alemán",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-de-aleman/"},
-{nombre:"Español",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/curso-de-espanol-gj55x/"},
-{nombre:"Conservatorio musical",area:"academy",url:"https://magicbank2.mitiendanube.com/productos/facultad-de-musica-6k2ph/"},
+{
+nombre:"Español",
+area:"academy",
+url:"https://magicbank2.mitiendanube.com/productos/curso-de-espanol-gj55x/",
+keywords:["espanol","idioma","lengua","curso","cursos","aprender español"],
+prioridad:10
+},
 
-{nombre:"Bachillerato MagicBank",area:"university",url:"https://magicbank2.mitiendanube.com/productos/magicbank-university1/"},
-{nombre:"Desarrollo software",area:"university",url:"https://magicbank2.mitiendanube.com/productos/facultad-de-desarrollo-de-software/"},
-{nombre:"Marketing",area:"university",url:"https://magicbank2.mitiendanube.com/productos/facultad-de-marketing/"},
-{nombre:"Contaduría",area:"university",url:"https://magicbank2.mitiendanube.com/productos/facultad-de-contaduria/"},
-{nombre:"Derecho",area:"university",url:"https://magicbank2.mitiendanube.com/productos/curso-facultad-de-derecho/"},
-{nombre:"Administración",area:"university",url:"https://magicbank2.mitiendanube.com/productos/facultad-de-administracion-y-negocios/"},
+{
+nombre:"Inglés",
+area:"academy",
+url:"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-ingles-con-magic-tutor-pro/",
+keywords:["ingles","english","idioma","curso","idiomas"],
+prioridad:10
+},
 
-{nombre:"TAP Empresas",area:"tutor",url:"https://magicbank2.mitiendanube.com/productos/tap-empresas/"},
-{nombre:"TAP Administración",area:"tutor",url:"https://magicbank2.mitiendanube.com/productos/tap-administracion-publica/"},
-{nombre:"TAP Educación",area:"tutor",url:"https://magicbank2.mitiendanube.com/productos/tap-educacion/"},
-{nombre:"TAP Derecho",area:"tutor",url:"https://magicbank2.mitiendanube.com/productos/tap-derecho/"},
-{nombre:"TAP Ingeniería",area:"tutor",url:"https://magicbank2.mitiendanube.com/productos/tap-ingenieros/"},
-{nombre:"TAP Salud",area:"tutor",url:"https://magicbank2.mitiendanube.com/productos/tap-salud/"},
-{nombre:"TAP Contaduría",area:"tutor",url:"https://magicbank2.mitiendanube.com/productos/asistente-profesional-para-contabilidad-b14t5/"}
+{
+nombre:"Portugués",
+area:"academy",
+url:"https://magicbank2.mitiendanube.com/productos/curso-de-portugues/",
+keywords:["portugues","idioma","idiomas","curso"],
+prioridad:8
+},
+
+{
+nombre:"Chino",
+area:"academy",
+url:"https://magicbank2.mitiendanube.com/productos/curso-de-chino/",
+keywords:["chino","mandarin","idioma","idiomas"],
+prioridad:8
+},
+
+{
+nombre:"Italiano",
+area:"academy",
+url:"https://magicbank2.mitiendanube.com/productos/curso-de-italiano/",
+keywords:["italiano","idioma","idiomas"],
+prioridad:7
+},
+
+{
+nombre:"Artes y oficios",
+area:"academy",
+url:"https://magicbank2.mitiendanube.com/productos/artes-y-oficios-magicbank/",
+keywords:["emprender","emprendimiento","negocio","oficios","manualidades","ingresos","trabajo"],
+prioridad:10
+},
+
+{
+nombre:"Diseño de interiores",
+area:"academy",
+url:"https://magicbank2.mitiendanube.com/productos/curso-diseno-de-interiores-profesional-gj1bk/",
+keywords:["diseño","decoracion","hogar","interiores","ambientes","espacios"],
+prioridad:9
+},
+
+{
+nombre:"TAP Administración Pública",
+area:"tutor",
+url:"https://magicbank2.mitiendanube.com/productos/tap-administracion-publica/",
+keywords:["alcaldes","gobierno","sector publico","gestion publica","servidores publicos"],
+prioridad:10
+},
+
+{
+nombre:"TAP Educación",
+area:"tutor",
+url:"https://magicbank2.mitiendanube.com/productos/tap-educacion/",
+keywords:[
+"maestros",
+"docentes",
+"estudiantes",
+"clases",
+"preparar clase",
+"examen",
+"icfes",
+"pruebas saber",
+"evaluacion",
+"educacion"
+],
+prioridad:10
+},
+
+{
+nombre:"Bachillerato MagicBank",
+area:"university",
+url:"https://magicbank2.mitiendanube.com/productos/magicbank-university1/",
+keywords:["bachiller","colegio","escuela","secundaria","estudiar"],
+prioridad:10
+},
+  {
+nombre:"Conservatorio musical",
+area:"academy",
+url:"https://magicbank2.mitiendanube.com/productos/facultad-de-musica-6k2ph/",
+keywords:[
+"musica",
+"música",
+"instrumentos",
+"cantar",
+"canto",
+"piano",
+"guitarra",
+"violin",
+"teoria musical",
+"solfeo",
+"produccion musical",
+"composicion",
+"artista",
+"arte",
+"conservatorio",
+"musico",
+"clases de musica",
+"aprender musica"
+],
+prioridad:10
+  }
+
+{
+nombre:"Marketing",
+area:"university",
+url:"https://magicbank2.mitiendanube.com/productos/facultad-de-marketing/",
+keywords:["marketing","ventas","negocios","publicidad"],
+prioridad:8
+},
+
+{
+nombre:"Contaduría",
+area:"university",
+url:"https://magicbank2.mitiendanube.com/productos/facultad-de-contaduria/",
+keywords:["contabilidad","contador","finanzas","empresa"],
+prioridad:9
+},
+
+{
+nombre:"Derecho",
+area:"university",
+url:"https://magicbank2.mitiendanube.com/productos/curso-facultad-de-derecho/",
+keywords:["derecho","abogado","leyes","legal"],
+prioridad:9
+},
+
+{
+nombre:"Software",
+area:"university",
+url:"https://magicbank2.mitiendanube.com/productos/facultad-de-desarrollo-de-software/",
+keywords:["programacion","codigo","software","tecnologia"],
+prioridad:9
+}
 
 ];
 
 // ======================================================
-// 38- API CATÁLOGO PÚBLICO (BUSCADOR)
+// API CATÁLOGO PÚBLICO (BUSCADOR)
 // ======================================================
 
 app.get("/api/catalogo-publico", (req, res) => {
 
   try {
 
-    const data = CATALOGO_PUBLICO.map(item => ({
-      nombre: item.nombre,
-      area: item.area,
-      store_url: item.url
-    }));
-
-    res.json(data);
+    res.json(CATALOGO_PUBLICO);
 
   } catch (error) {
 
