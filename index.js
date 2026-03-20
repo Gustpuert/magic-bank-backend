@@ -353,7 +353,7 @@ keywords:[
 "aprender musica"
 ],
 prioridad:10
-  }
+  },
 
 {
 nombre:"Marketing",
