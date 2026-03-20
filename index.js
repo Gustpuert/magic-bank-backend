@@ -132,9 +132,7 @@ app.get("/api/catalogo-publico", (req, res) => {
     const data = CATALOGO_PUBLICO.map(item => ({
       nombre: item.nombre,
       area: item.area,
-      store_url:
-        "https://magicbank2.mitiendanube.com/productos/" +
-        item.slug
+      store_url: item.url
     }));
 
     res.json(data);
