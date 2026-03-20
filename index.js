@@ -389,26 +389,13 @@ prioridad:9
 
 ];
 
-// ======================================================
-// API CATÁLOGO PÚBLICO (BUSCADOR)
-// ======================================================
-
 app.get("/api/catalogo-publico", (req, res) => {
-
-  try {
-
-    res.json(CATALOGO_PUBLICO);
-
-  } catch (error) {
-
-    console.error("ERROR catalogo-publico:", error);
-
-    res.status(500).json({
-      error: "Error catálogo público"
-    });
-
-  }
-
+  res.json(
+    CATALOGO_PUBLICO.map(item => ({
+      ...item,
+      url: item.url // fuerza campo estándar
+    }))
+  );
 });
 
 app.get("/audit/tutor-access", async (req, res) => {
