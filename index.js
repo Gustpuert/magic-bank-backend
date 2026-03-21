@@ -515,6 +515,31 @@ const CATALOGO = {
 
 };
 
+/* =========================================================
+BUSCADOR CORE (NORMALIZACIÓN + KEYWORDS)
+========================================================= */
+
+function normalize(text = "") {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function buildKeywords(item) {
+
+  const nombre = normalize(item.nombre);
+  const area = normalize(item.area);
+
+  return [
+    nombre,
+    ...nombre.split(" "),
+    area
+  ];
+
+}
+
 const SEARCH_CATALOG = Object.values(CATALOGO).map(item => ({
   ...item,
   keywords: buildKeywords(item),
