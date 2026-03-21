@@ -236,7 +236,8 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 // NO MODIFICAR DINÁMICAMENTE
 // ======================================================
 
-[
+const CATALOGO_PUBLICO = [
+
 {
 "nombre":"Español",
 "area":"academy",
@@ -272,6 +273,7 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 "keywords":["italiano","idioma"],
 "prioridad":7
 },
+
 {
 "nombre":"Curso de Francés",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-frances-con-tutor-ia/",
@@ -284,6 +286,7 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 "keywords":["aleman","idioma"],
 "prioridad":9
 },
+
 {
 "nombre":"Curso de Cocina Avanzada",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-de-cocina-avanzado-con-tutor-con-ia/",
@@ -296,12 +299,14 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 "keywords":["nutricion","salud","alimentacion"],
 "prioridad":9
 },
+
 {
 "nombre":"Curso Avanzado de ChatGPT",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-profesional-de-chatgpt/",
 "keywords":["chatgpt","ia","inteligencia artificial"],
 "prioridad":10
 },
+
 {
 "nombre":"Curso de Trading Cíclico",
 "url":"https://magicbank2.mitiendanube.com/productos/trading-ciclico-social/",
@@ -314,6 +319,7 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 "keywords":["banca","finanzas","digital"],
 "prioridad":9
 },
+
 {
 "nombre":"Artes y oficios",
 "area":"academy",
@@ -328,6 +334,7 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 "keywords":["diseño","decoracion","hogar"],
 "prioridad":9
 },
+
 {
 "nombre":"TAP Salud",
 "url":"https://magicbank2.mitiendanube.com/productos/tap-salud/",
@@ -364,18 +371,21 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 "keywords":["educacion","docente","clases"],
 "prioridad":10
 },
+
 {
 "nombre":"Bachillerato MagicBank",
 "url":"https://magicbank2.mitiendanube.com/productos/magicbank-university1/",
 "keywords":["bachillerato","colegio"],
 "prioridad":10
 },
+
 {
 "nombre":"Conservatorio musical",
 "url":"https://magicbank2.mitiendanube.com/productos/facultad-de-musica-6k2ph/",
 "keywords":["musica","instrumentos"],
 "prioridad":10
 },
+
 {
 "nombre":"Marketing",
 "url":"https://magicbank2.mitiendanube.com/productos/facultad-de-marketing/",
@@ -400,24 +410,16 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 "keywords":["programacion","software"],
 "prioridad":9
 },
-  {
+
+{
 "nombre":"Facultad de Administración y Negocios",
 "area":"university",
 "url":"https://magicbank2.mitiendanube.com/productos/facultad-de-administracion-y-negocios/",
 "keywords":["administracion","negocios","empresa","gestion","estrategia","emprendimiento"],
 "prioridad":10
-  }
-]
+}
 
-
-app.get("/api/catalogo-publico", (req, res) => {
-  res.json(
-    CATALOGO_PUBLICO.map(item => ({
-      ...item,
-      url: item.url // fuerza campo estándar
-    }))
-  );
-});
+];
 
 app.get("/audit/tutor-access", async (req, res) => {
   try {
