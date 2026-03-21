@@ -540,10 +540,7 @@ function buildKeywords(item) {
 
 }
 
-const SEARCH_CATALOG = Object.values(CATALOGO).map(item => ({
-  ...item,
-  keywords: buildKeywords(item),
-}));
+
 
 /* =========================================================
 CATÁLOGO BUSCADOR (FUENTE: TIENDANUBE)
