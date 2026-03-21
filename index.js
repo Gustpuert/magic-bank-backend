@@ -793,7 +793,62 @@ const SEARCH_CATALOG = [
 
 ];
 
+/* =========================================================
+ENDPOINT BUSCADOR INTELIGENTE
+========================================================= */
 
+app.get("/api/search", (req, res) => {
+  try {
+
+    const q = (req.query.q || "").toLowerCase().trim();
+
+    if (!q) {
+      return res.json({
+        results: []
+      });
+    }
+
+    const results = SEARCH_CATALOG.map(item => {
+
+      let score = 0;
+
+      // match directo en nombre (peso alto)
+      if (item.nombre.toLowerCase().includes(q)) {
+        score += 10;
+      }
+
+      // match por keywords
+      for (const kw of item.keywords) {
+        if (kw.includes(q)) {
+          score += 5;
+        }
+      }
+
+      // boost por prioridad
+      score += item.prioridad || 0;
+
+      return {
+        ...item,
+        score
+      };
+
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 10); // top 10
+
+    res.json({
+      query: q,
+      results
+    });
+
+  } catch (error) {
+    console.error("SEARCH ERROR:", error);
+    res.status(500).json({
+      error: "search error"
+    });
+  }
+});
 /* =========================================================
 09 - SISTEMA DE CORREO (RESEND)
 Envío automático de accesos académicos
