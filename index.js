@@ -238,185 +238,205 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 
 const CATALOGO_PUBLICO = [
 
+/* ===== IDIOMAS ===== */
+
 {
 "nombre":"Español",
 "area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-de-espanol-gj55x/",
-"keywords":["espanol","idioma","lengua","curso","aprender español"],
+"keywords":["espanol","idioma","lengua","curso"],
 "prioridad":10
 },
 {
 "nombre":"Inglés",
 "area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-ingles-con-magic-tutor-pro/",
-"keywords":["ingles","english","idioma","curso"],
+"keywords":["ingles","english","idioma"],
 "prioridad":10
 },
 {
 "nombre":"Portugués",
 "area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-de-portugues/",
-"keywords":["portugues","idioma","curso"],
+"keywords":["portugues","idioma"],
 "prioridad":8
 },
 {
 "nombre":"Chino",
 "area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-de-chino/",
-"keywords":["chino","mandarin","idioma"],
+"keywords":["chino","mandarin"],
 "prioridad":8
 },
 {
 "nombre":"Italiano",
 "area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-de-italiano/",
-"keywords":["italiano","idioma"],
+"keywords":["italiano"],
 "prioridad":7
 },
-
 {
 "nombre":"Curso de Francés",
+"area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-frances-con-tutor-ia/",
-"keywords":["frances","idioma","francia"],
+"keywords":["frances","idioma"],
 "prioridad":9
 },
 {
 "nombre":"Curso de Alemán",
+"area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-de-aleman/",
 "keywords":["aleman","idioma"],
 "prioridad":9
 },
 
+/* ===== HABILIDADES ===== */
+
 {
 "nombre":"Curso de Cocina Avanzada",
+"area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-de-cocina-avanzado-con-tutor-con-ia/",
-"keywords":["cocina","chef","recetas"],
+"keywords":["cocina","chef"],
 "prioridad":9
 },
 {
 "nombre":"Curso de Nutrición Inteligente",
+"area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/nutricion-inteligente-avanzada-con-tutor-ia/",
-"keywords":["nutricion","salud","alimentacion"],
+"keywords":["nutricion","salud"],
 "prioridad":9
 },
-
 {
 "nombre":"Curso Avanzado de ChatGPT",
+"area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-profesional-de-chatgpt/",
-"keywords":["chatgpt","ia","inteligencia artificial"],
+"keywords":["chatgpt","ia"],
 "prioridad":10
 },
-
 {
 "nombre":"Curso de Trading Cíclico",
+"area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/trading-ciclico-social/",
-"keywords":["trading","inversion","mercado"],
+"keywords":["trading","inversion"],
 "prioridad":10
 },
 {
 "nombre":"Curso de Banca Digital",
+"area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/magicbank-curso-de-banca-digital1/",
-"keywords":["banca","finanzas","digital"],
+"keywords":["banca","finanzas"],
 "prioridad":9
 },
-
 {
 "nombre":"Artes y oficios",
 "area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/artes-y-oficios-magicbank/",
-"keywords":["oficios","manualidades","trabajo"],
+"keywords":["oficios","trabajo"],
 "prioridad":10
 },
 {
 "nombre":"Diseño de interiores",
 "area":"academy",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-diseno-de-interiores-profesional-gj1bk/",
-"keywords":["diseño","decoracion","hogar"],
+"keywords":["diseño","decoracion"],
 "prioridad":9
 },
+{
+"nombre":"Conservatorio musical",
+"area":"academy",
+"url":"https://magicbank2.mitiendanube.com/productos/facultad-de-musica-6k2ph/",
+"keywords":["musica","instrumentos"],
+"prioridad":10
+},
+
+/* ===== TAP (ASISTENTES) ===== */
 
 {
 "nombre":"TAP Salud",
+"area":"tutor",
 "url":"https://magicbank2.mitiendanube.com/productos/tap-salud/",
 "keywords":["salud","medicina"],
 "prioridad":10
 },
 {
 "nombre":"TAP Derecho",
+"area":"tutor",
 "url":"https://magicbank2.mitiendanube.com/productos/tap-derecho/",
 "keywords":["derecho","abogado"],
 "prioridad":10
 },
 {
 "nombre":"TAP Contaduría",
+"area":"tutor",
 "url":"https://magicbank2.mitiendanube.com/productos/asistente-profesional-para-contabilidad-b14t5/",
 "keywords":["contabilidad","finanzas"],
 "prioridad":10
 },
 {
 "nombre":"TAP Empresas",
+"area":"tutor",
 "url":"https://magicbank2.mitiendanube.com/productos/tap-empresas/",
 "keywords":["empresa","negocio"],
 "prioridad":10
 },
 {
 "nombre":"TAP Ingeniería",
+"area":"tutor",
 "url":"https://magicbank2.mitiendanube.com/productos/tap-ingenieros/",
 "keywords":["ingenieria","tecnico"],
 "prioridad":10
 },
 {
 "nombre":"TAP Educación",
+"area":"tutor",
 "url":"https://magicbank2.mitiendanube.com/productos/tap-educacion/",
-"keywords":["educacion","docente","clases"],
+"keywords":["educacion","docente"],
 "prioridad":10
 },
 
+/* ===== UNIVERSITY ===== */
+
 {
 "nombre":"Bachillerato MagicBank",
+"area":"university",
 "url":"https://magicbank2.mitiendanube.com/productos/magicbank-university1/",
 "keywords":["bachillerato","colegio"],
 "prioridad":10
 },
-
 {
-"nombre":"Conservatorio musical",
-"url":"https://magicbank2.mitiendanube.com/productos/facultad-de-musica-6k2ph/",
-"keywords":["musica","instrumentos"],
+"nombre":"Facultad de Administración y Negocios",
+"area":"university",
+"url":"https://magicbank2.mitiendanube.com/productos/facultad-de-administracion-y-negocios/",
+"keywords":["administracion","negocios"],
 "prioridad":10
 },
-
 {
 "nombre":"Marketing",
+"area":"university",
 "url":"https://magicbank2.mitiendanube.com/productos/facultad-de-marketing/",
 "keywords":["marketing","ventas"],
 "prioridad":8
 },
 {
 "nombre":"Contaduría",
+"area":"university",
 "url":"https://magicbank2.mitiendanube.com/productos/facultad-de-contaduria/",
 "keywords":["contabilidad","contador"],
 "prioridad":9
 },
 {
 "nombre":"Derecho",
+"area":"university",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-facultad-de-derecho/",
 "keywords":["derecho","leyes"],
 "prioridad":9
 },
 {
 "nombre":"Software",
+"area":"university",
 "url":"https://magicbank2.mitiendanube.com/productos/facultad-de-desarrollo-de-software/",
 "keywords":["programacion","software"],
 "prioridad":9
-},
-
-{
-"nombre":"Facultad de Administración y Negocios",
-"area":"university",
-"url":"https://magicbank2.mitiendanube.com/productos/facultad-de-administracion-y-negocios/",
-"keywords":["administracion","negocios","empresa","gestion","estrategia","emprendimiento"],
-"prioridad":10
 }
 
 ];
