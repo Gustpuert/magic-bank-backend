@@ -279,30 +279,7 @@ url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-
 };
 
 
-/* =========================================================
-BUSCADOR CORE (NORMALIZACIÓN + KEYWORDS)
-========================================================= */
 
-function normalize(text = "") {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim();
-}
-
-function buildKeywords(item) {
-
-  const nombre = normalize(item.nombre);
-  const area = normalize(item.area);
-
-  return [
-    nombre,
-    ...nombre.split(" "),
-    area
-  ];
-
-}
 
 
 
@@ -2801,67 +2778,7 @@ app.get("/api/tutor-config", async (req, res) => {
   }
 });
 
-app.get("/analytics/auto-adjust", async (req, res) => {
-  try {
 
-    const stats = await pool.query(`
-      SELECT 
-        product_name,
-        AVG(rating) as avg_rating,
-        COUNT(*) as total_reviews
-      FROM reviews
-      GROUP BY product_name
-    `);
-
-    for (const row of stats.rows) {
-
-      let max_questions = 3;
-      let explanation_depth = 3;
-      let pacing_level = 3;
-
-      const rating = Number(row.avg_rating);
-
-      // 🔥 LÓGICA INTELIGENTE SIMPLE Y EFECTIVA
-
-      if (rating < 3) {
-        max_questions = 2;        // menos presión
-        explanation_depth = 4;    // más explicación
-        pacing_level = 2;         // más lento
-      }
-
-      if (rating >= 4.5) {
-        max_questions = 4;        // más reto
-        explanation_depth = 3;
-        pacing_level = 4;         // más rápido
-      }
-
-      await pool.query(`
-        INSERT INTO tutor_config
-        (product_name, max_questions, explanation_depth, pacing_level)
-        VALUES ($1,$2,$3,$4)
-        ON CONFLICT (product_name)
-        DO UPDATE SET
-          max_questions = EXCLUDED.max_questions,
-          explanation_depth = EXCLUDED.explanation_depth,
-          pacing_level = EXCLUDED.pacing_level
-      `, [
-        row.product_name,
-        max_questions,
-        explanation_depth,
-        pacing_level
-      ]);
-
-    }
-
-    res.json({
-      status: "auto_adjust_completed"
-    });
-
-  } catch (error) {
-    console.error("AUTO ADJUST ERROR:", error);
-    res.status(500).send("Error en auto ajuste");
-  }
-});
 
 /*=========================================================
 START
