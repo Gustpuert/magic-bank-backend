@@ -545,6 +545,257 @@ const SEARCH_CATALOG = Object.values(CATALOGO).map(item => ({
   keywords: buildKeywords(item),
 }));
 
+/* =========================================================
+CATÁLOGO BUSCADOR (FUENTE: TIENDANUBE)
+Optimizado para búsqueda inteligente
+========================================================= */
+
+function normalize(text = "") {
+  return text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
+function buildKeywords(nombre, extra = []) {
+  const base = normalize(nombre).split(" ");
+
+  return [
+    normalize(nombre),
+    ...base,
+    ...extra.map(normalize)
+  ];
+}
+
+const SEARCH_CATALOG = [
+
+/* ===== IDIOMAS ===== */
+
+{
+  nombre:"Español",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-de-espanol-gj55x/",
+  keywords:buildKeywords("español",["idioma","lengua","curso"]),
+  prioridad:10
+},
+
+{
+  nombre:"Inglés",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-ingles-con-magic-tutor-pro/",
+  keywords:buildKeywords("ingles",["english","idioma"]),
+  prioridad:10
+},
+
+{
+  nombre:"Portugués",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-de-portugues/",
+  keywords:buildKeywords("portugues",["idioma"]),
+  prioridad:8
+},
+
+{
+  nombre:"Chino",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-de-chino/",
+  keywords:buildKeywords("chino",["mandarin"]),
+  prioridad:8
+},
+
+{
+  nombre:"Italiano",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-de-italiano/",
+  keywords:buildKeywords("italiano"),
+  prioridad:7
+},
+
+{
+  nombre:"Francés",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-frances-con-tutor-ia/",
+  keywords:buildKeywords("frances",["idioma"]),
+  prioridad:9
+},
+
+{
+  nombre:"Alemán",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-de-aleman/",
+  keywords:buildKeywords("aleman",["idioma"]),
+  prioridad:9
+},
+
+/* ===== HABILIDADES ===== */
+
+{
+  nombre:"Cocina avanzada",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-de-cocina-avanzado-con-tutor-con-ia/",
+  keywords:buildKeywords("cocina",["chef","recetas"]),
+  prioridad:9
+},
+
+{
+  nombre:"Nutrición inteligente",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/nutricion-inteligente-avanzada-con-tutor-ia/",
+  keywords:buildKeywords("nutricion",["salud"]),
+  prioridad:9
+},
+
+{
+  nombre:"ChatGPT avanzado",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-profesional-de-chatgpt/",
+  keywords:buildKeywords("chatgpt",["ia","inteligencia artificial"]),
+  prioridad:10
+},
+
+{
+  nombre:"Trading cíclico",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/trading-ciclico-social/",
+  keywords:buildKeywords("trading",["inversion"]),
+  prioridad:10
+},
+
+{
+  nombre:"Banca digital",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/magicbank-curso-de-banca-digital1/",
+  keywords:buildKeywords("banca",["finanzas"]),
+  prioridad:9
+},
+
+{
+  nombre:"Artes y oficios",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/artes-y-oficios-magicbank/",
+  keywords:buildKeywords("oficios",["manualidades","trabajo"]),
+  prioridad:10
+},
+
+{
+  nombre:"Diseño de interiores",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-diseno-de-interiores-profesional-gj1bk/",
+  keywords:buildKeywords("diseño",["decoracion","hogar"]),
+  prioridad:9
+},
+
+{
+  nombre:"Conservatorio musical",
+  area:"academy",
+  url:"https://magicbank2.mitiendanube.com/productos/facultad-de-musica-6k2ph/",
+  keywords:buildKeywords("musica",["instrumentos"]),
+  prioridad:10
+},
+
+/* ===== TAP ===== */
+
+{
+  nombre:"TAP Salud",
+  area:"tutor",
+  url:"https://magicbank2.mitiendanube.com/productos/tap-salud/",
+  keywords:buildKeywords("salud",["medicina"]),
+  prioridad:10
+},
+
+{
+  nombre:"TAP Derecho",
+  area:"tutor",
+  url:"https://magicbank2.mitiendanube.com/productos/tap-derecho/",
+  keywords:buildKeywords("derecho",["abogado"]),
+  prioridad:10
+},
+
+{
+  nombre:"TAP Contaduría",
+  area:"tutor",
+  url:"https://magicbank2.mitiendanube.com/productos/asistente-profesional-para-contabilidad-b14t5/",
+  keywords:buildKeywords("contabilidad",["finanzas"]),
+  prioridad:10
+},
+
+{
+  nombre:"TAP Empresas",
+  area:"tutor",
+  url:"https://magicbank2.mitiendanube.com/productos/tap-empresas/",
+  keywords:buildKeywords("empresa",["negocio"]),
+  prioridad:10
+},
+
+{
+  nombre:"TAP Ingeniería",
+  area:"tutor",
+  url:"https://magicbank2.mitiendanube.com/productos/tap-ingenieros/",
+  keywords:buildKeywords("ingenieria",["tecnico"]),
+  prioridad:10
+},
+
+{
+  nombre:"TAP Educación",
+  area:"tutor",
+  url:"https://magicbank2.mitiendanube.com/productos/tap-educacion/",
+  keywords:buildKeywords("educacion",["docente"]),
+  prioridad:10
+},
+
+/* ===== UNIVERSITY ===== */
+
+{
+  nombre:"Bachillerato MagicBank",
+  area:"university",
+  url:"https://magicbank2.mitiendanube.com/productos/magicbank-university1/",
+  keywords:buildKeywords("bachillerato",["colegio"]),
+  prioridad:10
+},
+
+{
+  nombre:"Administración y Negocios",
+  area:"university",
+  url:"https://magicbank2.mitiendanube.com/productos/facultad-de-administracion-y-negocios/",
+  keywords:buildKeywords("administracion",["negocios"]),
+  prioridad:10
+},
+
+{
+  nombre:"Marketing",
+  area:"university",
+  url:"https://magicbank2.mitiendanube.com/productos/facultad-de-marketing/",
+  keywords:buildKeywords("marketing",["ventas"]),
+  prioridad:8
+},
+
+{
+  nombre:"Contaduría",
+  area:"university",
+  url:"https://magicbank2.mitiendanube.com/productos/facultad-de-contaduria/",
+  keywords:buildKeywords("contabilidad",["contador"]),
+  prioridad:9
+},
+
+{
+  nombre:"Derecho",
+  area:"university",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-facultad-de-derecho/",
+  keywords:buildKeywords("derecho",["leyes"]),
+  prioridad:9
+},
+
+{
+  nombre:"Software",
+  area:"university",
+  url:"https://magicbank2.mitiendanube.com/productos/facultad-de-desarrollo-de-software/",
+  keywords:buildKeywords("programacion",["software"]),
+  prioridad:9
+}
+
+];
+
 
 /* =========================================================
 09 - SISTEMA DE CORREO (RESEND)
