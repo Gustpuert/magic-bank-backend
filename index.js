@@ -316,13 +316,13 @@ prioridad:7
 },
 {
 "nombre":"Curso de Trading Cíclico",
-"url":"https://magicbank2.mitiendanube.com/productos/trading-ciclico/",
+"url":"https://magicbank2.mitiendanube.com/productos/trading-ciclico-social/",
 "keywords":["trading","mercado","inversion","ciclos","bolsa"],
 "prioridad":10
 },
 {
 "nombre":"Curso de Banca Digital",
-"url":"https://magicbank2.mitiendanube.com/productos/banca-digital/",
+     "url"  :  "https://magicbank2.mitiendanube.com/productos/magicbank-curso-de-banca-digital1/    ",
 "keywords":["banca","finanzas","digital","dinero","sistema financiero"],
 "prioridad":9
 },
