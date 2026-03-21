@@ -277,6 +277,55 @@ url:"https://magicbank2.mitiendanube.com/productos/curso-de-italiano/",
 keywords:["italiano","idioma","idiomas"],
 prioridad:7
 },
+[
+{
+"nombre":"Curso de Francés",
+"url":"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-frances-con-tutor-ia/",
+"keywords":["frances","idioma","francia","aprender frances","lenguaje"],
+"prioridad":9
+},
+{
+"nombre":"Curso de Alemán",
+"url":"https://magicbank2.mitiendanube.com/productos/curso-de-aleman/",
+"keywords":["aleman","idioma","alemania","aprender aleman"],
+"prioridad":9
+},
+{
+"nombre":"Curso de Cocina Avanzada",
+"url":"https://magicbank2.mitiendanube.com/productos/curso-de-cocina-avanzada/",
+"keywords":["cocina","chef","recetas","gastronomia","cocinar"],
+"prioridad":9
+},
+{
+"nombre":"Curso de Nutrición Inteligente",
+"url":"https://magicbank2.mitiendanube.com/productos/curso-de-nutricion-inteligente/",
+"keywords":["nutricion","salud","alimentacion","dieta","bienestar"],
+"prioridad":9
+},
+{
+"nombre":"Curso Avanzado de ChatGPT",
+"url":"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-chatgpt/",
+"keywords":["chatgpt","inteligencia artificial","ia","automatizacion","productividad"],
+"prioridad":10
+},
+{
+"nombre":"Curso de Inversiones Mágicas",
+"url":"https://magicbank2.mitiendanube.com/productos/inversiones-magicas/",
+"keywords":["inversion","dinero","finanzas","cripto","rendimiento"],
+"prioridad":10
+},
+{
+"nombre":"Curso de Trading Cíclico",
+"url":"https://magicbank2.mitiendanube.com/productos/trading-ciclico/",
+"keywords":["trading","mercado","inversion","ciclos","bolsa"],
+"prioridad":10
+},
+{
+"nombre":"Curso de Banca Digital",
+"url":"https://magicbank2.mitiendanube.com/productos/banca-digital/",
+"keywords":["banca","finanzas","digital","dinero","sistema financiero"],
+"prioridad":9
+},
 
 {
 nombre:"Artes y oficios",
@@ -300,6 +349,43 @@ area:"tutor",
 url:"https://magicbank2.mitiendanube.com/productos/tap-administracion-publica/",
 keywords:["alcaldes","gobierno","sector publico","gestion publica","servidores publicos"],
 prioridad:10
+},
+[
+{
+"nombre":"TAP Salud",
+"url":"https://magicbank2.mitiendanube.com/productos/tap-salud/",
+"keywords":["salud","medicina","clinico","paciente","historia clinica"],
+"prioridad":10
+},
+{
+"nombre":"TAP Derecho",
+"url":"https://magicbank2.mitiendanube.com/productos/tap-derecho/",
+"keywords":["derecho","legal","abogado","contratos","ley"],
+"prioridad":10
+},
+{
+"nombre":"TAP Contaduría",
+"url":"https://magicbank2.mitiendanube.com/productos/tap-contaduria/",
+"keywords":["contabilidad","finanzas","impuestos","balance","costos"],
+"prioridad":10
+},
+{
+"nombre":"TAP Empresas",
+"url":"https://magicbank2.mitiendanube.com/productos/tap-empresas/",
+"keywords":["empresa","negocio","administracion","gestion","emprendimiento"],
+"prioridad":10
+},
+{
+"nombre":"TAP Ingeniería",
+"url":"https://magicbank2.mitiendanube.com/productos/tap-ingenieria/",
+"keywords":["ingenieria","software","tecnico","desarrollo","sistemas"],
+"prioridad":10
+},
+{
+"nombre":"Facultad de Administración y Negocios",
+"url":"https://magicbank2.mitiendanube.com/productos/facultad-de-administracion-y-negocios/",
+"keywords":["administracion","negocios","empresa","gestion","estrategia"],
+"prioridad":9
 },
 
 {
