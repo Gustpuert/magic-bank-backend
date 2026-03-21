@@ -277,7 +277,7 @@ url:"https://magicbank2.mitiendanube.com/productos/curso-de-italiano/",
 keywords:["italiano","idioma","idiomas"],
 prioridad:7
 },
-[
+
 {
 "nombre":"Curso de Francés",
 "url":"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-frances-con-tutor-ia/",
@@ -350,7 +350,7 @@ url:"https://magicbank2.mitiendanube.com/productos/tap-administracion-publica/",
 keywords:["alcaldes","gobierno","sector publico","gestion publica","servidores publicos"],
 prioridad:10
 },
-[
+
 {
 "nombre":"TAP Salud",
 "url":"https://magicbank2.mitiendanube.com/productos/tap-salud/",
