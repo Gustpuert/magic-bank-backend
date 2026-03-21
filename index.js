@@ -365,7 +365,7 @@ prioridad:10
 },
 {
 "nombre":"TAP Contaduría",
-"url":"https://magicbank2.mitiendanube.com/productos/tap-contaduria/",
+"url":"https://magicbank2.mitiendanube.com/productos/asistente-profesional-para-contabilidad-b14t5/",
 "keywords":["contabilidad","finanzas","impuestos","balance","costos"],
 "prioridad":10
 },
@@ -377,7 +377,7 @@ prioridad:10
 },
 {
 "nombre":"TAP Ingeniería",
-"url":"https://magicbank2.mitiendanube.com/productos/tap-ingenieria/",
+"url":"https://magicbank2.mitiendanube.com/productos/tap-ingenieros/",
 "keywords":["ingenieria","software","tecnico","desarrollo","sistemas"],
 "prioridad":10
 },
