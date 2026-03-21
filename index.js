@@ -544,9 +544,7 @@ app.get("/api/search", (req, res) => {
     const q = normalize(req.query.q || "");
 
     if (!q) {
-      return res.json({
-        results: []
-      });
+      return res.json({ results: [] });
     }
 
     const results = SEARCH_CATALOG.map(item => {
@@ -555,29 +553,39 @@ app.get("/api/search", (req, res) => {
 
       const nombre = normalize(item.nombre);
 
-      // 🔥 MATCH DIRECTO EN NOMBRE (MUY FUERTE)
-      if (nombre.includes(q)) {
-        score += 15;
+      // 🔥 MATCH EXACTO (TOP PRIORIDAD)
+      if (nombre === q) {
+        score += 30;
       }
 
-      // 🔥 KEYWORDS INTELIGENTES
+      // 🔥 MATCH INICIO DE NOMBRE
+      else if (nombre.startsWith(q)) {
+        score += 20;
+      }
+
+      // 🔥 MATCH PARCIAL CONTROLADO
+      else if (q.length > 4 && nombre.includes(q)) {
+        score += 10;
+      }
+
+      // 🔥 KEYWORDS INTELIGENTES (MUCHO MÁS ESTRICTO)
       for (const kw of item.keywords) {
 
         if (kw === q) {
-          score += 10; // exact match
-        } 
+          score += 12;
+        }
         else if (kw.startsWith(q)) {
-          score += 6; // prefijo
-        } 
-        else if (q.length > 4 && kw.includes(q)) {
-          score += 3; // contains controlado
+          score += 6;
+        }
+        else if (q.length > 5 && kw.includes(q)) {
+          score += 2;
         }
 
       }
 
-      // 🔥 BOOST POR ÁREA (prioriza cursos)
+      // 🔥 BOOST ÁREA
       if (item.area === "academy") {
-        score += 2;
+        score += 3;
       }
 
       // 🔥 PRIORIDAD BASE
@@ -589,7 +597,7 @@ app.get("/api/search", (req, res) => {
       };
 
     })
-    .filter(item => item.score > 5) // 🔥 FILTRO MÁS ESTRICTO
+    .filter(item => item.score >= 15) // 🔴 FILTRO CLAVE (ANTES ERA MUY BAJO)
     .sort((a, b) => b.score - a.score)
     .slice(0, 10);
 
