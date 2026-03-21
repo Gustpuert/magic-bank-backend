@@ -535,13 +535,13 @@ const SEARCH_CATALOG = [
 ];
 
 /* =========================================================
-ENDPOINT BUSCADOR INTELIGENTE
+ENDPOINT BUSCADOR INTELIGENTE (OPTIMIZADO PRO)
 ========================================================= */
 
 app.get("/api/search", (req, res) => {
   try {
 
-    const q = (req.query.q || "").toLowerCase().trim();
+    const q = normalize(req.query.q || "");
 
     if (!q) {
       return res.json({
@@ -553,19 +553,34 @@ app.get("/api/search", (req, res) => {
 
       let score = 0;
 
-      // match directo en nombre (peso alto)
-      if (item.nombre.toLowerCase().includes(q)) {
-        score += 10;
+      const nombre = normalize(item.nombre);
+
+      // 🔥 MATCH DIRECTO EN NOMBRE (MUY FUERTE)
+      if (nombre.includes(q)) {
+        score += 15;
       }
 
-      // match por keywords
+      // 🔥 KEYWORDS INTELIGENTES
       for (const kw of item.keywords) {
-        if (kw.includes(q)) {
-          score += 5;
+
+        if (kw === q) {
+          score += 10; // exact match
+        } 
+        else if (kw.startsWith(q)) {
+          score += 6; // prefijo
+        } 
+        else if (q.length > 4 && kw.includes(q)) {
+          score += 3; // contains controlado
         }
+
       }
 
-      // boost por prioridad
+      // 🔥 BOOST POR ÁREA (prioriza cursos)
+      if (item.area === "academy") {
+        score += 2;
+      }
+
+      // 🔥 PRIORIDAD BASE
       score += item.prioridad || 0;
 
       return {
@@ -574,9 +589,9 @@ app.get("/api/search", (req, res) => {
       };
 
     })
-    .filter(item => item.score > 0)
+    .filter(item => item.score > 5) // 🔥 FILTRO MÁS ESTRICTO
     .sort((a, b) => b.score - a.score)
-    .slice(0, 10); // top 10
+    .slice(0, 10);
 
     res.json({
       query: q,
@@ -584,12 +599,16 @@ app.get("/api/search", (req, res) => {
     });
 
   } catch (error) {
+
     console.error("SEARCH ERROR:", error);
+
     res.status(500).json({
       error: "search error"
     });
+
   }
 });
+
 /* =========================================================
 09 - SISTEMA DE CORREO (RESEND)
 Envío automático de accesos académicos
