@@ -438,7 +438,13 @@ const CATALOGO_PUBLICO = [
 }
 
 ];
+// ======================================================
+// API CATÁLOGO PÚBLICO (BUSCADOR)
+// ======================================================
 
+app.get("/api/catalogo-publico", (req, res) => {
+  res.json(CATALOGO_PUBLICO);
+});
 app.get("/audit/tutor-access", async (req, res) => {
   try {
     const logs = await pool.query(`
