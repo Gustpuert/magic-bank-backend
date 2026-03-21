@@ -2805,7 +2805,33 @@ app.get("/api/tutor-config", async (req, res) => {
   }
 });
 
+/* =========================================================
+CATÁLOGO PÚBLICO PARA FRONTEND
+========================================================= */
 
+app.get("/api/catalogo-publico", (req, res) => {
+  try {
+
+    const catalog = SEARCH_CATALOG.map(item => ({
+      nombre: item.nombre,
+      area: item.area,
+      url: item.url,
+      keywords: item.keywords,
+      prioridad: item.prioridad
+    }));
+
+    res.json(catalog);
+
+  } catch (error) {
+
+    console.error("ERROR CATALOGO PUBLICO:", error);
+
+    res.status(500).json({
+      error: "Error cargando catálogo"
+    });
+
+  }
+});
 
 /*=========================================================
 START
