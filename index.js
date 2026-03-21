@@ -292,19 +292,19 @@ prioridad:7
 },
 {
 "nombre":"Curso de Cocina Avanzada",
-"url":"https://magicbank2.mitiendanube.com/productos/curso-de-cocina-avanzada/",
+"url":"https://magicbank2.mitiendanube.com/productos/curso-de-cocina-avanzado-con-tutor-con-ia/",
 "keywords":["cocina","chef","recetas","gastronomia","cocinar"],
 "prioridad":9
 },
 {
 "nombre":"Curso de Nutrición Inteligente",
-"url":"https://magicbank2.mitiendanube.com/productos/curso-de-nutricion-inteligente/",
+"url":https://magicbank2.mitiendanube.com/productos/nutricion-inteligente-avanzada-con-tutor-ia/",
 "keywords":["nutricion","salud","alimentacion","dieta","bienestar"],
 "prioridad":9
 },
 {
 "nombre":"Curso Avanzado de ChatGPT",
-"url":"https://magicbank2.mitiendanube.com/productos/curso-avanzado-de-chatgpt/",
+"url":"https://magicbank2.mitiendanube.com/productos/curso-profesional-de-chatgp/",
 "keywords":["chatgpt","inteligencia artificial","ia","automatizacion","productividad"],
 "prioridad":10
 },
