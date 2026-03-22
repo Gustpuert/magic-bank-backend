@@ -3221,6 +3221,42 @@ app.get("/api/chat", async (req, res) => {
   }
 
 });
+/* =========================================================
+INSTALL - USER MASTER PROFILE
+========================================================= */
+
+app.get("/install-user-master-profile", async (req, res) => {
+
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_master_profile (
+        email TEXT PRIMARY KEY,
+
+        learning_style TEXT,
+        preferred_pace TEXT,
+        cognitive_level TEXT,
+
+        stability_score INTEGER DEFAULT 100,
+        user_type TEXT DEFAULT 'ideal',
+
+        engagement_score INTEGER DEFAULT 100,
+
+        last_activity TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.send("Tabla user_master_profile creada");
+
+  } catch (error) {
+
+    console.error(error);
+    res.status(500).send("Error creando tabla");
+
+  }
+
+});
 
 /*=========================================================
 START
