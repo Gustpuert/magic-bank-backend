@@ -2850,6 +2850,79 @@ app.post("/api/collect-review", (req, res) => {
 
   return res.json({ status: "review_saved" });
 });
+
+app.post("/api/chat", async (req, res) => {
+
+  try {
+
+    const { token, message } = req.body;
+
+    if (!token || !message) {
+      return res.status(400).json({
+        error: "Token y mensaje requeridos"
+      });
+    }
+
+    // 🔐 hash token
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // 🔍 obtener usuario
+    const user = await pool.query(`
+      SELECT email, product_name
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!user.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido"
+      });
+    }
+
+    const { email, product_name } = user.rows[0];
+
+    // ⚙️ cargar config del tutor
+    const configResult = await pool.query(`
+      SELECT *
+      FROM tutor_config
+      WHERE product_name = $1
+    `, [product_name]);
+
+    const config = configResult.rowCount
+      ? configResult.rows[0]
+      : {
+          max_questions: 3,
+          explanation_depth: 3,
+          pacing_level: 3
+        };
+
+    // 🧠 RESPUESTA SIMULADA (temporal)
+    const responseText = `Procesé tu mensaje: "${message}"`;
+
+    return res.json({
+      message: responseText,
+      metadata: {
+        user: email,
+        config
+      }
+    });
+
+  } catch (error) {
+
+    console.error("CHAT ERROR:", error);
+
+    res.status(500).json({
+      error: "Error en chat"
+    });
+
+  }
+
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
