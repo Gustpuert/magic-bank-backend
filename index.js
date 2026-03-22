@@ -2924,10 +2924,9 @@ app.post("/api/chat", async (req, res) => {
 });
 
 
-
 /* =========================================================
-CHAT ENGINE PRODUCTION
-Memory + Stability + Classification
+MAGICBANK CORE - CHAT ENGINE FINAL PRODUCCIÓN
+Sistema completo inteligente adaptativo
 ========================================================= */
 
 app.get("/api/chat", async (req, res) => {
@@ -2966,8 +2965,28 @@ app.get("/api/chat", async (req, res) => {
 
     const user = userResult.rows[0];
 
+    const msg = message.toLowerCase();
+
     /* =========================================================
-    CONFIGURACIÓN BASE
+    PROTECCIÓN DEL SISTEMA (RIESGO)
+    ========================================================= */
+
+    if (
+      msg.includes("sexo") ||
+      msg.includes("drogas") ||
+      msg.includes("hackear") ||
+      msg.includes("ilegal")
+    ) {
+      return res.json({
+        message: "Este tutor está diseñado únicamente para aprendizaje académico.",
+        metadata: {
+          user_type: "riesgoso_detectado"
+        }
+      });
+    }
+
+    /* =========================================================
+    CONFIG DINÁMICO GLOBAL
     ========================================================= */
 
     const configResult = await pool.query(`
@@ -2976,13 +2995,15 @@ app.get("/api/chat", async (req, res) => {
       WHERE product_name = $1
     `, [user.product_name]);
 
-    const config = configResult.rowCount
-      ? configResult.rows[0]
-      : {
-          max_questions: 3,
-          explanation_depth: 3,
-          pacing_level: 3
-        };
+    let config = {
+      max_questions: 3,
+      explanation_depth: 3,
+      pacing_level: 3
+    };
+
+    if (configResult.rowCount) {
+      config = configResult.rows[0];
+    }
 
     /* =========================================================
     DETECTOR DE PREFERENCIAS
@@ -3019,7 +3040,7 @@ app.get("/api/chat", async (req, res) => {
     const detectedPreferences = detectPreferences(message);
 
     /* =========================================================
-    GUARDAR PREFERENCIAS
+    MEMORIA (GUARDAR)
     ========================================================= */
 
     if (Object.keys(detectedPreferences).length > 0) {
@@ -3039,7 +3060,7 @@ app.get("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
-    CARGAR PREFERENCIAS
+    MEMORIA (CARGAR)
     ========================================================= */
 
     const prefResult = await pool.query(`
@@ -3129,7 +3150,6 @@ app.get("/api/chat", async (req, res) => {
 
     let finalPreferences = { ...storedPreferences };
 
-    // Override por estabilidad
     if (stability.stability_score < 70) {
       finalPreferences = {
         pace: "medio",
@@ -3139,7 +3159,6 @@ app.get("/api/chat", async (req, res) => {
       };
     }
 
-    // Override por tipo de usuario
     if (user_type === "confuso") {
       finalPreferences = {
         pace: "medio",
@@ -3159,19 +3178,50 @@ app.get("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
+    MASTER PROFILE (GLOBAL)
+    ========================================================= */
+
+    await pool.query(`
+      INSERT INTO user_master_profile (
+        email,
+        learning_style,
+        preferred_pace,
+        stability_score,
+        user_type,
+        last_activity,
+        updated_at
+      )
+      VALUES ($1,$2,$3,$4,$5,NOW(),NOW())
+      ON CONFLICT (email)
+      DO UPDATE SET
+        learning_style = $2,
+        preferred_pace = $3,
+        stability_score = $4,
+        user_type = $5,
+        last_activity = NOW(),
+        updated_at = NOW()
+    `, [
+      user.email,
+      finalPreferences.style || "mixto",
+      finalPreferences.pace || "medio",
+      stability.stability_score,
+      user_type
+    ]);
+
+    /* =========================================================
     GENERADOR DE RESPUESTA
     ========================================================= */
 
-    function generateResponse(message, prefs) {
+    function generateResponse(message, prefs, config) {
 
       let response = "Vamos a trabajar esto correctamente.";
 
-      if (prefs.pace === "lento") {
-        response += "\n\nPrimero, entendamos algo clave.";
+      if (config.explanation_depth >= 4) {
+        response += "\n\nVamos a profundizar más en este concepto.";
       }
 
-      if (prefs.tone === "tecnico") {
-        response += "\n\nLa clave está en cómo estás estructurando tu alimentación.";
+      if (prefs.pace === "lento" || config.pacing_level <= 2) {
+        response += "\n\nPrimero, entendamos algo clave.";
       }
 
       if (prefs.style === "aplicado") {
@@ -3186,14 +3236,14 @@ app.get("/api/chat", async (req, res) => {
         response += "\n\nNos mantendremos en un enfoque claro y estructurado.";
       }
 
-      if (prefs.question_frequency !== "baja") {
+      if (config.max_questions > 2 && prefs.question_frequency !== "baja") {
         response += "\n\n¿Esto lo estás aplicando actualmente?";
       }
 
       return response;
     }
 
-    const finalResponse = generateResponse(message, finalPreferences);
+    const finalResponse = generateResponse(message, finalPreferences, config);
 
     /* =========================================================
     RESPUESTA FINAL
@@ -3203,10 +3253,8 @@ app.get("/api/chat", async (req, res) => {
       message: finalResponse,
       metadata: {
         product: user.product_name,
-        detected_preferences: detectedPreferences,
-        stored_preferences: storedPreferences,
-        stability,
-        user_type
+        user_type,
+        stability_score: stability.stability_score
       }
     });
 
@@ -3217,42 +3265,6 @@ app.get("/api/chat", async (req, res) => {
     return res.status(500).json({
       error: "Error en chat"
     });
-
-  }
-
-});
-/* =========================================================
-INSTALL - USER MASTER PROFILE
-========================================================= */
-
-app.get("/install-user-master-profile", async (req, res) => {
-
-  try {
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_master_profile (
-        email TEXT PRIMARY KEY,
-
-        learning_style TEXT,
-        preferred_pace TEXT,
-        cognitive_level TEXT,
-
-        stability_score INTEGER DEFAULT 100,
-        user_type TEXT DEFAULT 'ideal',
-
-        engagement_score INTEGER DEFAULT 100,
-
-        last_activity TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    res.send("Tabla user_master_profile creada");
-
-  } catch (error) {
-
-    console.error(error);
-    res.status(500).send("Error creando tabla");
 
   }
 
