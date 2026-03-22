@@ -2923,6 +2923,87 @@ app.post("/api/chat", async (req, res) => {
 
 });
 
+
+
+/* =========================================================
+CHAT ENGINE BASE (GET VERSION)
+========================================================= */
+
+app.get("/api/chat", async (req, res) => {
+
+  try {
+
+    const { token, message } = req.query;
+
+    // 1️⃣ Validación
+    if (!token || !message) {
+      return res.status(400).json({
+        error: "Token y message requeridos"
+      });
+    }
+
+    // 2️⃣ Hash token
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    // 3️⃣ Usuario
+    const userResult = await pool.query(`
+      SELECT email, product_name, area
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!userResult.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido"
+      });
+    }
+
+    const user = userResult.rows[0];
+
+    // 4️⃣ Config tutor
+    const configResult = await pool.query(`
+      SELECT *
+      FROM tutor_config
+      WHERE product_name = $1
+    `, [user.product_name]);
+
+    const tutorConfig = configResult.rowCount
+      ? configResult.rows[0]
+      : {
+          max_questions: 3,
+          explanation_depth: 3,
+          pacing_level: 3
+        };
+
+    // 5️⃣ Respuesta base
+    const responseText = `OK. Recibí: "${message}"`;
+
+    // 6️⃣ Output
+    res.json({
+      message: responseText,
+      metadata: {
+        user_email: user.email,
+        product: user.product_name,
+        config: tutorConfig
+      }
+    });
+
+  } catch (error) {
+
+    console.error("CHAT ERROR:", error);
+
+    res.status(500).json({
+      error: "Error en chat"
+    });
+
+  }
+
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
