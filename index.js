@@ -2942,7 +2942,7 @@ app.get("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
-    VALIDACIÓN DE USUARIO
+    VALIDACIÓN
     ========================================================= */
 
     const tokenHash = crypto
@@ -2951,7 +2951,7 @@ app.get("/api/chat", async (req, res) => {
       .digest("hex");
 
     const userResult = await pool.query(`
-      SELECT email, product_name, area
+      SELECT email, product_name
       FROM access_tokens
       WHERE token = $1
       AND expires_at > NOW()
@@ -2964,11 +2964,10 @@ app.get("/api/chat", async (req, res) => {
     }
 
     const user = userResult.rows[0];
-
-    const msg = message.toLowerCase();
+    const msg = message.toLowerCase().trim();
 
     /* =========================================================
-    PROTECCIÓN DEL SISTEMA (RIESGO)
+    PROTECCIÓN
     ========================================================= */
 
     if (
@@ -2979,14 +2978,51 @@ app.get("/api/chat", async (req, res) => {
     ) {
       return res.json({
         message: "Este tutor está diseñado únicamente para aprendizaje académico.",
-        metadata: {
-          user_type: "riesgoso_detectado"
-        }
+        metadata: { user_type: "riesgoso" }
       });
     }
 
     /* =========================================================
-    CONFIG DINÁMICO GLOBAL
+    🧠 DETECCIÓN DE FEEDBACK (SIMPLE Y SEGURA)
+    ========================================================= */
+
+    const feedbackMatch = msg.match(/^([1-5])\s*(.*)$/);
+
+    if (feedbackMatch) {
+
+      const rating = parseInt(feedbackMatch[1]);
+      const improve = feedbackMatch[2] || "";
+
+      /* ===== Guardar feedback ===== */
+
+      await pool.query(`
+        INSERT INTO student_feedback (rating, improve, category, created_at)
+        VALUES ($1, $2, 'module', NOW())
+      `, [rating, improve]);
+
+      /* ===== Ajuste individual (SUAVE, NO PEDAGOGÍA) ===== */
+
+      if (rating <= 3) {
+        await pool.query(`
+          INSERT INTO user_preferences (email, preferences, updated_at)
+          VALUES ($1, $2, NOW())
+          ON CONFLICT (email)
+          DO UPDATE SET
+            preferences = user_preferences.preferences || $2,
+            updated_at = NOW()
+        `, [
+          user.email,
+          { pacing: "lento", clarity: "alta" }
+        ]);
+      }
+
+      return res.json({
+        message: "Gracias. Tu feedback ayuda a mejorar el tutor 🙌"
+      });
+    }
+
+    /* =========================================================
+    CONFIG GLOBAL (YA LO TENÍAS)
     ========================================================= */
 
     const configResult = await pool.query(`
@@ -3006,42 +3042,24 @@ app.get("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
-    DETECTOR DE PREFERENCIAS
+    DETECCIÓN DE PREFERENCIAS
     ========================================================= */
 
     function detectPreferences(text = "") {
 
       const t = text.toLowerCase();
-      const preferences = {};
+      const p = {};
 
-      if (t.includes("rapido") || t.includes("despacio")) {
-        preferences.pace = "lento";
-      }
+      if (t.includes("despacio")) p.pace = "lento";
+      if (t.includes("rapido")) p.pace = "rapido";
+      if (t.includes("tecnico")) p.tone = "tecnico";
+      if (t.includes("casual")) p.tone = "casual";
+      if (t.includes("practico")) p.style = "aplicado";
 
-      if (t.includes("muchas preguntas") || t.includes("preguntas mucho")) {
-        preferences.question_frequency = "baja";
-      }
-
-      if (t.includes("cientifico") || t.includes("tecnico")) {
-        preferences.tone = "tecnico";
-      }
-
-      if (t.includes("casual") || t.includes("menos serio")) {
-        preferences.tone = "casual";
-      }
-
-      if (t.includes("practico")) {
-        preferences.style = "aplicado";
-      }
-
-      return preferences;
+      return p;
     }
 
     const detectedPreferences = detectPreferences(message);
-
-    /* =========================================================
-    MEMORIA (GUARDAR)
-    ========================================================= */
 
     if (Object.keys(detectedPreferences).length > 0) {
 
@@ -3050,17 +3068,13 @@ app.get("/api/chat", async (req, res) => {
         VALUES ($1, $2, NOW())
         ON CONFLICT (email)
         DO UPDATE SET
-          preferences = COALESCE(user_preferences.preferences, '{}'::jsonb) || EXCLUDED.preferences,
+          preferences = user_preferences.preferences || $2,
           updated_at = NOW()
-      `, [
-        user.email,
-        detectedPreferences
-      ]);
-
+      `, [user.email, detectedPreferences]);
     }
 
     /* =========================================================
-    MEMORIA (CARGAR)
+    CARGAR PREFERENCIAS
     ========================================================= */
 
     const prefResult = await pool.query(`
@@ -3069,12 +3083,12 @@ app.get("/api/chat", async (req, res) => {
       WHERE email = $1
     `, [user.email]);
 
-    const storedPreferences = prefResult.rowCount
+    const prefs = prefResult.rowCount
       ? prefResult.rows[0].preferences
       : {};
 
     /* =========================================================
-    STABILITY ENGINE
+    STABILITY ENGINE (YA LO TENÍAS)
     ========================================================= */
 
     let stability = {
@@ -3095,145 +3109,64 @@ app.get("/api/chat", async (req, res) => {
 
     let contradiction = false;
 
-    if (Object.keys(detectedPreferences).length > 0) {
-
-      for (const key in detectedPreferences) {
-
-        if (
-          stability.last_preferences &&
-          stability.last_preferences[key] &&
-          stability.last_preferences[key] !== detectedPreferences[key]
-        ) {
-          contradiction = true;
-        }
-
+    for (const key in detectedPreferences) {
+      if (
+        stability.last_preferences &&
+        stability.last_preferences[key] &&
+        stability.last_preferences[key] !== detectedPreferences[key]
+      ) {
+        contradiction = true;
       }
-
-      if (contradiction) {
-        stability.change_count += 1;
-        stability.stability_score = Math.max(0, stability.stability_score - 10);
-      }
-
-      await pool.query(`
-        INSERT INTO user_behavior (email, change_count, stability_score, last_preferences, updated_at)
-        VALUES ($1, $2, $3, $4, NOW())
-        ON CONFLICT (email)
-        DO UPDATE SET
-          change_count = $2,
-          stability_score = $3,
-          last_preferences = $4,
-          updated_at = NOW()
-      `, [
-        user.email,
-        stability.change_count,
-        stability.stability_score,
-        detectedPreferences
-      ]);
-
     }
 
+    if (contradiction) {
+      stability.change_count += 1;
+      stability.stability_score = Math.max(0, stability.stability_score - 10);
+    }
+
+    await pool.query(`
+      INSERT INTO user_behavior (email, change_count, stability_score, last_preferences, updated_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      ON CONFLICT (email)
+      DO UPDATE SET
+        change_count = $2,
+        stability_score = $3,
+        last_preferences = $4,
+        updated_at = NOW()
+    `, [
+      user.email,
+      stability.change_count,
+      stability.stability_score,
+      detectedPreferences
+    ]);
+
     /* =========================================================
-    CLASIFICACIÓN DE USUARIO
+    CLASIFICACIÓN
     ========================================================= */
 
     let user_type = "ideal";
 
-    if (stability.stability_score < 50) {
-      user_type = "riesgoso";
-    } else if (stability.stability_score < 80) {
-      user_type = "confuso";
-    }
+    if (stability.stability_score < 50) user_type = "riesgoso";
+    else if (stability.stability_score < 80) user_type = "confuso";
 
     /* =========================================================
-    PREFERENCIAS FINALES
-    ========================================================= */
-
-    let finalPreferences = { ...storedPreferences };
-
-    if (stability.stability_score < 70) {
-      finalPreferences = {
-        pace: "medio",
-        tone: "equilibrado",
-        style: "mixto",
-        question_frequency: "media"
-      };
-    }
-
-    if (user_type === "confuso") {
-      finalPreferences = {
-        pace: "medio",
-        tone: "equilibrado",
-        style: "guiado",
-        question_frequency: "media"
-      };
-    }
-
-    if (user_type === "riesgoso") {
-      finalPreferences = {
-        pace: "medio",
-        tone: "neutro",
-        style: "controlado",
-        question_frequency: "baja"
-      };
-    }
-
-    /* =========================================================
-    MASTER PROFILE (GLOBAL)
-    ========================================================= */
-
-    await pool.query(`
-      INSERT INTO user_master_profile (
-        email,
-        learning_style,
-        preferred_pace,
-        stability_score,
-        user_type,
-        last_activity,
-        updated_at
-      )
-      VALUES ($1,$2,$3,$4,$5,NOW(),NOW())
-      ON CONFLICT (email)
-      DO UPDATE SET
-        learning_style = $2,
-        preferred_pace = $3,
-        stability_score = $4,
-        user_type = $5,
-        last_activity = NOW(),
-        updated_at = NOW()
-    `, [
-      user.email,
-      finalPreferences.style || "mixto",
-      finalPreferences.pace || "medio",
-      stability.stability_score,
-      user_type
-    ]);
-
-    /* =========================================================
-    GENERADOR DE RESPUESTA
+    RESPUESTA FINAL (RESPETA TODO)
     ========================================================= */
 
     function generateResponse(message, prefs, config) {
 
-      let response = "Vamos a trabajar esto correctamente.";
+      let response = "Vamos a trabajar este concepto correctamente.";
 
-      if (config.explanation_depth >= 4) {
-        response += "\n\nVamos a profundizar más en este concepto.";
-      }
-
-      if (prefs.pace === "lento" || config.pacing_level <= 2) {
-        response += "\n\nPrimero, entendamos algo clave.";
+      if (prefs.pace === "lento") {
+        response += "\n\nVamos paso a paso.";
       }
 
       if (prefs.style === "aplicado") {
-        response += "\n\nEjemplo directo: proteína + vegetales como base.";
+        response += "\n\nEjemplo práctico: proteína + vegetales.";
       }
 
-      if (prefs.style === "guiado") {
-        response += "\n\nVamos paso a paso para evitar confusión.";
-      }
-
-      if (prefs.style === "controlado") {
-        response += "\n\nNos mantendremos en un enfoque claro y estructurado.";
+      if (config.explanation_depth >= 4) {
+        response += "\n\nVamos a profundizar un poco más.";
       }
 
       if (config.max_questions > 2 && prefs.question_frequency !== "baja") {
@@ -3243,16 +3176,11 @@ app.get("/api/chat", async (req, res) => {
       return response;
     }
 
-    const finalResponse = generateResponse(message, finalPreferences, config);
-
-    /* =========================================================
-    RESPUESTA FINAL
-    ========================================================= */
+    const finalResponse = generateResponse(message, prefs, config);
 
     return res.json({
       message: finalResponse,
       metadata: {
-        product: user.product_name,
         user_type,
         stability_score: stability.stability_score
       }
@@ -3269,99 +3197,6 @@ app.get("/api/chat", async (req, res) => {
   }
 
 });
-
-/* =========================================================
-FEEDBACK INTELLIGENCE ENGINE
-Optimiza automáticamente el tutor según reviews
-========================================================= */
-
-app.get("/analytics/feedback-intelligence", async (req, res) => {
-
-  try {
-
-    const data = await pool.query(`
-      SELECT 
-        product_name,
-        COUNT(*) as total_reviews,
-        ROUND(AVG(rating),2) as avg_rating,
-        COUNT(*) FILTER (WHERE rating <= 3) as low_reviews
-      FROM student_feedback
-      GROUP BY product_name
-    `);
-
-    for (const row of data.rows) {
-
-      let config = {
-        max_questions: 3,
-        explanation_depth: 3,
-        pacing_level: 3
-      };
-
-      const avg = Number(row.avg_rating);
-      const lowRatio = row.low_reviews / row.total_reviews;
-
-      /* =========================================================
-      🔥 DECISIONES AUTOMÁTICAS
-      ========================================================= */
-
-      // muchos reviews negativos
-      if (lowRatio > 0.3) {
-        config.explanation_depth = 4;
-        config.pacing_level = 2;
-      }
-
-      // rating bajo general
-      if (avg < 3.5) {
-        config.max_questions = 2;
-        config.explanation_depth = 4;
-      }
-
-      // rating excelente
-      if (avg >= 4.5) {
-        config.max_questions = 4;
-        config.pacing_level = 4;
-      }
-
-      /* =========================================================
-      GUARDAR CONFIGURACIÓN
-      ========================================================= */
-
-      await pool.query(`
-        INSERT INTO tutor_config
-        (product_name, max_questions, explanation_depth, pacing_level, updated_at)
-        VALUES ($1,$2,$3,$4,NOW())
-        ON CONFLICT (product_name)
-        DO UPDATE SET
-          max_questions = EXCLUDED.max_questions,
-          explanation_depth = EXCLUDED.explanation_depth,
-          pacing_level = EXCLUDED.pacing_level,
-          updated_at = NOW()
-      `, [
-        row.product_name,
-        config.max_questions,
-        config.explanation_depth,
-        config.pacing_level
-      ]);
-
-    }
-
-    res.json({
-      status: "feedback_optimization_completed"
-    });
-
-  } catch (error) {
-
-    console.error("FEEDBACK ENGINE ERROR:", error);
-
-    res.status(500).json({
-      error: "Error en feedback intelligence"
-    });
-
-  }
-
-});
-
-
 /*=========================================================
 START
 ==========≈================================================*/
