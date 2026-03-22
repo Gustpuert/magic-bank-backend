@@ -3361,6 +3361,36 @@ app.get("/analytics/feedback-intelligence", async (req, res) => {
 
 });
 
+app.get("/dev/create-feedback-table", async (req, res) => {
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_feedback_profile (
+
+        email TEXT PRIMARY KEY,
+
+        avg_rating NUMERIC DEFAULT 0,
+        total_feedbacks INTEGER DEFAULT 0,
+
+        pace_preference TEXT,
+        question_tolerance TEXT,
+
+        consistency_score INTEGER DEFAULT 100,
+
+        last_feedback TEXT,
+        updated_at TIMESTAMP DEFAULT NOW()
+
+      );
+    `);
+
+    res.json({ status: "feedback_table_created" });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "error_creating_table" });
+  }
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
