@@ -2926,7 +2926,7 @@ app.post("/api/chat", async (req, res) => {
 
 
 /* =========================================================
-CHAT ENGINE BASE (GET VERSION)
+CHAT ENGINE (PRODUCTION - GET) + PREFERENCE DETECTOR
 ========================================================= */
 
 app.get("/api/chat", async (req, res) => {
@@ -2935,20 +2935,19 @@ app.get("/api/chat", async (req, res) => {
 
     const { token, message } = req.query;
 
-    // 1️⃣ Validación
     if (!token || !message) {
       return res.status(400).json({
         error: "Token y message requeridos"
       });
     }
 
-    // 2️⃣ Hash token
+    // 🔐 HASH TOKEN
     const tokenHash = crypto
       .createHash("sha256")
       .update(token)
       .digest("hex");
 
-    // 3️⃣ Usuario
+    // 🔍 OBTENER USUARIO
     const userResult = await pool.query(`
       SELECT email, product_name, area
       FROM access_tokens
@@ -2964,14 +2963,14 @@ app.get("/api/chat", async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // 4️⃣ Config tutor
+    // ⚙️ CONFIG DEL TUTOR
     const configResult = await pool.query(`
       SELECT *
       FROM tutor_config
       WHERE product_name = $1
     `, [user.product_name]);
 
-    const tutorConfig = configResult.rowCount
+    const config = configResult.rowCount
       ? configResult.rows[0]
       : {
           max_questions: 3,
@@ -2979,16 +2978,54 @@ app.get("/api/chat", async (req, res) => {
           pacing_level: 3
         };
 
-    // 5️⃣ Respuesta base
-    const responseText = `OK. Recibí: "${message}"`;
+    // 🧠 DETECTOR DE PREFERENCIAS
+    function detectPreferences(text = "") {
 
-    // 6️⃣ Output
+      const t = text.toLowerCase();
+
+      const preferences = {};
+
+      // velocidad
+      if (t.includes("rapido") || t.includes("despacio")) {
+        preferences.pace = "lento";
+      }
+
+      // preguntas
+      if (t.includes("muchas preguntas") || t.includes("preguntas mucho")) {
+        preferences.question_frequency = "baja";
+      }
+
+      // tono
+      if (t.includes("cientifico") || t.includes("tecnico")) {
+        preferences.tone = "tecnico";
+      }
+
+      if (t.includes("casual") || t.includes("menos serio")) {
+        preferences.tone = "casual";
+      }
+
+      // estilo
+      if (t.includes("practico")) {
+        preferences.style = "aplicado";
+      }
+
+      return preferences;
+    }
+
+    // 🔥 EJECUTAR DETECTOR
+    const detectedPreferences = detectPreferences(message);
+
+    // 🧠 RESPUESTA BASE
+    const responseText = `Sistema activo. Recibí: "${message}"`;
+
+    // 📤 RESPUESTA FINAL
     res.json({
       message: responseText,
       metadata: {
-        user_email: user.email,
+        email: user.email,
         product: user.product_name,
-        config: tutorConfig
+        config,
+        detected_preferences: detectedPreferences
       }
     });
 
