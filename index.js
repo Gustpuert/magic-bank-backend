@@ -2851,80 +2851,10 @@ app.post("/api/collect-review", (req, res) => {
   return res.json({ status: "review_saved" });
 });
 
-app.post("/api/chat", async (req, res) => {
 
-  try {
-
-    const { token, message } = req.body;
-
-    if (!token || !message) {
-      return res.status(400).json({
-        error: "Token y mensaje requeridos"
-      });
-    }
-
-    // 🔐 hash token
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
-
-    // 🔍 obtener usuario
-    const user = await pool.query(`
-      SELECT email, product_name
-      FROM access_tokens
-      WHERE token = $1
-      AND expires_at > NOW()
-    `, [tokenHash]);
-
-    if (!user.rowCount) {
-      return res.status(403).json({
-        error: "Token inválido"
-      });
-    }
-
-    const { email, product_name } = user.rows[0];
-
-    // ⚙️ cargar config del tutor
-    const configResult = await pool.query(`
-      SELECT *
-      FROM tutor_config
-      WHERE product_name = $1
-    `, [product_name]);
-
-    const config = configResult.rowCount
-      ? configResult.rows[0]
-      : {
-          max_questions: 3,
-          explanation_depth: 3,
-          pacing_level: 3
-        };
-
-    // 🧠 RESPUESTA SIMULADA (temporal)
-    const responseText = `Procesé tu mensaje: "${message}"`;
-
-    return res.json({
-      message: responseText,
-      metadata: {
-        user: email,
-        config
-      }
-    });
-
-  } catch (error) {
-
-    console.error("CHAT ERROR:", error);
-
-    res.status(500).json({
-      error: "Error en chat"
-    });
-
-  }
-
-});
 
 /* =========================================================
-🧠 MAGICBANK CHAT + AUTOEVOLUTION ENGINE (FULL PRODUCTION)
+🧠 CHAT PRINCIPAL
 ========================================================= */
 
 app.get("/api/chat", async (req, res) => {
@@ -2939,9 +2869,7 @@ app.get("/api/chat", async (req, res) => {
       });
     }
 
-    /* =========================================================
-    VALIDACIÓN
-    ========================================================= */
+    /* ================= VALIDACIÓN ================= */
 
     const tokenHash = crypto
       .createHash("sha256")
@@ -2964,9 +2892,7 @@ app.get("/api/chat", async (req, res) => {
     const user = userResult.rows[0];
     const msg = message.toLowerCase().trim();
 
-    /* =========================================================
-    PROTECCIÓN DEL SISTEMA
-    ========================================================= */
+    /* ================= PROTECCIÓN ================= */
 
     if (
       msg.includes("sexo") ||
@@ -2981,43 +2907,28 @@ app.get("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
-    🧠 FEEDBACK IMPLÍCITO
+    🧠 DETECCIÓN FEEDBACK IMPLÍCITO
     ========================================================= */
 
     function detectImplicitFeedback(text = "") {
 
       const t = text.toLowerCase();
 
-      if (t.includes("rápido") || t.includes("rapido")) {
-        return { category: "speed", signal: "fast" };
-      }
-
-      if (t.includes("lento")) {
-        return { category: "speed", signal: "slow" };
-      }
-
-      if (t.includes("no entiendo") || t.includes("confuso")) {
-        return { category: "clarity", signal: "low" };
-      }
-
-      if (t.includes("muy técnico") || t.includes("complejo")) {
-        return { category: "difficulty", signal: "high" };
-      }
+      if (t.includes("rapido") || t.includes("rápido")) return "speed";
+      if (t.includes("lento")) return "speed";
+      if (t.includes("confuso") || t.includes("no entiendo")) return "clarity";
+      if (t.includes("difícil") || t.includes("complejo")) return "difficulty";
 
       return null;
     }
 
-    const implicit = detectImplicitFeedback(message);
+    const implicitCategory = detectImplicitFeedback(msg);
 
-    if (implicit) {
+    if (implicitCategory) {
       await pool.query(`
-        INSERT INTO student_feedback (rating, improve, category, created_at)
-        VALUES ($1, $2, $3, NOW())
-      `, [
-        null,
-        message,
-        implicit.category
-      ]);
+        INSERT INTO student_feedback (rating, improve, category, created_at, product_name)
+        VALUES ($1,$2,$3,NOW(),$4)
+      `, [null, message, implicitCategory, user.product_name]);
     }
 
     /* =========================================================
@@ -3032,9 +2943,9 @@ app.get("/api/chat", async (req, res) => {
       const improve = feedbackMatch[2] || "";
 
       await pool.query(`
-        INSERT INTO student_feedback (rating, improve, category, created_at)
-        VALUES ($1, $2, 'module', NOW())
-      `, [rating, improve]);
+        INSERT INTO student_feedback (rating, improve, category, created_at, product_name)
+        VALUES ($1,$2,'module',NOW(),$3)
+      `, [rating, improve, user.product_name]);
 
       if (rating <= 3) {
 
@@ -3042,22 +2953,14 @@ app.get("/api/chat", async (req, res) => {
 
         const t = improve.toLowerCase();
 
-        if (t.includes("rápido") || t.includes("rapido")) {
-          pref.pace = "lento";
-        }
-
-        if (t.includes("confuso") || t.includes("no entiendo")) {
-          pref.clarity = "alta";
-        }
-
-        if (t.includes("muchas preguntas")) {
-          pref.question_frequency = "baja";
-        }
+        if (t.includes("rapido")) pref.pace = "lento";
+        if (t.includes("confuso")) pref.clarity = "alta";
+        if (t.includes("muchas preguntas")) pref.question_frequency = "baja";
 
         if (Object.keys(pref).length > 0) {
           await pool.query(`
             INSERT INTO user_preferences (email, preferences, updated_at)
-            VALUES ($1, $2, NOW())
+            VALUES ($1,$2,NOW())
             ON CONFLICT (email)
             DO UPDATE SET
               preferences = user_preferences.preferences || $2,
@@ -3109,13 +3012,12 @@ app.get("/api/chat", async (req, res) => {
       return p;
     }
 
-    const detectedPreferences = detectPreferences(message);
+    const detectedPreferences = detectPreferences(msg);
 
     if (Object.keys(detectedPreferences).length > 0) {
-
       await pool.query(`
         INSERT INTO user_preferences (email, preferences, updated_at)
-        VALUES ($1, $2, NOW())
+        VALUES ($1,$2,NOW())
         ON CONFLICT (email)
         DO UPDATE SET
           preferences = user_preferences.preferences || $2,
@@ -3138,7 +3040,7 @@ app.get("/api/chat", async (req, res) => {
       : {};
 
     /* =========================================================
-    STABILITY ENGINE
+    STABILITY ENGINE (TU LÓGICA REAL)
     ========================================================= */
 
     let stability = {
@@ -3176,7 +3078,7 @@ app.get("/api/chat", async (req, res) => {
 
     await pool.query(`
       INSERT INTO user_behavior (email, change_count, stability_score, last_preferences, updated_at)
-      VALUES ($1, $2, $3, $4, NOW())
+      VALUES ($1,$2,$3,$4,NOW())
       ON CONFLICT (email)
       DO UPDATE SET
         change_count = $2,
@@ -3250,7 +3152,7 @@ app.get("/api/chat", async (req, res) => {
 
 
 /* =========================================================
-🧠 AUTO-EVOLUCIÓN GLOBAL DEL SISTEMA
+🚀 AUTO-EVOLUCIÓN AVANZADA (TU LÓGICA COMPLETA)
 ========================================================= */
 
 app.get("/system/auto-evolve", async (req, res) => {
@@ -3258,40 +3160,16 @@ app.get("/system/auto-evolve", async (req, res) => {
   try {
 
     const feedback = await pool.query(`
-
       SELECT
         product_name,
         COUNT(*) as total_reviews,
         ROUND(AVG(rating),2) as avg_rating,
         COUNT(*) FILTER (WHERE category = 'interaction') as interaction_issues,
         COUNT(*) FILTER (WHERE category = 'speed') as speed_issues,
-        COUNT(*) FILTER (WHERE category = 'clarity') as clarity_issues,
-        COUNT(*) FILTER (WHERE category = 'difficulty') as difficulty_issues
+        COUNT(*) FILTER (WHERE category = 'clarity') as clarity_issues
       FROM student_feedback
       GROUP BY product_name
-
     `);
-
-    const abandonment = await pool.query(`
-
-      SELECT
-        product_name,
-        COUNT(*) as total_users,
-        ROUND(
-          COUNT(*) FILTER (
-            WHERE last_access < NOW() - INTERVAL '3 days'
-          ) * 100.0 / COUNT(*)
-        ,2) as abandonment_rate
-      FROM access_tokens
-      GROUP BY product_name
-
-    `);
-
-    const abandonmentMap = {};
-
-    abandonment.rows.forEach(a => {
-      abandonmentMap[a.product_name] = a.abandonment_rate;
-    });
 
     let results = [];
 
@@ -3304,8 +3182,6 @@ app.get("/system/auto-evolve", async (req, res) => {
       };
 
       let actions = [];
-
-      const abandonment_rate = abandonmentMap[f.product_name] || 0;
 
       if (f.avg_rating < 4) {
         config.explanation_depth = 4;
@@ -3328,12 +3204,6 @@ app.get("/system/auto-evolve", async (req, res) => {
         actions.push("Reducir preguntas");
       }
 
-      if (abandonment_rate > 30) {
-        config.pacing_level = 2;
-        config.explanation_depth = 4;
-        actions.push("Reducir abandono");
-      }
-
       await pool.query(`
         INSERT INTO tutor_config
         (product_name, max_questions, explanation_depth, pacing_level, updated_at)
@@ -3354,7 +3224,6 @@ app.get("/system/auto-evolve", async (req, res) => {
       results.push({
         product_name: f.product_name,
         avg_rating: f.avg_rating,
-        abandonment_rate,
         config,
         actions
       });
@@ -3362,7 +3231,6 @@ app.get("/system/auto-evolve", async (req, res) => {
 
     res.json({
       status: "auto_evolution_completed",
-      tutors_updated: results.length,
       details: results
     });
 
@@ -3379,13 +3247,35 @@ app.get("/system/auto-evolve", async (req, res) => {
 });
 
 
-/*=========================================================
-START
-==========≈================================================*/
+/* =========================================================
+📊 DASHBOARD
+========================================================= */
 
+app.get("/dashboard/feedback", async (req, res) => {
+
+  const data = await pool.query(`
+    SELECT category, COUNT(*) as total
+    FROM student_feedback
+    GROUP BY category
+  `);
+
+  res.send(`
+    <html>
+    <body style="font-family:Arial;padding:40px">
+      <h1>📊 Feedback</h1>
+      ${data.rows.map(d => `<p>${d.category}: ${d.total}</p>`).join("")}
+    </body>
+    </html>
+  `);
+});
+
+
+/* =========================================================
+START
+========================================================= */
 
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-console.log("MagicBank backend running on port", PORT);
+  console.log("MagicBank backend running on port", PORT);
 });
