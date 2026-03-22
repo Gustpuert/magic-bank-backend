@@ -3115,6 +3115,35 @@ app.get("/api/chat", async (req, res) => {
 
 });
 
+
+/* =========================================================
+TEMPORAL - INSTALAR TABLA USER_PREFERENCES
+========================================================= */
+
+app.get("/install-user-preferences", async (req, res) => {
+
+  try {
+
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_preferences (
+        email TEXT PRIMARY KEY,
+        preferences JSONB DEFAULT '{}'::jsonb,
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.send("Tabla user_preferences creada correctamente");
+
+  } catch (error) {
+
+    console.error("ERROR CREANDO TABLA:", error);
+
+    res.status(500).send("Error creando tabla user_preferences");
+
+  }
+
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
