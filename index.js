@@ -2923,10 +2923,8 @@ app.post("/api/chat", async (req, res) => {
 
 });
 
-
 /* =========================================================
-MAGICBANK CORE - CHAT ENGINE FINAL PRODUCCIÓN
-Sistema completo inteligente adaptativo
+🧠 MAGICBANK CHAT + AUTOEVOLUTION ENGINE (FULL PRODUCTION)
 ========================================================= */
 
 app.get("/api/chat", async (req, res) => {
@@ -2967,7 +2965,7 @@ app.get("/api/chat", async (req, res) => {
     const msg = message.toLowerCase().trim();
 
     /* =========================================================
-    PROTECCIÓN
+    PROTECCIÓN DEL SISTEMA
     ========================================================= */
 
     if (
@@ -2983,7 +2981,47 @@ app.get("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
-    🧠 DETECCIÓN DE FEEDBACK (SIMPLE Y SEGURA)
+    🧠 FEEDBACK IMPLÍCITO
+    ========================================================= */
+
+    function detectImplicitFeedback(text = "") {
+
+      const t = text.toLowerCase();
+
+      if (t.includes("rápido") || t.includes("rapido")) {
+        return { category: "speed", signal: "fast" };
+      }
+
+      if (t.includes("lento")) {
+        return { category: "speed", signal: "slow" };
+      }
+
+      if (t.includes("no entiendo") || t.includes("confuso")) {
+        return { category: "clarity", signal: "low" };
+      }
+
+      if (t.includes("muy técnico") || t.includes("complejo")) {
+        return { category: "difficulty", signal: "high" };
+      }
+
+      return null;
+    }
+
+    const implicit = detectImplicitFeedback(message);
+
+    if (implicit) {
+      await pool.query(`
+        INSERT INTO student_feedback (rating, improve, category, created_at)
+        VALUES ($1, $2, $3, NOW())
+      `, [
+        null,
+        message,
+        implicit.category
+      ]);
+    }
+
+    /* =========================================================
+    🧠 FEEDBACK EXPLÍCITO
     ========================================================= */
 
     const feedbackMatch = msg.match(/^([1-5])\s*(.*)$/);
@@ -2993,27 +3031,39 @@ app.get("/api/chat", async (req, res) => {
       const rating = parseInt(feedbackMatch[1]);
       const improve = feedbackMatch[2] || "";
 
-      /* ===== Guardar feedback ===== */
-
       await pool.query(`
         INSERT INTO student_feedback (rating, improve, category, created_at)
         VALUES ($1, $2, 'module', NOW())
       `, [rating, improve]);
 
-      /* ===== Ajuste individual (SUAVE, NO PEDAGOGÍA) ===== */
-
       if (rating <= 3) {
-        await pool.query(`
-          INSERT INTO user_preferences (email, preferences, updated_at)
-          VALUES ($1, $2, NOW())
-          ON CONFLICT (email)
-          DO UPDATE SET
-            preferences = user_preferences.preferences || $2,
-            updated_at = NOW()
-        `, [
-          user.email,
-          { pacing: "lento", clarity: "alta" }
-        ]);
+
+        let pref = {};
+
+        const t = improve.toLowerCase();
+
+        if (t.includes("rápido") || t.includes("rapido")) {
+          pref.pace = "lento";
+        }
+
+        if (t.includes("confuso") || t.includes("no entiendo")) {
+          pref.clarity = "alta";
+        }
+
+        if (t.includes("muchas preguntas")) {
+          pref.question_frequency = "baja";
+        }
+
+        if (Object.keys(pref).length > 0) {
+          await pool.query(`
+            INSERT INTO user_preferences (email, preferences, updated_at)
+            VALUES ($1, $2, NOW())
+            ON CONFLICT (email)
+            DO UPDATE SET
+              preferences = user_preferences.preferences || $2,
+              updated_at = NOW()
+          `, [user.email, pref]);
+        }
       }
 
       return res.json({
@@ -3022,7 +3072,7 @@ app.get("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
-    CONFIG GLOBAL (YA LO TENÍAS)
+    CONFIG GLOBAL
     ========================================================= */
 
     const configResult = await pool.query(`
@@ -3088,7 +3138,7 @@ app.get("/api/chat", async (req, res) => {
       : {};
 
     /* =========================================================
-    STABILITY ENGINE (YA LO TENÍAS)
+    STABILITY ENGINE
     ========================================================= */
 
     let stability = {
@@ -3150,7 +3200,7 @@ app.get("/api/chat", async (req, res) => {
     else if (stability.stability_score < 80) user_type = "confuso";
 
     /* =========================================================
-    RESPUESTA FINAL (RESPETA TODO)
+    RESPUESTA
     ========================================================= */
 
     function generateResponse(message, prefs, config) {
@@ -3197,6 +3247,138 @@ app.get("/api/chat", async (req, res) => {
   }
 
 });
+
+
+/* =========================================================
+🧠 AUTO-EVOLUCIÓN GLOBAL DEL SISTEMA
+========================================================= */
+
+app.get("/system/auto-evolve", async (req, res) => {
+
+  try {
+
+    const feedback = await pool.query(`
+
+      SELECT
+        product_name,
+        COUNT(*) as total_reviews,
+        ROUND(AVG(rating),2) as avg_rating,
+        COUNT(*) FILTER (WHERE category = 'interaction') as interaction_issues,
+        COUNT(*) FILTER (WHERE category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE category = 'clarity') as clarity_issues,
+        COUNT(*) FILTER (WHERE category = 'difficulty') as difficulty_issues
+      FROM student_feedback
+      GROUP BY product_name
+
+    `);
+
+    const abandonment = await pool.query(`
+
+      SELECT
+        product_name,
+        COUNT(*) as total_users,
+        ROUND(
+          COUNT(*) FILTER (
+            WHERE last_access < NOW() - INTERVAL '3 days'
+          ) * 100.0 / COUNT(*)
+        ,2) as abandonment_rate
+      FROM access_tokens
+      GROUP BY product_name
+
+    `);
+
+    const abandonmentMap = {};
+
+    abandonment.rows.forEach(a => {
+      abandonmentMap[a.product_name] = a.abandonment_rate;
+    });
+
+    let results = [];
+
+    for (const f of feedback.rows) {
+
+      let config = {
+        max_questions: 3,
+        explanation_depth: 3,
+        pacing_level: 3
+      };
+
+      let actions = [];
+
+      const abandonment_rate = abandonmentMap[f.product_name] || 0;
+
+      if (f.avg_rating < 4) {
+        config.explanation_depth = 4;
+        config.pacing_level = 2;
+        actions.push("Refuerzo general");
+      }
+
+      if (f.speed_issues > f.total_reviews * 0.3) {
+        config.pacing_level = 2;
+        actions.push("Reducir velocidad");
+      }
+
+      if (f.clarity_issues > f.total_reviews * 0.3) {
+        config.explanation_depth = 4;
+        actions.push("Mejorar claridad");
+      }
+
+      if (f.interaction_issues > f.total_reviews * 0.3) {
+        config.max_questions = 2;
+        actions.push("Reducir preguntas");
+      }
+
+      if (abandonment_rate > 30) {
+        config.pacing_level = 2;
+        config.explanation_depth = 4;
+        actions.push("Reducir abandono");
+      }
+
+      await pool.query(`
+        INSERT INTO tutor_config
+        (product_name, max_questions, explanation_depth, pacing_level, updated_at)
+        VALUES ($1,$2,$3,$4,NOW())
+        ON CONFLICT (product_name)
+        DO UPDATE SET
+          max_questions = EXCLUDED.max_questions,
+          explanation_depth = EXCLUDED.explanation_depth,
+          pacing_level = EXCLUDED.pacing_level,
+          updated_at = NOW()
+      `, [
+        f.product_name,
+        config.max_questions,
+        config.explanation_depth,
+        config.pacing_level
+      ]);
+
+      results.push({
+        product_name: f.product_name,
+        avg_rating: f.avg_rating,
+        abandonment_rate,
+        config,
+        actions
+      });
+    }
+
+    res.json({
+      status: "auto_evolution_completed",
+      tutors_updated: results.length,
+      details: results
+    });
+
+  } catch (error) {
+
+    console.error("AUTO EVOLUTION ERROR:", error);
+
+    res.status(500).json({
+      error: "Error en auto-evolución"
+    });
+
+  }
+
+});
+
+
 /*=========================================================
 START
 ==========≈================================================*/
