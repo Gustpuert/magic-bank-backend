@@ -2926,7 +2926,7 @@ app.post("/api/chat", async (req, res) => {
 
 
 /* =========================================================
-CHAT ENGINE + MEMORY + STYLE APPLICATION (PASO 2.4)
+CHAT ENGINE COMPLETO + DEBUG SEGURO
 ========================================================= */
 
 app.get("/api/chat", async (req, res) => {
@@ -2935,19 +2935,20 @@ app.get("/api/chat", async (req, res) => {
 
     const { token, message } = req.query;
 
+    // 1️⃣ VALIDACIÓN
     if (!token || !message) {
       return res.status(400).json({
         error: "Token y message requeridos"
       });
     }
 
-    // 🔐 TOKEN
+    // 2️⃣ HASH TOKEN
     const tokenHash = crypto
       .createHash("sha256")
       .update(token)
       .digest("hex");
 
-    // 👤 USUARIO
+    // 3️⃣ USUARIO
     const userResult = await pool.query(`
       SELECT email, product_name, area
       FROM access_tokens
@@ -2963,7 +2964,7 @@ app.get("/api/chat", async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // ⚙️ CONFIG BASE
+    // 4️⃣ CONFIG BASE
     const configResult = await pool.query(`
       SELECT *
       FROM tutor_config
@@ -2978,7 +2979,7 @@ app.get("/api/chat", async (req, res) => {
           pacing_level: 3
         };
 
-    // 🧠 DETECTOR
+    // 🧠 DETECTOR DE PREFERENCIAS
     function detectPreferences(text = "") {
 
       const t = text.toLowerCase();
@@ -3009,37 +3010,54 @@ app.get("/api/chat", async (req, res) => {
 
     const detectedPreferences = detectPreferences(message);
 
-    // 💾 GUARDAR
+    // 💾 GUARDAR (PROTEGIDO)
     if (Object.keys(detectedPreferences).length > 0) {
 
-      await pool.query(`
-        INSERT INTO user_preferences
-        (email, preferences, updated_at)
-        VALUES ($1, $2, NOW())
-        ON CONFLICT (email)
-        DO UPDATE SET
-          preferences = user_preferences.preferences || EXCLUDED.preferences,
-          updated_at = NOW()
-      `, [
-        user.email,
-        detectedPreferences
-      ]);
+      try {
+
+        await pool.query(`
+          INSERT INTO user_preferences
+          (email, preferences, updated_at)
+          VALUES ($1, $2, NOW())
+          ON CONFLICT (email)
+          DO UPDATE SET
+            preferences = user_preferences.preferences || EXCLUDED.preferences,
+            updated_at = NOW()
+        `, [
+          user.email,
+          detectedPreferences
+        ]);
+
+      } catch (dbError) {
+
+        console.error("⚠️ ERROR GUARDANDO PREFERENCIAS:", dbError.message);
+
+      }
 
     }
 
-    // 📥 CARGAR MEMORIA
-    const prefResult = await pool.query(`
-      SELECT preferences
-      FROM user_preferences
-      WHERE email = $1
-    `, [user.email]);
+    // 📥 CARGAR MEMORIA (PROTEGIDO)
+    let storedPreferences = {};
 
-    const storedPreferences = prefResult.rowCount
-      ? prefResult.rows[0].preferences
-      : {};
+    try {
 
-    // 🔥 APLICAR ESTILO
+      const prefResult = await pool.query(`
+        SELECT preferences
+        FROM user_preferences
+        WHERE email = $1
+      `, [user.email]);
 
+      if (prefResult.rowCount) {
+        storedPreferences = prefResult.rows[0].preferences;
+      }
+
+    } catch (dbError) {
+
+      console.error("⚠️ ERROR CARGANDO PREFERENCIAS:", dbError.message);
+
+    }
+
+    // 🧠 GENERADOR DE RESPUESTA
     function generateResponse(message, prefs) {
 
       let response = "";
@@ -3049,25 +3067,20 @@ app.get("/api/chat", async (req, res) => {
       const style = prefs.style || "mixto";
       const questions = prefs.question_frequency || "media";
 
-      // 🎯 BASE
       response = "Vamos a trabajar esto correctamente.";
 
-      // 🐢 ritmo lento
       if (pace === "lento") {
         response += "\n\nPrimero, entendamos algo clave.";
       }
 
-      // 🧠 técnico
       if (tone === "tecnico") {
         response += "\n\nLa clave está en cómo estás estructurando tu alimentación.";
       }
 
-      // 🔧 práctico
       if (style === "aplicado") {
         response += "\n\nEjemplo directo: proteína + vegetales como base.";
       }
 
-      // ❓ preguntas controladas
       if (questions !== "baja") {
         response += "\n\n¿Esto lo estás aplicando actualmente?";
       }
@@ -3077,8 +3090,8 @@ app.get("/api/chat", async (req, res) => {
 
     const finalResponse = generateResponse(message, storedPreferences);
 
-    // 📤 RESPUESTA
-    res.json({
+    // 📤 RESPUESTA FINAL
+    return res.json({
       message: finalResponse,
       metadata: {
         email: user.email,
@@ -3091,10 +3104,11 @@ app.get("/api/chat", async (req, res) => {
 
   } catch (error) {
 
-    console.error("CHAT ERROR:", error);
+    console.error("🔥 ERROR CRÍTICO CHAT:", error);
 
-    res.status(500).json({
-      error: "Error en chat"
+    return res.status(500).json({
+      error: error.message,
+      detail: "Revisar logs del backend"
     });
 
   }
