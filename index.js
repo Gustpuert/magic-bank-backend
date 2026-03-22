@@ -3270,6 +3270,97 @@ app.get("/api/chat", async (req, res) => {
 
 });
 
+/* =========================================================
+FEEDBACK INTELLIGENCE ENGINE
+Optimiza automáticamente el tutor según reviews
+========================================================= */
+
+app.get("/analytics/feedback-intelligence", async (req, res) => {
+
+  try {
+
+    const data = await pool.query(`
+      SELECT 
+        product_name,
+        COUNT(*) as total_reviews,
+        ROUND(AVG(rating),2) as avg_rating,
+        COUNT(*) FILTER (WHERE rating <= 3) as low_reviews
+      FROM student_feedback
+      GROUP BY product_name
+    `);
+
+    for (const row of data.rows) {
+
+      let config = {
+        max_questions: 3,
+        explanation_depth: 3,
+        pacing_level: 3
+      };
+
+      const avg = Number(row.avg_rating);
+      const lowRatio = row.low_reviews / row.total_reviews;
+
+      /* =========================================================
+      🔥 DECISIONES AUTOMÁTICAS
+      ========================================================= */
+
+      // muchos reviews negativos
+      if (lowRatio > 0.3) {
+        config.explanation_depth = 4;
+        config.pacing_level = 2;
+      }
+
+      // rating bajo general
+      if (avg < 3.5) {
+        config.max_questions = 2;
+        config.explanation_depth = 4;
+      }
+
+      // rating excelente
+      if (avg >= 4.5) {
+        config.max_questions = 4;
+        config.pacing_level = 4;
+      }
+
+      /* =========================================================
+      GUARDAR CONFIGURACIÓN
+      ========================================================= */
+
+      await pool.query(`
+        INSERT INTO tutor_config
+        (product_name, max_questions, explanation_depth, pacing_level, updated_at)
+        VALUES ($1,$2,$3,$4,NOW())
+        ON CONFLICT (product_name)
+        DO UPDATE SET
+          max_questions = EXCLUDED.max_questions,
+          explanation_depth = EXCLUDED.explanation_depth,
+          pacing_level = EXCLUDED.pacing_level,
+          updated_at = NOW()
+      `, [
+        row.product_name,
+        config.max_questions,
+        config.explanation_depth,
+        config.pacing_level
+      ]);
+
+    }
+
+    res.json({
+      status: "feedback_optimization_completed"
+    });
+
+  } catch (error) {
+
+    console.error("FEEDBACK ENGINE ERROR:", error);
+
+    res.status(500).json({
+      error: "Error en feedback intelligence"
+    });
+
+  }
+
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
