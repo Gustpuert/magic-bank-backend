@@ -2926,7 +2926,8 @@ app.post("/api/chat", async (req, res) => {
 
 
 /* =========================================================
-CHAT ENGINE COMPLETO + DEBUG SEGURO
+CHAT ENGINE PRODUCTION
+Memory + Stability + Classification
 ========================================================= */
 
 app.get("/api/chat", async (req, res) => {
@@ -2935,20 +2936,21 @@ app.get("/api/chat", async (req, res) => {
 
     const { token, message } = req.query;
 
-    // 1️⃣ VALIDACIÓN
     if (!token || !message) {
       return res.status(400).json({
         error: "Token y message requeridos"
       });
     }
 
-    // 2️⃣ HASH TOKEN
+    /* =========================================================
+    VALIDACIÓN DE USUARIO
+    ========================================================= */
+
     const tokenHash = crypto
       .createHash("sha256")
       .update(token)
       .digest("hex");
 
-    // 3️⃣ USUARIO
     const userResult = await pool.query(`
       SELECT email, product_name, area
       FROM access_tokens
@@ -2964,7 +2966,10 @@ app.get("/api/chat", async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // 4️⃣ CONFIG BASE
+    /* =========================================================
+    CONFIGURACIÓN BASE
+    ========================================================= */
+
     const configResult = await pool.query(`
       SELECT *
       FROM tutor_config
@@ -2979,7 +2984,10 @@ app.get("/api/chat", async (req, res) => {
           pacing_level: 3
         };
 
-    // 🧠 DETECTOR DE PREFERENCIAS
+    /* =========================================================
+    DETECTOR DE PREFERENCIAS
+    ========================================================= */
+
     function detectPreferences(text = "") {
 
       const t = text.toLowerCase();
@@ -3010,137 +3018,205 @@ app.get("/api/chat", async (req, res) => {
 
     const detectedPreferences = detectPreferences(message);
 
-    // 💾 GUARDAR (PROTEGIDO)
+    /* =========================================================
+    GUARDAR PREFERENCIAS
+    ========================================================= */
+
     if (Object.keys(detectedPreferences).length > 0) {
 
-      try {
-
-        await pool.query(`
-          INSERT INTO user_preferences
-          (email, preferences, updated_at)
-          VALUES ($1, $2, NOW())
-          ON CONFLICT (email)
-          DO UPDATE SET
-            preferences = user_preferences.preferences || EXCLUDED.preferences,
-            updated_at = NOW()
-        `, [
-          user.email,
-          detectedPreferences
-        ]);
-
-      } catch (dbError) {
-
-        console.error("⚠️ ERROR GUARDANDO PREFERENCIAS:", dbError.message);
-
-      }
+      await pool.query(`
+        INSERT INTO user_preferences (email, preferences, updated_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (email)
+        DO UPDATE SET
+          preferences = COALESCE(user_preferences.preferences, '{}'::jsonb) || EXCLUDED.preferences,
+          updated_at = NOW()
+      `, [
+        user.email,
+        detectedPreferences
+      ]);
 
     }
 
-    // 📥 CARGAR MEMORIA (PROTEGIDO)
-    let storedPreferences = {};
+    /* =========================================================
+    CARGAR PREFERENCIAS
+    ========================================================= */
 
-    try {
+    const prefResult = await pool.query(`
+      SELECT preferences
+      FROM user_preferences
+      WHERE email = $1
+    `, [user.email]);
 
-      const prefResult = await pool.query(`
-        SELECT preferences
-        FROM user_preferences
-        WHERE email = $1
-      `, [user.email]);
+    const storedPreferences = prefResult.rowCount
+      ? prefResult.rows[0].preferences
+      : {};
 
-      if (prefResult.rowCount) {
-        storedPreferences = prefResult.rows[0].preferences;
+    /* =========================================================
+    STABILITY ENGINE
+    ========================================================= */
+
+    let stability = {
+      change_count: 0,
+      stability_score: 100,
+      last_preferences: {}
+    };
+
+    const behaviorResult = await pool.query(`
+      SELECT *
+      FROM user_behavior
+      WHERE email = $1
+    `, [user.email]);
+
+    if (behaviorResult.rowCount) {
+      stability = behaviorResult.rows[0];
+    }
+
+    let contradiction = false;
+
+    if (Object.keys(detectedPreferences).length > 0) {
+
+      for (const key in detectedPreferences) {
+
+        if (
+          stability.last_preferences &&
+          stability.last_preferences[key] &&
+          stability.last_preferences[key] !== detectedPreferences[key]
+        ) {
+          contradiction = true;
+        }
+
       }
 
-    } catch (dbError) {
+      if (contradiction) {
+        stability.change_count += 1;
+        stability.stability_score = Math.max(0, stability.stability_score - 10);
+      }
 
-      console.error("⚠️ ERROR CARGANDO PREFERENCIAS:", dbError.message);
+      await pool.query(`
+        INSERT INTO user_behavior (email, change_count, stability_score, last_preferences, updated_at)
+        VALUES ($1, $2, $3, $4, NOW())
+        ON CONFLICT (email)
+        DO UPDATE SET
+          change_count = $2,
+          stability_score = $3,
+          last_preferences = $4,
+          updated_at = NOW()
+      `, [
+        user.email,
+        stability.change_count,
+        stability.stability_score,
+        detectedPreferences
+      ]);
 
     }
 
-    // 🧠 GENERADOR DE RESPUESTA
+    /* =========================================================
+    CLASIFICACIÓN DE USUARIO
+    ========================================================= */
+
+    let user_type = "ideal";
+
+    if (stability.stability_score < 50) {
+      user_type = "riesgoso";
+    } else if (stability.stability_score < 80) {
+      user_type = "confuso";
+    }
+
+    /* =========================================================
+    PREFERENCIAS FINALES
+    ========================================================= */
+
+    let finalPreferences = { ...storedPreferences };
+
+    // Override por estabilidad
+    if (stability.stability_score < 70) {
+      finalPreferences = {
+        pace: "medio",
+        tone: "equilibrado",
+        style: "mixto",
+        question_frequency: "media"
+      };
+    }
+
+    // Override por tipo de usuario
+    if (user_type === "confuso") {
+      finalPreferences = {
+        pace: "medio",
+        tone: "equilibrado",
+        style: "guiado",
+        question_frequency: "media"
+      };
+    }
+
+    if (user_type === "riesgoso") {
+      finalPreferences = {
+        pace: "medio",
+        tone: "neutro",
+        style: "controlado",
+        question_frequency: "baja"
+      };
+    }
+
+    /* =========================================================
+    GENERADOR DE RESPUESTA
+    ========================================================= */
+
     function generateResponse(message, prefs) {
 
-      let response = "";
+      let response = "Vamos a trabajar esto correctamente.";
 
-      const pace = prefs.pace || "medio";
-      const tone = prefs.tone || "equilibrado";
-      const style = prefs.style || "mixto";
-      const questions = prefs.question_frequency || "media";
-
-      response = "Vamos a trabajar esto correctamente.";
-
-      if (pace === "lento") {
+      if (prefs.pace === "lento") {
         response += "\n\nPrimero, entendamos algo clave.";
       }
 
-      if (tone === "tecnico") {
+      if (prefs.tone === "tecnico") {
         response += "\n\nLa clave está en cómo estás estructurando tu alimentación.";
       }
 
-      if (style === "aplicado") {
+      if (prefs.style === "aplicado") {
         response += "\n\nEjemplo directo: proteína + vegetales como base.";
       }
 
-      if (questions !== "baja") {
+      if (prefs.style === "guiado") {
+        response += "\n\nVamos paso a paso para evitar confusión.";
+      }
+
+      if (prefs.style === "controlado") {
+        response += "\n\nNos mantendremos en un enfoque claro y estructurado.";
+      }
+
+      if (prefs.question_frequency !== "baja") {
         response += "\n\n¿Esto lo estás aplicando actualmente?";
       }
 
       return response;
     }
 
-    const finalResponse = generateResponse(message, storedPreferences);
+    const finalResponse = generateResponse(message, finalPreferences);
 
-    // 📤 RESPUESTA FINAL
+    /* =========================================================
+    RESPUESTA FINAL
+    ========================================================= */
+
     return res.json({
       message: finalResponse,
       metadata: {
-        email: user.email,
         product: user.product_name,
-        config,
         detected_preferences: detectedPreferences,
-        stored_preferences: storedPreferences
+        stored_preferences: storedPreferences,
+        stability,
+        user_type
       }
     });
 
   } catch (error) {
 
-    console.error("🔥 ERROR CRÍTICO CHAT:", error);
+    console.error("CHAT ERROR:", error);
 
     return res.status(500).json({
-      error: error.message,
-      detail: "Revisar logs del backend"
+      error: "Error en chat"
     });
-
-  }
-
-});
-
-
-/* =========================================================
-TEMPORAL - INSTALAR STABILITY ENGINE
-========================================================= */
-
-app.get("/install-stability-engine", async (req, res) => {
-
-  try {
-
-    await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_behavior (
-        email TEXT PRIMARY KEY,
-        change_count INTEGER DEFAULT 0,
-        last_preferences JSONB DEFAULT '{}'::jsonb,
-        stability_score INTEGER DEFAULT 100,
-        updated_at TIMESTAMP DEFAULT NOW()
-      );
-    `);
-
-    res.send("Tabla user_behavior creada correctamente");
-
-  } catch (error) {
-
-    console.error("ERROR CREANDO STABILITY ENGINE:", error);
-
-    res.status(500).send("Error creando tabla user_behavior");
 
   }
 
