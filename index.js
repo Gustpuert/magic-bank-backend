@@ -2832,7 +2832,24 @@ app.get("/api/catalogo-publico", (req, res) => {
 
   }
 });
+app.post("/api/collect-review", (req, res) => {
 
+  const { token, rating, useful, improve } = req.body;
+
+  if (!token || !rating) {
+    return res.status(400).json({ error: "Token y rating requeridos" });
+  }
+
+  console.log("REVIEW RECIBIDA:");
+  console.log({
+    token,
+    rating,
+    useful,
+    improve
+  });
+
+  return res.json({ status: "review_saved" });
+});
 /*=========================================================
 START
 ==========≈================================================*/
