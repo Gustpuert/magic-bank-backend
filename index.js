@@ -2926,7 +2926,7 @@ app.post("/api/chat", async (req, res) => {
 
 
 /* =========================================================
-CHAT ENGINE (PRODUCTION - GET) + PREFERENCE DETECTOR
+CHAT ENGINE + MEMORY + STYLE APPLICATION (PASO 2.4)
 ========================================================= */
 
 app.get("/api/chat", async (req, res) => {
@@ -2941,13 +2941,13 @@ app.get("/api/chat", async (req, res) => {
       });
     }
 
-    // 🔐 HASH TOKEN
+    // 🔐 TOKEN
     const tokenHash = crypto
       .createHash("sha256")
       .update(token)
       .digest("hex");
 
-    // 🔍 OBTENER USUARIO
+    // 👤 USUARIO
     const userResult = await pool.query(`
       SELECT email, product_name, area
       FROM access_tokens
@@ -2963,7 +2963,7 @@ app.get("/api/chat", async (req, res) => {
 
     const user = userResult.rows[0];
 
-    // ⚙️ CONFIG DEL TUTOR
+    // ⚙️ CONFIG BASE
     const configResult = await pool.query(`
       SELECT *
       FROM tutor_config
@@ -2978,24 +2978,20 @@ app.get("/api/chat", async (req, res) => {
           pacing_level: 3
         };
 
-    // 🧠 DETECTOR DE PREFERENCIAS
+    // 🧠 DETECTOR
     function detectPreferences(text = "") {
 
       const t = text.toLowerCase();
-
       const preferences = {};
 
-      // velocidad
       if (t.includes("rapido") || t.includes("despacio")) {
         preferences.pace = "lento";
       }
 
-      // preguntas
       if (t.includes("muchas preguntas") || t.includes("preguntas mucho")) {
         preferences.question_frequency = "baja";
       }
 
-      // tono
       if (t.includes("cientifico") || t.includes("tecnico")) {
         preferences.tone = "tecnico";
       }
@@ -3004,7 +3000,6 @@ app.get("/api/chat", async (req, res) => {
         preferences.tone = "casual";
       }
 
-      // estilo
       if (t.includes("practico")) {
         preferences.style = "aplicado";
       }
@@ -3012,20 +3007,85 @@ app.get("/api/chat", async (req, res) => {
       return preferences;
     }
 
-    // 🔥 EJECUTAR DETECTOR
     const detectedPreferences = detectPreferences(message);
 
-    // 🧠 RESPUESTA BASE
-    const responseText = `Sistema activo. Recibí: "${message}"`;
+    // 💾 GUARDAR
+    if (Object.keys(detectedPreferences).length > 0) {
 
-    // 📤 RESPUESTA FINAL
+      await pool.query(`
+        INSERT INTO user_preferences
+        (email, preferences, updated_at)
+        VALUES ($1, $2, NOW())
+        ON CONFLICT (email)
+        DO UPDATE SET
+          preferences = user_preferences.preferences || EXCLUDED.preferences,
+          updated_at = NOW()
+      `, [
+        user.email,
+        detectedPreferences
+      ]);
+
+    }
+
+    // 📥 CARGAR MEMORIA
+    const prefResult = await pool.query(`
+      SELECT preferences
+      FROM user_preferences
+      WHERE email = $1
+    `, [user.email]);
+
+    const storedPreferences = prefResult.rowCount
+      ? prefResult.rows[0].preferences
+      : {};
+
+    // 🔥 APLICAR ESTILO
+
+    function generateResponse(message, prefs) {
+
+      let response = "";
+
+      const pace = prefs.pace || "medio";
+      const tone = prefs.tone || "equilibrado";
+      const style = prefs.style || "mixto";
+      const questions = prefs.question_frequency || "media";
+
+      // 🎯 BASE
+      response = "Vamos a trabajar esto correctamente.";
+
+      // 🐢 ritmo lento
+      if (pace === "lento") {
+        response += "\n\nPrimero, entendamos algo clave.";
+      }
+
+      // 🧠 técnico
+      if (tone === "tecnico") {
+        response += "\n\nLa clave está en cómo estás estructurando tu alimentación.";
+      }
+
+      // 🔧 práctico
+      if (style === "aplicado") {
+        response += "\n\nEjemplo directo: proteína + vegetales como base.";
+      }
+
+      // ❓ preguntas controladas
+      if (questions !== "baja") {
+        response += "\n\n¿Esto lo estás aplicando actualmente?";
+      }
+
+      return response;
+    }
+
+    const finalResponse = generateResponse(message, storedPreferences);
+
+    // 📤 RESPUESTA
     res.json({
-      message: responseText,
+      message: finalResponse,
       metadata: {
         email: user.email,
         product: user.product_name,
         config,
-        detected_preferences: detectedPreferences
+        detected_preferences: detectedPreferences,
+        stored_preferences: storedPreferences
       }
     });
 
