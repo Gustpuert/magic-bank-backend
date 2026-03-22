@@ -3117,28 +3117,30 @@ app.get("/api/chat", async (req, res) => {
 
 
 /* =========================================================
-TEMPORAL - INSTALAR TABLA USER_PREFERENCES
+TEMPORAL - INSTALAR STABILITY ENGINE
 ========================================================= */
 
-app.get("/install-user-preferences", async (req, res) => {
+app.get("/install-stability-engine", async (req, res) => {
 
   try {
 
     await pool.query(`
-      CREATE TABLE IF NOT EXISTS user_preferences (
+      CREATE TABLE IF NOT EXISTS user_behavior (
         email TEXT PRIMARY KEY,
-        preferences JSONB DEFAULT '{}'::jsonb,
+        change_count INTEGER DEFAULT 0,
+        last_preferences JSONB DEFAULT '{}'::jsonb,
+        stability_score INTEGER DEFAULT 100,
         updated_at TIMESTAMP DEFAULT NOW()
       );
     `);
 
-    res.send("Tabla user_preferences creada correctamente");
+    res.send("Tabla user_behavior creada correctamente");
 
   } catch (error) {
 
-    console.error("ERROR CREANDO TABLA:", error);
+    console.error("ERROR CREANDO STABILITY ENGINE:", error);
 
-    res.status(500).send("Error creando tabla user_preferences");
+    res.status(500).send("Error creando tabla user_behavior");
 
   }
 
