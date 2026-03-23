@@ -2,7 +2,6 @@
 01 - CONFIGURACIÓN GLOBAL DEL SISTEMA
 Carga variables de entorno y dependencias principales
 ========================================================= */
-
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -13,6 +12,8 @@ import pkg from "pg";
 import cors from "cors";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
+import rateLimit from "express-rate-limit";
+
 
 const { Pool } = pkg;
 
@@ -27,7 +28,7 @@ Configuración base Express
 app.use(cors());
 app.use(express.json());
 
-import rateLimit from "express-rate-limit";
+
 
 /* =========================================================
 🛡 RATE LIMIT GLOBAL
@@ -57,17 +58,7 @@ const chatLimiter = rateLimit({
   }
 });
 
-/* =========================================================
-🛡 RATE LIMIT CHAT (CRÍTICO)
-========================================================= */
 
-const chatLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 20, // máximo 20 mensajes por minuto
-  message: {
-    error: "Demasiados mensajes. Espera un momento."
-  }
-});
 
 
 /* =========================================================
