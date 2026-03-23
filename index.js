@@ -3177,11 +3177,17 @@ app.get("/api/chat", async (req, res) => {
     const implicitCategory = detectImplicitFeedback(msg);
 
     if (implicitCategory) {
-      await pool.query(`
-        INSERT INTO student_feedback (rating, improve, category, created_at, product_name)
-        VALUES ($1,$2,$3,NOW(),$4)
-      `, [null, message, implicitCategory, user.product_name]);
-    }
+  await pool.query(`
+    INSERT INTO learning_signals
+    (email, product_name, category, message, created_at)
+    VALUES ($1,$2,$3,$4,NOW())
+  `, [
+    user.email,
+    user.product_name,
+    implicitCategory,
+    message
+  ]);
+}
 
     /* =========================================================
     🧠 FEEDBACK EXPLÍCITO
