@@ -96,104 +96,197 @@ res.status(500).send("Error analytics");
 }
 });
 
-/* =========================================================
-06 - DASHBOARD VISUAL
-Panel básico para monitoreo rápido
-========================================================= */
+app.get("/dashboard/master", async (req, res) => {
 
-app.get("/dashboard", async (req, res) => {
   try {
 
-    const totalAlumnos = await pool.query(`
+    /* ===============================
+    📊 RESUMEN GENERAL
+    =============================== */
+
+    const totalUsers = await pool.query(`
       SELECT COUNT(*) FROM access_tokens
     `);
 
-    const cursosTop = await pool.query(`
-      SELECT product_name, COUNT(*) as total
+    const totalFeedback = await pool.query(`
+      SELECT COUNT(*) FROM student_feedback
+    `);
+
+    /* ===============================
+    ⭐ RATING POR PRODUCTO
+    =============================== */
+
+    const rating = await pool.query(`
+      SELECT
+        product_name,
+        COUNT(*) as total_reviews,
+        ROUND(AVG(rating),2) as avg_rating
+      FROM student_feedback
+      WHERE rating IS NOT NULL
+      GROUP BY product_name
+      ORDER BY avg_rating DESC
+    `);
+
+    /* ===============================
+    🧠 PROBLEMAS DETECTADOS
+    =============================== */
+
+    const issues = await pool.query(`
+      SELECT
+        product_name,
+        COUNT(*) FILTER (WHERE category = 'clarity') as clarity,
+        COUNT(*) FILTER (WHERE category = 'speed') as speed,
+        COUNT(*) FILTER (WHERE category = 'interaction') as interaction,
+        COUNT(*) FILTER (WHERE category = 'difficulty') as difficulty
+      FROM student_feedback
+      GROUP BY product_name
+    `);
+
+    /* ===============================
+    🚪 ABANDONO
+    =============================== */
+
+    const abandonment = await pool.query(`
+      SELECT
+        product_name,
+        COUNT(*) as total,
+        COUNT(*) FILTER (
+          WHERE last_access < NOW() - INTERVAL '3 days'
+        ) as abandoned
       FROM access_tokens
       GROUP BY product_name
-      ORDER BY total DESC
-      LIMIT 5
     `);
 
-    const ventasPorDia = await pool.query(`
-      SELECT DATE(created_at) as fecha, COUNT(*) as total
-      FROM access_tokens
-      GROUP BY DATE(created_at)
-      ORDER BY fecha DESC
-      LIMIT 7
+    /* ===============================
+    🧠 CONFIG ACTUAL DEL TUTOR
+    =============================== */
+
+    const config = await pool.query(`
+      SELECT *
+      FROM tutor_config
+      ORDER BY updated_at DESC
     `);
+
+    /* ===============================
+    🎯 MOTOR DE DECISIONES (CLAVE)
+    =============================== */
+
+    function generateActions(r) {
+
+      let actions = [];
+
+      if (r.avg_rating && r.avg_rating < 4) {
+        actions.push("🔴 Revisar tutor completo");
+      }
+
+      if (r.clarity > r.total_reviews * 0.3) {
+        actions.push("🧠 Mejorar claridad (más ejemplos)");
+      }
+
+      if (r.speed > r.total_reviews * 0.3) {
+        actions.push("⚡ Reducir velocidad del tutor");
+      }
+
+      if (r.interaction > r.total_reviews * 0.3) {
+        actions.push("❓ Reducir preguntas");
+      }
+
+      if (r.difficulty > r.total_reviews * 0.3) {
+        actions.push("📉 Simplificar contenido");
+      }
+
+      return actions;
+    }
+
+    /* ===============================
+    🔥 HTML FINAL (LIMPIO Y ÚTIL)
+    =============================== */
 
     res.send(`
-      <html>
-      <head>
-        <title>MagicBank Dashboard</title>
-        <style>
-          body {
-            font-family: Inter, sans-serif;
-            background:#0f172a;
-            color:white;
-            padding:40px;
-          }
-          h1 { color:#D6B15A; }
-          .card {
-            background: rgba(255,255,255,0.05);
-            padding:20px;
-            border-radius:12px;
-            margin-bottom:20px;
-          }
-          table {
-            width:100%;
-            border-collapse:collapse;
-          }
-          td {
-            padding:8px;
-            border-bottom:1px solid rgba(255,255,255,0.1);
-          }
-        </style>
-      </head>
+    <html>
+    <head>
+      <title>MagicBank Master Dashboard</title>
+      <style>
+        body { font-family: Inter; background:#0f172a; color:white; padding:30px; }
+        h1 { color:#D6B15A; }
+        .card {
+          background:#111827;
+          padding:20px;
+          margin-bottom:20px;
+          border-radius:12px;
+        }
+        .gold { color:#D6B15A; }
+        .warn { color:#f87171; }
+      </style>
+    </head>
 
-      <body>
+    <body>
 
-        <h1>📊 MagicBank Dashboard</h1>
+      <h1>🎓 MagicBank Master Dashboard</h1>
 
-        <div class="card">
-          <h3>Total alumnos</h3>
-          <p>${totalAlumnos.rows[0].count}</p>
-        </div>
+      <div class="card">
+        <h3>Resumen</h3>
+        <p>Usuarios: ${totalUsers.rows[0].count}</p>
+        <p>Feedback total: ${totalFeedback.rows[0].count}</p>
+      </div>
 
-        <div class="card">
-          <h3>Top cursos</h3>
-          <table>
-            ${cursosTop.rows.map(c => `
-              <tr>
-                <td>${c.product_name}</td>
-                <td>${c.total}</td>
-              </tr>
-            `).join("")}
-          </table>
-        </div>
+      <div class="card">
+        <h3>⭐ Rating por Tutor</h3>
+        ${rating.rows.map(r => `
+          <p>
+            <span class="gold">${r.product_name}</span> —
+            ${r.avg_rating || "N/A"} ⭐ (${r.total_reviews})
+          </p>
+        `).join("")}
+      </div>
 
-        <div class="card">
-          <h3>Ventas últimos días</h3>
-          <table>
-            ${ventasPorDia.rows.map(v => `
-              <tr>
-                <td>${v.fecha}</td>
-                <td>${v.total}</td>
-              </tr>
-            `).join("")}
-          </table>
-        </div>
+      <div class="card">
+        <h3>🧠 Problemas Detectados</h3>
+        ${issues.rows.map(r => `
+          <p>
+            <span class="gold">${r.product_name}</span><br>
+            Claridad: ${r.clarity} |
+            Velocidad: ${r.speed} |
+            Interacción: ${r.interaction} |
+            Dificultad: ${r.difficulty}
+          </p>
+        `).join("")}
+      </div>
 
-      </body>
-      </html>
+      <div class="card">
+        <h3>🚪 Abandono</h3>
+        ${abandonment.rows.map(r => `
+          <p>
+            <span class="gold">${r.product_name}</span> —
+            ${r.abandoned} / ${r.total}
+          </p>
+        `).join("")}
+      </div>
+
+      <div class="card">
+        <h3>⚙️ Configuración Activa</h3>
+        ${config.rows.map(c => `
+          <p>
+            <span class="gold">${c.product_name}</span> —
+            Q:${c.max_questions} |
+            Depth:${c.explanation_depth} |
+            Pace:${c.pacing_level}
+          </p>
+        `).join("")}
+      </div>
+
+    </body>
+    </html>
     `);
 
   } catch (error) {
-    console.error(error);
-    res.status(500).send("Error dashboard");
+
+    console.error("DASHBOARD ERROR:", error);
+
+    res.status(500).send("Error cargando dashboard");
+
   }
+
 });
 
 
@@ -3601,81 +3694,7 @@ app.get("/system/auto-evolve", async (req, res) => {
 });
 
 
-/* =========================================================
-📊 DASHBOARD
-========================================================= */
 
-app.get("/dashboard/feedback", async (req, res) => {
-
-  try {
-
-    const data = await pool.query(`
-      SELECT
-        product_name,
-        COUNT(*) as total,
-        ROUND(AVG(rating),2) as avg_rating
-      FROM student_feedback
-      GROUP BY product_name
-      ORDER BY avg_rating DESC
-    `);
-
-    res.send(`
-      <html>
-      <head>
-        <title>Feedback Dashboard</title>
-        <style>
-          body {
-            font-family: Inter, sans-serif;
-            background:#0f172a;
-            color:white;
-            padding:40px;
-          }
-          h1 { color:#D6B15A; }
-          .card {
-            background: rgba(255,255,255,0.05);
-            padding:20px;
-            border-radius:12px;
-          }
-          table {
-            width:100%;
-            border-collapse:collapse;
-          }
-          td {
-            padding:10px;
-            border-bottom:1px solid rgba(255,255,255,0.1);
-          }
-        </style>
-      </head>
-
-      <body>
-
-        <h1>⭐ Feedback de Tutores</h1>
-
-        <div class="card">
-          <table>
-            ${data.rows.map(d => `
-              <tr>
-                <td>${d.product_name}</td>
-                <td>${d.avg_rating || 0}</td>
-                <td>${d.total} reviews</td>
-              </tr>
-            `).join("")}
-          </table>
-        </div>
-
-      </body>
-      </html>
-    `);
-
-  } catch (error) {
-
-    console.error(error);
-
-    res.status(500).send("Error dashboard feedback");
-
-  }
-
-});
 
 /* =========================================================
 START
