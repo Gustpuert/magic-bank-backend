@@ -27,6 +27,47 @@ Configuración base Express
 app.use(cors());
 app.use(express.json());
 
+import rateLimit from "express-rate-limit";
+
+/* =========================================================
+🛡 RATE LIMIT GLOBAL
+========================================================= */
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minuto
+  max: 60, // 60 requests por IP
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: {
+    error: "Demasiadas solicitudes. Intenta de nuevo en un minuto."
+  }
+});
+
+app.use(limiter);
+
+/* =========================================================
+🛡 RATE LIMIT CHAT (CRÍTICO)
+========================================================= */
+
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20, // máximo 20 mensajes por minuto
+  message: {
+    error: "Demasiados mensajes. Espera un momento."
+  }
+});
+
+/* =========================================================
+🛡 RATE LIMIT CHAT (CRÍTICO)
+========================================================= */
+
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20, // máximo 20 mensajes por minuto
+  message: {
+    error: "Demasiados mensajes. Espera un momento."
+  }
+});
 /* =========================================================
 03 - CONEXIÓN BASE DE DATOS
 PostgreSQL Railway
@@ -2920,7 +2961,7 @@ app.get("/api/catalogo-publico", (req, res) => {
 🧠 CHAT POST (PRODUCCIÓN REAL - CORREGIDO)
 ========================================================= */
 
-app.post("/api/chat", async (req, res) => {
+app.post("/api/chat", chatLimiter, async (req, res) => {
 
   try {
 
