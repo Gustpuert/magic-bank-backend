@@ -2833,6 +2833,369 @@ app.get("/api/catalogo-publico", (req, res) => {
   }
 });
 
+
+/* =========================================================
+BLOQUE 36 - FEEDBACK + ANALYTICS + OPTIMIZACIÓN (DEPLOY SAFE)
+NO ROMPE BACKEND HISTÓRICO
+USA TABLAS EXISTENTES
+========================================================= */
+
+/* =========================================================
+36.1 - GUARDAR FEEDBACK (CORREGIDO)
+========================================================= */
+
+app.post("/api/collect-review", async (req, res) => {
+
+  try {
+
+    const {
+      token,
+      rating,
+      useful,
+      improve
+    } = req.body;
+
+    if (!token || !rating) {
+      return res.status(400).json({
+        error: "Token y rating requeridos"
+      });
+    }
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(String(token).trim())
+      .digest("hex");
+
+    const access = await pool.query(`
+      SELECT email, product_name
+      FROM access_tokens
+      WHERE token = $1
+    `, [tokenHash]);
+
+    if (!access.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido"
+      });
+    }
+
+    const { email, product_name } = access.rows[0];
+
+    function classifyFeedback(text = "") {
+      const t = text.toLowerCase();
+
+      if (t.includes("difícil") || t.includes("hard")) return "difficulty";
+      if (t.includes("rápido") || t.includes("lento")) return "speed";
+      if (t.includes("confuso") || t.includes("claro")) return "clarity";
+      if (t.includes("pregunta")) return "interaction";
+
+      return "content";
+    }
+
+    const category = classifyFeedback(improve || "");
+
+    await pool.query(`
+      INSERT INTO student_feedback
+      (email, product_name, rating, useful, improve, category, created_at)
+      VALUES ($1,$2,$3,$4,$5,$6,NOW())
+    `, [
+      email,
+      product_name,
+      rating,
+      useful || "",
+      improve || "",
+      category
+    ]);
+
+    res.json({
+      status: "review_saved"
+    });
+
+  } catch (error) {
+
+    console.error("ERROR REVIEW:", error);
+
+    res.status(500).json({
+      error: "Error guardando review"
+    });
+
+  }
+
+});
+
+/* =========================================================
+36.2 - ANALYTICS REVIEWS
+========================================================= */
+
+app.get("/analytics/reviews", async (req, res) => {
+
+  try {
+
+    const result = await pool.query(`
+      SELECT
+        product_name,
+        COUNT(*) as total_reviews,
+        ROUND(AVG(rating),2) as avg_rating,
+        COUNT(*) FILTER (WHERE category = 'clarity') as clarity_issues,
+        COUNT(*) FILTER (WHERE category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE category = 'interaction') as interaction_issues,
+        COUNT(*) FILTER (WHERE category = 'difficulty') as difficulty_issues
+      FROM student_feedback
+      GROUP BY product_name
+      ORDER BY avg_rating DESC
+    `);
+
+    res.json({
+      analytics: result.rows
+    });
+
+  } catch (error) {
+
+    console.error("ERROR ANALYTICS:", error);
+
+    res.status(500).json({
+      error: "Error obteniendo analytics"
+    });
+
+  }
+
+});
+
+/* =========================================================
+36.3 - RANKING
+========================================================= */
+
+app.get("/analytics/ranking", async (req, res) => {
+
+  try {
+
+    const result = await pool.query(`
+      SELECT
+        product_name,
+        COUNT(*) as total_reviews,
+        ROUND(AVG(rating),2) as avg_rating,
+        RANK() OVER (ORDER BY AVG(rating) DESC) as ranking_position
+      FROM student_feedback
+      GROUP BY product_name
+      HAVING COUNT(*) >= 3
+      ORDER BY avg_rating DESC
+    `);
+
+    res.json({
+      ranking: result.rows
+    });
+
+  } catch (error) {
+
+    console.error("ERROR RANKING:", error);
+
+    res.status(500).json({
+      error: "Error obteniendo ranking"
+    });
+
+  }
+
+});
+
+/* =========================================================
+36.4 - ABANDONO (USA access_tokens EXISTENTE)
+========================================================= */
+
+app.get("/analytics/abandonment", async (req, res) => {
+
+  try {
+
+    const result = await pool.query(`
+      SELECT
+        product_name,
+        COUNT(*) as total_users,
+        COUNT(*) FILTER (
+          WHERE last_access < NOW() - INTERVAL '3 days'
+        ) as abandoned_users,
+        ROUND(
+          COUNT(*) FILTER (
+            WHERE last_access < NOW() - INTERVAL '3 days'
+          ) * 100.0 / COUNT(*)
+        ,2) as abandonment_rate
+      FROM access_tokens
+      GROUP BY product_name
+      ORDER BY abandonment_rate DESC
+    `);
+
+    res.json({
+      abandonment: result.rows
+    });
+
+  } catch (error) {
+
+    console.error("ERROR ABANDONMENT:", error);
+
+    res.status(500).json({
+      error: "Error analizando abandono"
+    });
+
+  }
+
+});
+
+/* =========================================================
+36.5 - OPTIMIZACIÓN (SAFE JOIN)
+========================================================= */
+
+app.get("/analytics/optimization", async (req, res) => {
+
+  try {
+
+    const result = await pool.query(`
+      SELECT
+        f.product_name,
+        COUNT(*) as total_reviews,
+        ROUND(AVG(f.rating),2) as avg_rating,
+        COUNT(*) FILTER (WHERE f.category = 'interaction') as interaction_issues,
+        COUNT(*) FILTER (WHERE f.category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE f.category = 'clarity') as clarity_issues,
+        COALESCE(d.abandonment_rate,0) as abandonment_rate
+      FROM student_feedback f
+      LEFT JOIN (
+        SELECT
+          product_name,
+          ROUND(
+            COUNT(*) FILTER (
+              WHERE last_access < NOW() - INTERVAL '3 days'
+            ) * 100.0 / COUNT(*)
+          ,2) as abandonment_rate
+        FROM access_tokens
+        GROUP BY product_name
+      ) d
+      ON d.product_name = f.product_name
+      GROUP BY f.product_name, d.abandonment_rate
+    `);
+
+    const analysis = result.rows.map(r => {
+
+      let actions = [];
+
+      if (r.avg_rating < 4) {
+        actions.push("Revisar tutor completo");
+      }
+
+      if (r.abandonment_rate > 30) {
+        actions.push("Mejorar onboarding");
+      }
+
+      if (r.interaction_issues > r.total_reviews * 0.3) {
+        actions.push("Reducir preguntas");
+      }
+
+      if (r.speed_issues > r.total_reviews * 0.3) {
+        actions.push("Ajustar ritmo");
+      }
+
+      if (r.clarity_issues > r.total_reviews * 0.3) {
+        actions.push("Mejorar claridad");
+      }
+
+      return {
+        product_name: r.product_name,
+        avg_rating: r.avg_rating,
+        abandonment_rate: r.abandonment_rate,
+        actions
+      };
+
+    });
+
+    res.json({
+      optimization: analysis
+    });
+
+  } catch (error) {
+
+    console.error("ERROR OPTIMIZATION:", error);
+
+    res.status(500).json({
+      error: "Error en optimización"
+    });
+
+  }
+
+});
+
+/* =========================================================
+36.6 - AUTO AJUSTE (USA tutor_config EXISTENTE)
+========================================================= */
+
+app.get("/analytics/auto-adjust", async (req, res) => {
+
+  try {
+
+    const data = await pool.query(`
+      SELECT
+        product_name,
+        COUNT(*) as total_reviews,
+        COUNT(*) FILTER (WHERE category = 'interaction') as interaction_issues,
+        COUNT(*) FILTER (WHERE category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE category = 'clarity') as clarity_issues,
+        ROUND(AVG(rating),2) as avg_rating
+      FROM student_feedback
+      GROUP BY product_name
+    `);
+
+    for (const r of data.rows) {
+
+      let max_questions = 3;
+      let explanation_depth = 3;
+      let pacing_level = 3;
+
+      if (r.interaction_issues > r.total_reviews * 0.3) {
+        max_questions = 2;
+      }
+
+      if (r.speed_issues > r.total_reviews * 0.3) {
+        pacing_level = 2;
+      }
+
+      if (r.clarity_issues > r.total_reviews * 0.3) {
+        explanation_depth = 4;
+      }
+
+      if (r.avg_rating < 4) {
+        explanation_depth = 4;
+        pacing_level = 2;
+      }
+
+      await pool.query(`
+        INSERT INTO tutor_config
+        (product_name, max_questions, explanation_depth, pacing_level, updated_at)
+        VALUES ($1,$2,$3,$4,NOW())
+        ON CONFLICT (product_name)
+        DO UPDATE SET
+          max_questions = EXCLUDED.max_questions,
+          explanation_depth = EXCLUDED.explanation_depth,
+          pacing_level = EXCLUDED.pacing_level,
+          updated_at = NOW()
+      `, [
+        r.product_name,
+        max_questions,
+        explanation_depth,
+        pacing_level
+      ]);
+
+    }
+
+    res.json({
+      status: "auto_adjust_completed"
+    });
+
+  } catch (error) {
+
+    console.error("AUTO ADJUST ERROR:", error);
+
+    res.status(500).json({
+      error: "Error en autoajuste"
+    });
+
+  }
+
+});
 /*=========================================================
 START
 ==========≈================================================*/
