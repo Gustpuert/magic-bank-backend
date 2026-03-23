@@ -3169,6 +3169,58 @@ app.post("/api/chat", async (req, res) => {
   }
 
 });
+
+
+/* =========================================================
+🧠 BLOQUE FEEDBACK + PERFIL COGNITIVO (PASO 1)
+INSTALACIÓN SEGURA DE COLUMNAS
+========================================================= */
+
+app.get("/install-cognitive-profile", async (req, res) => {
+  try {
+
+    await pool.query(`
+      ALTER TABLE student_intelligence_profiles
+      ADD COLUMN IF NOT EXISTS confusion_rate FLOAT DEFAULT 0;
+    `);
+
+    await pool.query(`
+      ALTER TABLE student_intelligence_profiles
+      ADD COLUMN IF NOT EXISTS preferred_pacing INTEGER DEFAULT 3;
+    `);
+
+    await pool.query(`
+      ALTER TABLE student_intelligence_profiles
+      ADD COLUMN IF NOT EXISTS stability_index FLOAT DEFAULT 1;
+    `);
+
+    await pool.query(`
+      ALTER TABLE student_intelligence_profiles
+      ADD COLUMN IF NOT EXISTS risk_flag BOOLEAN DEFAULT FALSE;
+    `);
+
+    await pool.query(`
+      ALTER TABLE student_intelligence_profiles
+      ADD COLUMN IF NOT EXISTS manipulation_flag BOOLEAN DEFAULT FALSE;
+    `);
+
+    await pool.query(`
+      ALTER TABLE student_intelligence_profiles
+      ADD COLUMN IF NOT EXISTS engagement_score FLOAT DEFAULT 0;
+    `);
+
+    res.send("Perfil cognitivo instalado correctamente");
+
+  } catch (error) {
+
+    console.error("ERROR INSTALL PROFILE:", error);
+
+    res.status(500).send("Error instalando perfil cognitivo");
+
+  }
+});
+
+
 /*=========================================================
 START
 ==========≈================================================*/
