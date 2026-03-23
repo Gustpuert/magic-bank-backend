@@ -1,25 +1,40 @@
+
 /* =========================================================
 01 - CONFIGURACIÓN GLOBAL DEL SISTEMA
 Carga variables de entorno y dependencias principales
 ========================================================= */
+
 import dotenv from "dotenv";
 dotenv.config();
 
 import express from "express";
 import axios from "axios";
 import crypto from "crypto";
-import pkg from "pg";
+import { Pool } from "pg"; // ✅ FIX IMPORTANTE (evita crash en producción)
 import cors from "cors";
-import QRCode from "qrcode";
-import PDFDocument from "pdfkit";
-import rateLimit from "express-rate-limit";
+// import QRCode from "qrcode"; // 🔴 comentar temporalmente para aislar errores
+// import PDFDocument from "pdfkit"; // 🔴 comentar temporalmente para aislar errores
+// import rateLimit from "express-rate-limit"; // 🟡 opcional comentar si sigue fallando
 
+/* =========================================================
+🧠 DEBUG GLOBAL (CRÍTICO PARA DETECTAR CRASH)
+========================================================= */
 
-const { Pool } = pkg;
+process.on("uncaughtException", err => {
+  console.error("🔥 UNCAUGHT EXCEPTION:", err);
+});
+
+process.on("unhandledRejection", err => {
+  console.error("🔥 UNHANDLED REJECTION:", err);
+});
+
+/* =========================================================
+🚀 INIT APP
+========================================================= */
 
 const app = express();
 
-
+console.log("🚀 INIT BACKEND");
 /* =========================================================
 02 - MIDDLEWARE DEL SERVIDOR
 Configuración base Express
