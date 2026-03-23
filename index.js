@@ -18,6 +18,7 @@ const { Pool } = pkg;
 
 const app = express();
 
+
 /* =========================================================
 02 - MIDDLEWARE DEL SERVIDOR
 Configuración base Express
@@ -2851,7 +2852,82 @@ app.post("/api/collect-review", (req, res) => {
   return res.json({ status: "review_saved" });
 });
 
+/* =========================================================
+🧠 CHAT POST (PRODUCCIÓN REAL)
+========================================================= */
 
+app.post("/api/chat", async (req, res) => {
+
+  try {
+
+    const { token, message } = req.body;
+
+    if (!token || !message) {
+      return res.status(400).json({
+        error: "Token y message requeridos"
+      });
+    }
+
+    /* ================= VALIDACIÓN ================= */
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const userResult = await pool.query(`
+      SELECT email, product_name
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!userResult.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido"
+      });
+    }
+
+    const user = userResult.rows[0];
+    const msg = message.toLowerCase().trim();
+
+    /* ================= PROTECCIÓN ================= */
+
+    if (
+      msg.includes("sexo") ||
+      msg.includes("drogas") ||
+      msg.includes("hackear") ||
+      msg.includes("ilegal")
+    ) {
+      return res.json({
+        message: "Este tutor está diseñado únicamente para aprendizaje académico.",
+        metadata: { user_type: "riesgoso" }
+      });
+    }
+
+    /* =========================================================
+    🔁 REUTILIZAMOS TODA TU LÓGICA EXISTENTE
+    ========================================================= */
+
+    // 👉 Aquí reutilizas exactamente la misma lógica que ya tienes en GET
+    // (feedback, preferencias, stability, etc.)
+
+    const response = await fetch(`http://localhost:${PORT}/api/chat?token=${token}&message=${encodeURIComponent(message)}`);
+    const data = await response.json();
+
+    return res.json(data);
+
+  } catch (error) {
+
+    console.error("POST CHAT ERROR:", error);
+
+    return res.status(500).json({
+      error: "Error en chat POST"
+    });
+
+  }
+
+});
 
 /* =========================================================
 🧠 CHAT PRINCIPAL
