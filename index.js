@@ -3203,6 +3203,28 @@ app.post("/api/chat", async (req, res) => {
     const { email, product_name } = access.rows[0];
 
     /* =========================================================
+🧠 PERFIL COGNITIVO PERSISTENTE (LECTURA)
+========================================================= */
+
+let userProfile = await pool.query(`
+  SELECT *
+  FROM student_intelligence_profiles
+  WHERE student_id = (
+    SELECT id FROM students WHERE email = $1
+  )
+`, [email]);
+
+let cognitive = {
+  pacing_level: 3,
+  explanation_depth: 3
+};
+
+if (userProfile.rowCount) {
+  cognitive.pacing_level = userProfile.rows[0].learning_speed || 3;
+  cognitive.explanation_depth = userProfile.rows[0].technical_score || 3;
+}
+
+    /* =========================================================
     🧠 OBTENER STUDENT_ID (SEGURO)
     ========================================================= */
 
