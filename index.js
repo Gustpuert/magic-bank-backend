@@ -2992,21 +2992,30 @@ app.post("/api/chat", chatLimiter, async (req, res) => {
   try {
 
     const { token, message } = req.body;
-    
-/* =========================================================
-🛡 VALIDACIÓN DE INPUT
-========================================================= */
 
-if (typeof message !== "string" || message.length > 1000) {
-  return res.status(400).json({
-    error: "Mensaje inválido"
-  });
-}
+    /* =========================================================
+    🛡 VALIDACIÓN INPUT
+    ========================================================= */
+
     if (!token || !message) {
       return res.status(400).json({
         error: "Token y message requeridos"
       });
     }
+
+    if (typeof message !== "string" || message.length > 1000) {
+      return res.status(400).json({
+        error: "Mensaje inválido"
+      });
+    }
+
+    if (message.includes("<script>") || message.includes("DROP TABLE")) {
+      return res.status(400).json({
+        error: "Entrada no permitida"
+      });
+    }
+
+    const msg = message.toLowerCase().trim();
 
     /* =========================================================
     🔐 VALIDACIÓN TOKEN
@@ -3031,10 +3040,9 @@ if (typeof message !== "string" || message.length > 1000) {
     }
 
     const user = userResult.rows[0];
-    const msg = message.toLowerCase().trim();
 
     /* =========================================================
-    🛡 PROTECCIÓN BÁSICA
+    🛡 PROTECCIÓN CONTENIDO
     ========================================================= */
 
     if (
@@ -3050,7 +3058,7 @@ if (typeof message !== "string" || message.length > 1000) {
     }
 
     /* =========================================================
-    🧠 FEEDBACK EXPLÍCITO (1-5)
+    🧠 FEEDBACK EXPLÍCITO
     ========================================================= */
 
     const feedbackMatch = msg.match(/^([1-5])\s*(.*)$/);
@@ -3071,14 +3079,14 @@ if (typeof message !== "string" || message.length > 1000) {
         improve
       ]);
 
-      // Ajuste suave si rating bajo
       if (rating <= 3) {
 
         let pref = {};
+        const t = improve.toLowerCase();
 
-        if (improve.includes("rapido")) pref.pace = "lento";
-        if (improve.includes("confuso")) pref.clarity = "alta";
-        if (improve.includes("muchas preguntas")) pref.question_frequency = "baja";
+        if (t.includes("rapido")) pref.pace = "lento";
+        if (t.includes("confuso")) pref.clarity = "alta";
+        if (t.includes("muchas preguntas")) pref.question_frequency = "baja";
 
         if (Object.keys(pref).length > 0) {
           await pool.query(`
@@ -3088,7 +3096,7 @@ if (typeof message !== "string" || message.length > 1000) {
             DO UPDATE SET
               preferences = user_preferences.preferences || $2,
               updated_at = NOW()
-          `, [user.email, pref]);
+          `, [user.email, JSON.stringify(pref)]);
         }
       }
 
@@ -3098,7 +3106,27 @@ if (typeof message !== "string" || message.length > 1000) {
     }
 
     /* =========================================================
-    ⚙️ CONFIG DEL TUTOR
+    🧠 FEEDBACK IMPLÍCITO (GET VERSION)
+    ========================================================= */
+
+    function detectImplicitFeedback(text = "") {
+
+      const t = text.toLowerCase();
+
+      if (t.includes("rapido") || t.includes("rápido")) return "speed";
+      if (t.includes("lento")) return "speed";
+      if (t.includes("confuso") || t.includes("no entiendo")) return "clarity";
+      if (t.includes("difícil") || t.includes("complejo")) return "difficulty";
+
+      return null;
+    }
+
+    const implicitCategory = detectImplicitFeedback(msg);
+
+    // preparado para expansión futura (no guardamos aún)
+
+    /* =========================================================
+    ⚙️ CONFIG TUTOR
     ========================================================= */
 
     const configResult = await pool.query(`
@@ -3137,18 +3165,16 @@ if (typeof message !== "string" || message.length > 1000) {
 
     const detectedPreferences = detectPreferences(msg);
 
-if (Object.keys(detectedPreferences).length > 0) {
-
-  await pool.query(`
-    INSERT INTO user_preferences (email, preferences, updated_at)
-    VALUES ($1,$2,NOW())
-    ON CONFLICT (email)
-    DO UPDATE SET
-      preferences = user_preferences.preferences || $2,
-      updated_at = NOW()
-  `, [user.email, JSON.stringify(detectedPreferences)]);
-
-}
+    if (Object.keys(detectedPreferences).length > 0) {
+      await pool.query(`
+        INSERT INTO user_preferences (email, preferences, updated_at)
+        VALUES ($1,$2,NOW())
+        ON CONFLICT (email)
+        DO UPDATE SET
+          preferences = user_preferences.preferences || $2,
+          updated_at = NOW()
+      `, [user.email, JSON.stringify(detectedPreferences)]);
+    }
 
     /* =========================================================
     📥 CARGAR PREFERENCIAS
@@ -3227,6 +3253,35 @@ if (Object.keys(detectedPreferences).length > 0) {
     else if (stability.stability_score < 80) user_type = "confuso";
 
     /* =========================================================
+    🧠 CONTROL FINAL DE PREFERENCIAS
+    ========================================================= */
+
+    let effectivePrefs = { ...prefs };
+
+    if (stability.stability_score < 50) {
+      effectivePrefs = stability.last_preferences || prefs;
+    } else if (stability.stability_score < 80) {
+      effectivePrefs = {
+        ...prefs,
+        pace: prefs.pace || stability.last_preferences?.pace,
+        tone: prefs.tone || stability.last_preferences?.tone
+      };
+    }
+
+    let finalPrefs = { ...effectivePrefs };
+
+    if (user_type === "riesgoso") {
+      finalPrefs.pace = "medio";
+      finalPrefs.tone = "neutral";
+    }
+
+    if (user_type === "confuso") {
+      if (finalPrefs.pace === "rapido") {
+        finalPrefs.pace = "medio";
+      }
+    }
+
+    /* =========================================================
     🤖 RESPUESTA
     ========================================================= */
 
@@ -3236,24 +3291,56 @@ if (Object.keys(detectedPreferences).length > 0) {
 
       if (prefs.pace === "lento") {
         response += "\n\nVamos paso a paso.";
+        response += "\nPrimero entendamos una idea clave antes de avanzar.";
       }
 
-      if (prefs.style === "aplicado") {
-        response += "\n\nEjemplo práctico: proteína + vegetales.";
+      if (prefs.pace === "medio") {
+        response += "\n\nIremos a un ritmo equilibrado para mantener claridad.";
+      }
+
+      if (prefs.pace === "rapido") {
+        response += "\n\nIremos directo al punto sin rodeos.";
       }
 
       if (config.explanation_depth >= 4) {
-        response += "\n\nVamos a profundizar un poco más.";
+        response += "\n\nVamos a profundizar un poco más para que quede completamente claro.";
       }
 
-      if (config.max_questions > 2 && prefs.question_frequency !== "baja") {
+      if (config.explanation_depth <= 2) {
+        response += "\n\nTe lo explico de forma simple y directa.";
+      }
+
+      if (prefs.style === "aplicado") {
+        response += "\n\nEjemplo práctico: proteína + vegetales en un plato real.";
+      }
+
+      if (prefs.tone === "tecnico") {
+        response += "\n\nUsaremos términos más técnicos para mayor precisión.";
+      }
+
+      if (prefs.tone === "casual") {
+        response += "\n\nTe lo explico de forma sencilla, como en una conversación.";
+      }
+
+      if (prefs.tone === "neutral") {
+        response += "\n\nMantendremos una explicación clara y equilibrada.";
+      }
+
+      if (
+        config.max_questions > 2 &&
+        prefs.question_frequency !== "baja"
+      ) {
         response += "\n\n¿Esto lo estás aplicando actualmente?";
+      }
+
+      if (config.pacing_level <= 2) {
+        response += "\n\nVamos a ir con calma para evitar confusiones.";
       }
 
       return response;
     }
 
-    const finalResponse = generateResponse(message, prefs, config);
+    const finalResponse = generateResponse(message, finalPrefs, config);
 
     return res.json({
       message: finalResponse,
@@ -3274,414 +3361,6 @@ if (Object.keys(detectedPreferences).length > 0) {
   }
 
 });
-
-/* =========================================================
-🧠 CHAT PRINCIPAL
-========================================================= */
-
-app.get("/api/chat", async (req, res) => {
-
-  try {
-
-    const { token, message } = req.query;
-
-    if (!token || !message) {
-      return res.status(400).json({
-        error: "Token y message requeridos"
-      });
-    }
-
-    /* ================= VALIDACIÓN ================= */
-
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
-
-    const userResult = await pool.query(`
-      SELECT email, product_name
-      FROM access_tokens
-      WHERE token = $1
-      AND expires_at > NOW()
-    `, [tokenHash]);
-
-    if (!userResult.rowCount) {
-      return res.status(403).json({
-        error: "Token inválido"
-      });
-    }
-
-    const user = userResult.rows[0];
-    const msg = message.toLowerCase().trim();
-
-    /* ================= PROTECCIÓN ================= */
-
-    if (
-      msg.includes("sexo") ||
-      msg.includes("drogas") ||
-      msg.includes("hackear") ||
-      msg.includes("ilegal")
-    ) {
-      return res.json({
-        message: "Este tutor está diseñado únicamente para aprendizaje académico.",
-        metadata: { user_type: "riesgoso" }
-      });
-    }
-
-    /* =========================================================
-    🧠 DETECCIÓN FEEDBACK IMPLÍCITO
-    ========================================================= */
-
-    function detectImplicitFeedback(text = "") {
-
-      const t = text.toLowerCase();
-
-      if (t.includes("rapido") || t.includes("rápido")) return "speed";
-      if (t.includes("lento")) return "speed";
-      if (t.includes("confuso") || t.includes("no entiendo")) return "clarity";
-      if (t.includes("difícil") || t.includes("complejo")) return "difficulty";
-
-      return null;
-    }
-
-    const implicitCategory = detectImplicitFeedback(msg);
-
-    if (implicitCategory) {
-
-  // await pool.query(`
-  //   INSERT INTO learning_signals
-  //   (email, product_name, category, message, created_at)
-  //   VALUES ($1,$2,$3,$4,NOW())
-  // `, [
-  //   user.email,
-  //   user.product_name,
-  //   implicitCategory,
-  //   message
-  // ]);
-
-}
-
-    /* =========================================================
-    🧠 FEEDBACK EXPLÍCITO
-    ========================================================= */
-
-    const feedbackMatch = msg.match(/^([1-5])\s*(.*)$/);
-
-    if (feedbackMatch) {
-
-      const rating = parseInt(feedbackMatch[1]);
-      const improve = feedbackMatch[2] || "";
-
-      await pool.query(`
-        INSERT INTO student_feedback (rating, improve, category, created_at, product_name)
-        VALUES ($1,$2,'module',NOW(),$3)
-      `, [rating, improve, user.product_name]);
-
-      if (rating <= 3) {
-
-        let pref = {};
-
-        const t = improve.toLowerCase();
-
-        if (t.includes("rapido")) pref.pace = "lento";
-        if (t.includes("confuso")) pref.clarity = "alta";
-        if (t.includes("muchas preguntas")) pref.question_frequency = "baja";
-
-        if (Object.keys(pref).length > 0) {
-          await pool.query(`
-            INSERT INTO user_preferences (email, preferences, updated_at)
-            VALUES ($1,$2,NOW())
-            ON CONFLICT (email)
-            DO UPDATE SET
-              preferences = user_preferences.preferences || $2,
-              updated_at = NOW()
-          `, [user.email, JSON.stringify(pref)]);
-        }
-      }
-
-      return res.json({
-        message: "Gracias. Tu feedback ayuda a mejorar el tutor 🙌"
-      });
-    }
-
-    /* =========================================================
-    CONFIG GLOBAL
-    ========================================================= */
-
-    const configResult = await pool.query(`
-      SELECT *
-      FROM tutor_config
-      WHERE product_name = $1
-    `, [user.product_name]);
-
-    let config = {
-      max_questions: 3,
-      explanation_depth: 3,
-      pacing_level: 3
-    };
-
-    if (configResult.rowCount) {
-      config = configResult.rows[0];
-    }
-
-    /* =========================================================
-    DETECCIÓN DE PREFERENCIAS
-    ========================================================= */
-
-    function detectPreferences(text = "") {
-
-      const t = text.toLowerCase();
-      const p = {};
-
-      if (t.includes("despacio")) p.pace = "lento";
-      if (t.includes("rapido")) p.pace = "rapido";
-      if (t.includes("tecnico")) p.tone = "tecnico";
-      if (t.includes("casual")) p.tone = "casual";
-      if (t.includes("practico")) p.style = "aplicado";
-
-      return p;
-    }
-
-    const detectedPreferences = detectPreferences(msg);
-
-    if (Object.keys(detectedPreferences).length > 0) {
-      await pool.query(`
-        INSERT INTO user_preferences (email, preferences, updated_at)
-        VALUES ($1,$2,NOW())
-        ON CONFLICT (email)
-        DO UPDATE SET
-          preferences = user_preferences.preferences || $2,
-          updated_at = NOW()
-      `, [user.email, detectedPreferences]);
-    }
-
-    /* =========================================================
-    CARGAR PREFERENCIAS
-    ========================================================= */
-
-    const prefResult = await pool.query(`
-      SELECT preferences
-      FROM user_preferences
-      WHERE email = $1
-    `, [user.email]);
-
-    const prefs = prefResult.rowCount
-      ? prefResult.rows[0].preferences
-      : {};
-
-    /* =========================================================
-    STABILITY ENGINE (TU LÓGICA REAL)
-    ========================================================= */
-
-    let stability = {
-      change_count: 0,
-      stability_score: 100,
-      last_preferences: {}
-    };
-
-    const behaviorResult = await pool.query(`
-      SELECT *
-      FROM user_behavior
-      WHERE email = $1
-    `, [user.email]);
-
-    if (behaviorResult.rowCount) {
-      stability = behaviorResult.rows[0];
-    }
-
-    let contradiction = false;
-
-    for (const key in detectedPreferences) {
-      if (
-        stability.last_preferences &&
-        stability.last_preferences[key] &&
-        stability.last_preferences[key] !== detectedPreferences[key]
-      ) {
-        contradiction = true;
-      }
-    }
-
-    if (contradiction) {
-      stability.change_count += 1;
-      stability.stability_score = Math.max(0, stability.stability_score - 10);
-    }
-
-    await pool.query(`
-      INSERT INTO user_behavior (email, change_count, stability_score, last_preferences, updated_at)
-      VALUES ($1,$2,$3,$4,NOW())
-      ON CONFLICT (email)
-      DO UPDATE SET
-        change_count = $2,
-        stability_score = $3,
-        last_preferences = $4,
-        updated_at = NOW()
-    `, [
-      user.email,
-      stability.change_count,
-      stability.stability_score,
-      detectedPreferences
-    ]);
-
-    /* =========================================================
-    CLASIFICACIÓN
-    ========================================================= */
-
-    let user_type = "ideal";
-
-    if (stability.stability_score < 50) user_type = "riesgoso";
-    else if (stability.stability_score < 80) user_type = "confuso";
-
-    /* =========================================================
-🧠 STABILITY + CONTROL CONDUCTUAL (UBICACIÓN EXACTA)
-========================================================= */
-
-// 1. stability filter (lo que ya veníamos trabajando)
-let effectivePrefs = { ...prefs };
-
-if (stability.stability_score < 50) {
-
-  effectivePrefs = stability.last_preferences || prefs;
-
-} else if (stability.stability_score < 80) {
-
-  effectivePrefs = {
-    ...prefs,
-    pace: prefs.pace || stability.last_preferences?.pace,
-    tone: prefs.tone || stability.last_preferences?.tone
-  };
-
-}
-
-// 2. control conductual (LO QUE TÚ EXPLICASTE)
-let finalPrefs = { ...effectivePrefs };
-
-if (user_type === "riesgoso") {
-
-  finalPrefs.pace = "medio";
-  finalPrefs.tone = "neutral";
-
-}
-
-if (user_type === "confuso") {
-
-  if (finalPrefs.pace === "rapido") {
-    finalPrefs.pace = "medio";
-  }
-
-}
-    if (message.includes("<script>") || message.includes("DROP TABLE")) {
-  return res.status(400).json({
-    error: "Entrada no permitida"
-  });
-    }
-
-    /* =========================================================
-    RESPUESTA
-    ========================================================= */
-
-    
-function generateResponse(message, prefs, config) {
-
-  let response = "Vamos a trabajar este concepto correctamente.";
-
-  /* ===============================
-  🧠 CONTROL DE RITMO
-  =============================== */
-
-  if (prefs.pace === "lento") {
-    response += "\n\nVamos paso a paso.";
-    response += "\nPrimero entendamos una idea clave antes de avanzar.";
-  }
-
-  if (prefs.pace === "medio") {
-    response += "\n\nIremos a un ritmo equilibrado para mantener claridad.";
-  }
-
-  if (prefs.pace === "rapido") {
-    response += "\n\nIremos directo al punto sin rodeos.";
-  }
-
-  /* ===============================
-  🧠 PROFUNDIDAD
-  =============================== */
-
-  if (config.explanation_depth >= 4) {
-    response += "\n\nVamos a profundizar un poco más para que quede completamente claro.";
-  }
-
-  if (config.explanation_depth <= 2) {
-    response += "\n\nTe lo explico de forma simple y directa.";
-  }
-
-  /* ===============================
-  🧠 ESTILO
-  =============================== */
-
-  if (prefs.style === "aplicado") {
-    response += "\n\nEjemplo práctico: proteína + vegetales en un plato real.";
-  }
-
-  /* ===============================
-  🧠 TONO
-  =============================== */
-
-  if (prefs.tone === "tecnico") {
-    response += "\n\nUsaremos términos más técnicos para mayor precisión.";
-  }
-
-  if (prefs.tone === "casual") {
-    response += "\n\nTe lo explico de forma sencilla, como en una conversación.";
-  }
-
-  if (prefs.tone === "neutral") {
-    response += "\n\nMantendremos una explicación clara y equilibrada.";
-  }
-
-  /* ===============================
-  🧠 CONTROL DE PREGUNTAS
-  =============================== */
-
-  if (
-    config.max_questions > 2 &&
-    prefs.question_frequency !== "baja"
-  ) {
-    response += "\n\n¿Esto lo estás aplicando actualmente?";
-  }
-
-  /* ===============================
-  🧠 CONTROL DE CARGA (ANTI-SATURACIÓN)
-  =============================== */
-
-  if (config.pacing_level <= 2) {
-    response += "\n\nVamos a ir con calma para evitar confusiones.";
-  }
-
-  return response;
-}
-
-    const finalResponse = generateResponse(message, finalPrefs, config);
-
-    return res.json({
-      message: finalResponse,
-      metadata: {
-        user_type,
-        stability_score: stability.stability_score
-      }
-    });
-
-  } catch (error) {
-
-    console.error("CHAT ERROR:", error);
-
-    return res.status(500).json({
-      error: "Error en chat"
-    });
-
-  }
-
-});
-
-
 /* =========================================================
 🚀 AUTO-EVOLUCIÓN AVANZADA (TU LÓGICA COMPLETA)
 ========================================================= */
