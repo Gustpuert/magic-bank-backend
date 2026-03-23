@@ -3365,26 +3365,74 @@ app.get("/api/chat", async (req, res) => {
 
     function generateResponse(message, prefs, config) {
 
-      let response = "Vamos a trabajar este concepto correctamente.";
+  let response = "Vamos a trabajar este concepto correctamente.";
 
-      if (prefs.pace === "lento") {
-        response += "\n\nVamos paso a paso.";
-      }
+  /* ===============================
+  🧠 CONTROL DE RITMO (CRÍTICO)
+  =============================== */
 
-      if (prefs.style === "aplicado") {
-        response += "\n\nEjemplo práctico: proteína + vegetales.";
-      }
+  if (prefs.pace === "lento") {
+    response += "\n\nVamos paso a paso.";
+    response += "\nPrimero entendamos una idea clave antes de avanzar.";
+  }
 
-      if (config.explanation_depth >= 4) {
-        response += "\n\nVamos a profundizar un poco más.";
-      }
+  if (prefs.pace === "rapido") {
+    response += "\n\nIremos directo al punto sin rodeos.";
+  }
 
-      if (config.max_questions > 2 && prefs.question_frequency !== "baja") {
-        response += "\n\n¿Esto lo estás aplicando actualmente?";
-      }
+  /* ===============================
+  🧠 PROFUNDIDAD (CONFIG GLOBAL)
+  =============================== */
 
-      return response;
-    }
+  if (config.explanation_depth >= 4) {
+    response += "\n\nVamos a profundizar un poco más para que quede completamente claro.";
+  }
+
+  if (config.explanation_depth <= 2) {
+    response += "\n\nTe lo explico de forma simple y directa.";
+  }
+
+  /* ===============================
+  🧠 ESTILO DE APRENDIZAJE
+  =============================== */
+
+  if (prefs.style === "aplicado") {
+    response += "\n\nEjemplo práctico: proteína + vegetales en un plato real.";
+  }
+
+  if (prefs.tone === "tecnico") {
+    response += "\n\nUsaremos términos más técnicos para mayor precisión.";
+  }
+
+  if (prefs.tone === "casual") {
+    response += "\n\nTe lo explico de forma sencilla, como en una conversación.";
+  }
+
+  /* ===============================
+  🧠 CONTROL DE CARGA (PREGUNTAS)
+  =============================== */
+
+  if (
+    config.max_questions > 2 &&
+    prefs.question_frequency !== "baja"
+  ) {
+    response += "\n\n¿Esto lo estás aplicando actualmente?";
+  }
+
+  if (prefs.question_frequency === "baja") {
+    // 🔒 NO preguntar (usuario saturado)
+  }
+
+  /* ===============================
+  🧠 PROTECCIÓN DE USUARIO CONFUSO
+  =============================== */
+
+  if (config.pacing_level <= 2) {
+    response += "\n\nVamos a ir con calma para evitar confusiones.";
+  }
+
+  return response;
+}
 
     const finalResponse = generateResponse(message, prefs, config);
 
