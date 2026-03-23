@@ -102,50 +102,101 @@ Panel básico para monitoreo rápido
 ========================================================= */
 
 app.get("/dashboard", async (req, res) => {
-try {
+  try {
 
-const totalAlumnos = await pool.query(`
-  SELECT COUNT(*) FROM access_tokens
-`);
+    const totalAlumnos = await pool.query(`
+      SELECT COUNT(*) FROM access_tokens
+    `);
 
-const cursosTop = await pool.query(`
-  SELECT product_name, COUNT(*) as total
-  FROM access_tokens
-  GROUP BY product_name
-  ORDER BY total DESC
-`);
+    const cursosTop = await pool.query(`
+      SELECT product_name, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY product_name
+      ORDER BY total DESC
+      LIMIT 5
+    `);
 
-const areasTop = await pool.query(`
-  SELECT area, COUNT(*) as total
-  FROM access_tokens
-  GROUP BY area
-  ORDER BY total DESC
-`);
+    const ventasPorDia = await pool.query(`
+      SELECT DATE(created_at) as fecha, COUNT(*) as total
+      FROM access_tokens
+      GROUP BY DATE(created_at)
+      ORDER BY fecha DESC
+      LIMIT 7
+    `);
 
-const ventasPorDia = await pool.query(`
-  SELECT DATE(created_at) as fecha, COUNT(*) as total
-  FROM access_tokens
-  GROUP BY DATE(created_at)
-  ORDER BY fecha DESC
-`);
+    res.send(`
+      <html>
+      <head>
+        <title>MagicBank Dashboard</title>
+        <style>
+          body {
+            font-family: Inter, sans-serif;
+            background:#0f172a;
+            color:white;
+            padding:40px;
+          }
+          h1 { color:#D6B15A; }
+          .card {
+            background: rgba(255,255,255,0.05);
+            padding:20px;
+            border-radius:12px;
+            margin-bottom:20px;
+          }
+          table {
+            width:100%;
+            border-collapse:collapse;
+          }
+          td {
+            padding:8px;
+            border-bottom:1px solid rgba(255,255,255,0.1);
+          }
+        </style>
+      </head>
 
-res.send(`
-  <html>
-  <head>
-    <title>MagicBank Analytics</title>
-  </head>
-  <body>
-    <h1>MAGICBANK DASHBOARD</h1>
-    <p>Total alumnos: ${totalAlumnos.rows[0].count}</p>
-  </body>
-  </html>
-`);
+      <body>
 
-} catch (error) {
-console.error(error);
-res.status(500).send("Error cargando dashboard");
-}
+        <h1>📊 MagicBank Dashboard</h1>
+
+        <div class="card">
+          <h3>Total alumnos</h3>
+          <p>${totalAlumnos.rows[0].count}</p>
+        </div>
+
+        <div class="card">
+          <h3>Top cursos</h3>
+          <table>
+            ${cursosTop.rows.map(c => `
+              <tr>
+                <td>${c.product_name}</td>
+                <td>${c.total}</td>
+              </tr>
+            `).join("")}
+          </table>
+        </div>
+
+        <div class="card">
+          <h3>Ventas últimos días</h3>
+          <table>
+            ${ventasPorDia.rows.map(v => `
+              <tr>
+                <td>${v.fecha}</td>
+                <td>${v.total}</td>
+              </tr>
+            `).join("")}
+          </table>
+        </div>
+
+      </body>
+      </html>
+    `);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error dashboard");
+  }
 });
+
+
 /* =========================================================
 07 - AUTENTICACIÓN TIENDANUBE (OAUTH)
 Conecta la tienda con MagicBank
@@ -3454,22 +3505,75 @@ app.get("/system/auto-evolve", async (req, res) => {
 
 app.get("/dashboard/feedback", async (req, res) => {
 
-  const data = await pool.query(`
-    SELECT category, COUNT(*) as total
-    FROM student_feedback
-    GROUP BY category
-  `);
+  try {
 
-  res.send(`
-    <html>
-    <body style="font-family:Arial;padding:40px">
-      <h1>📊 Feedback</h1>
-      ${data.rows.map(d => `<p>${d.category}: ${d.total}</p>`).join("")}
-    </body>
-    </html>
-  `);
+    const data = await pool.query(`
+      SELECT
+        product_name,
+        COUNT(*) as total,
+        ROUND(AVG(rating),2) as avg_rating
+      FROM student_feedback
+      GROUP BY product_name
+      ORDER BY avg_rating DESC
+    `);
+
+    res.send(`
+      <html>
+      <head>
+        <title>Feedback Dashboard</title>
+        <style>
+          body {
+            font-family: Inter, sans-serif;
+            background:#0f172a;
+            color:white;
+            padding:40px;
+          }
+          h1 { color:#D6B15A; }
+          .card {
+            background: rgba(255,255,255,0.05);
+            padding:20px;
+            border-radius:12px;
+          }
+          table {
+            width:100%;
+            border-collapse:collapse;
+          }
+          td {
+            padding:10px;
+            border-bottom:1px solid rgba(255,255,255,0.1);
+          }
+        </style>
+      </head>
+
+      <body>
+
+        <h1>⭐ Feedback de Tutores</h1>
+
+        <div class="card">
+          <table>
+            ${data.rows.map(d => `
+              <tr>
+                <td>${d.product_name}</td>
+                <td>${d.avg_rating || 0}</td>
+                <td>${d.total} reviews</td>
+              </tr>
+            `).join("")}
+          </table>
+        </div>
+
+      </body>
+      </html>
+    `);
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).send("Error dashboard feedback");
+
+  }
+
 });
-
 
 /* =========================================================
 START
