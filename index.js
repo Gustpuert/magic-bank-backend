@@ -2995,6 +2995,180 @@ app.get("/analytics/auto-adjust", async (req, res) => {
   }
 
 });
+
+/* =========================================================
+API CHAT — SUPREME CORE (FEEDBACK + ADAPTACIÓN REAL)
+========================================================= */
+
+app.post("/api/chat", async (req, res) => {
+
+  try {
+
+    const { token, message } = req.body;
+
+    if (!token || !message) {
+      return res.status(400).json({
+        message: "Token y mensaje requeridos"
+      });
+    }
+
+    /* =====================================================
+    1. VALIDACIÓN SEGURA (MISMO SISTEMA)
+    ===================================================== */
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(String(token).trim())
+      .digest("hex");
+
+    const access = await pool.query(`
+      SELECT email, product_name, area, last_access
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!access.rowCount) {
+      return res.status(403).json({
+        message: "Acceso inválido o expirado"
+      });
+    }
+
+    const { email, product_name, area, last_access } = access.rows[0];
+
+    /* =====================================================
+    2. ACTUALIZAR ÚLTIMO ACCESO (CLAVE PARA ABANDONO)
+    ===================================================== */
+
+    await pool.query(`
+      UPDATE access_tokens
+      SET last_access = NOW()
+      WHERE token = $1
+    `, [tokenHash]);
+
+    /* =====================================================
+    3. OBTENER CONFIG DINÁMICA (AUTO-ADJUST REAL)
+    ===================================================== */
+
+    const configRes = await pool.query(`
+      SELECT *
+      FROM tutor_config
+      WHERE product_name = $1
+    `, [product_name]);
+
+    const tutor_config = configRes.rowCount
+      ? configRes.rows[0]
+      : {
+          max_questions: 3,
+          explanation_depth: 3,
+          pacing_level: 3
+        };
+
+    /* =====================================================
+    4. DETECCIÓN DE FEEDBACK REAL (NO BÁSICA)
+    ===================================================== */
+
+    function classifyFeedback(text = "") {
+
+      const t = text.toLowerCase();
+
+      let category = "content";
+
+      if (t.includes("no entiendo") || t.includes("confuso")) {
+        category = "clarity";
+      }
+      else if (t.includes("rápido") || t.includes("lento")) {
+        category = "speed";
+      }
+      else if (t.includes("difícil")) {
+        category = "difficulty";
+      }
+      else if (t.includes("?")) {
+        category = "interaction";
+      }
+
+      return category;
+    }
+
+    const category = classifyFeedback(message);
+
+    /* =====================================================
+    5. DETECCIÓN DE INTENSIDAD / PERFIL (USANDO HISTÓRICO REAL)
+    ===================================================== */
+
+    const stats = await pool.query(`
+      SELECT COUNT(*) as total,
+      COUNT(*) FILTER (WHERE category = 'interaction') as interaction_count
+      FROM student_feedback
+      WHERE email = $1
+      AND product_name = $2
+      AND created_at > NOW() - INTERVAL '1 day'
+    `, [email, product_name]);
+
+    const total = Number(stats.rows[0].total);
+    const interaction_count = Number(stats.rows[0].interaction_count);
+
+    let dynamic_rating = 5;
+
+    if (category === "clarity" || category === "difficulty") {
+      dynamic_rating = 3;
+    }
+
+    if (category === "speed") {
+      dynamic_rating = 4;
+    }
+
+    if (interaction_count > total * 0.6) {
+      dynamic_rating = 2; // alumno cansón
+    }
+
+    /* =====================================================
+    6. GUARDAR FEEDBACK REAL (INTEGRADO)
+    ===================================================== */
+
+    await pool.query(`
+      INSERT INTO student_feedback
+      (email, product_name, rating, useful, improve, category, created_at)
+      VALUES ($1,$2,$3,$4,$5,$6,NOW())
+    `, [
+      email,
+      product_name,
+      dynamic_rating,
+      "",
+      message,
+      category
+    ]);
+
+    /* =====================================================
+    7. RESPUESTA ESTRUCTURADA PARA EL TUTOR
+    ===================================================== */
+
+    res.json({
+      message,
+      tutor_config,
+      feedback: {
+        category,
+        rating: dynamic_rating
+      },
+      system: {
+        total_interactions: total,
+        interaction_pressure: interaction_count
+      },
+      product_name,
+      area
+    });
+
+  } catch (error) {
+
+    console.error("SUPREME CHAT ERROR:", error);
+
+    res.status(500).json({
+      message: "Error en sistema inteligente"
+    });
+
+  }
+
+});
 /*=========================================================
 START
 ==========≈================================================*/
