@@ -3360,15 +3360,55 @@ app.get("/api/chat", async (req, res) => {
     else if (stability.stability_score < 80) user_type = "confuso";
 
     /* =========================================================
+🧠 STABILITY + CONTROL CONDUCTUAL (UBICACIÓN EXACTA)
+========================================================= */
+
+// 1. stability filter (lo que ya veníamos trabajando)
+let effectivePrefs = { ...prefs };
+
+if (stability.stability_score < 50) {
+
+  effectivePrefs = stability.last_preferences || prefs;
+
+} else if (stability.stability_score < 80) {
+
+  effectivePrefs = {
+    ...prefs,
+    pace: prefs.pace || stability.last_preferences?.pace,
+    tone: prefs.tone || stability.last_preferences?.tone
+  };
+
+}
+
+// 2. control conductual (LO QUE TÚ EXPLICASTE)
+let finalPrefs = { ...effectivePrefs };
+
+if (user_type === "riesgoso") {
+
+  finalPrefs.pace = "medio";
+  finalPrefs.tone = "neutral";
+
+}
+
+if (user_type === "confuso") {
+
+  if (finalPrefs.pace === "rapido") {
+    finalPrefs.pace = "medio";
+  }
+
+}
+
+    /* =========================================================
     RESPUESTA
     ========================================================= */
 
-    function generateResponse(message, prefs, config) {
+    
+function generateResponse(message, prefs, config) {
 
   let response = "Vamos a trabajar este concepto correctamente.";
 
   /* ===============================
-  🧠 CONTROL DE RITMO (CRÍTICO)
+  🧠 CONTROL DE RITMO
   =============================== */
 
   if (prefs.pace === "lento") {
@@ -3376,12 +3416,16 @@ app.get("/api/chat", async (req, res) => {
     response += "\nPrimero entendamos una idea clave antes de avanzar.";
   }
 
+  if (prefs.pace === "medio") {
+    response += "\n\nIremos a un ritmo equilibrado para mantener claridad.";
+  }
+
   if (prefs.pace === "rapido") {
     response += "\n\nIremos directo al punto sin rodeos.";
   }
 
   /* ===============================
-  🧠 PROFUNDIDAD (CONFIG GLOBAL)
+  🧠 PROFUNDIDAD
   =============================== */
 
   if (config.explanation_depth >= 4) {
@@ -3393,12 +3437,16 @@ app.get("/api/chat", async (req, res) => {
   }
 
   /* ===============================
-  🧠 ESTILO DE APRENDIZAJE
+  🧠 ESTILO
   =============================== */
 
   if (prefs.style === "aplicado") {
     response += "\n\nEjemplo práctico: proteína + vegetales en un plato real.";
   }
+
+  /* ===============================
+  🧠 TONO
+  =============================== */
 
   if (prefs.tone === "tecnico") {
     response += "\n\nUsaremos términos más técnicos para mayor precisión.";
@@ -3408,8 +3456,12 @@ app.get("/api/chat", async (req, res) => {
     response += "\n\nTe lo explico de forma sencilla, como en una conversación.";
   }
 
+  if (prefs.tone === "neutral") {
+    response += "\n\nMantendremos una explicación clara y equilibrada.";
+  }
+
   /* ===============================
-  🧠 CONTROL DE CARGA (PREGUNTAS)
+  🧠 CONTROL DE PREGUNTAS
   =============================== */
 
   if (
@@ -3419,12 +3471,8 @@ app.get("/api/chat", async (req, res) => {
     response += "\n\n¿Esto lo estás aplicando actualmente?";
   }
 
-  if (prefs.question_frequency === "baja") {
-    // 🔒 NO preguntar (usuario saturado)
-  }
-
   /* ===============================
-  🧠 PROTECCIÓN DE USUARIO CONFUSO
+  🧠 CONTROL DE CARGA (ANTI-SATURACIÓN)
   =============================== */
 
   if (config.pacing_level <= 2) {
@@ -3434,7 +3482,7 @@ app.get("/api/chat", async (req, res) => {
   return response;
 }
 
-    const finalResponse = generateResponse(message, prefs, config);
+    const finalResponse = generateResponse(message, finalPrefs, config);
 
     return res.json({
       message: finalResponse,
