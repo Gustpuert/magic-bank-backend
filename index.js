@@ -960,35 +960,8 @@ res.status(500).send("Error validando acceso");
 });
 
 
-/* =========================================================
-TEMPORAL - AGREGAR CONTROL DE USO DE TOKEN
-========================================================= */
 
-app.get("/install-token-usage", async (req, res) => {
 
-try {
-
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS token_uses INTEGER DEFAULT 0;
-`);
-
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS max_uses INTEGER DEFAULT 3;
-`);
-
-res.send("Control de uso de token instalado correctamente");
-
-} catch (error) {
-
-console.error("ERROR INSTALANDO CONTROL TOKEN:", error);
-
-res.status(500).send("Error instalando control token");
-
-}
-
-});
 /* =========================================================
 13 - ONBOARDING ACADÉMICO
 Formulario inicial de inscripción
@@ -2295,44 +2268,7 @@ app.post("/api/validate-token", async (req, res) => {
   }
 });
 
-/* =========================================================
-TEMPORAL - INSTALAR SEGURIDAD DE DISPOSITIVO
-========================================================= */
 
-app.get("/install-session-security", async (req, res) => {
-  try {
-    await pool.query(`
-      ALTER TABLE access_tokens
-      ADD COLUMN IF NOT EXISTS activated BOOLEAN DEFAULT FALSE;
-    `);
-
-    await pool.query(`
-      ALTER TABLE access_tokens
-      ADD COLUMN IF NOT EXISTS device_fingerprint TEXT;
-    `);
-
-    await pool.query(`
-      ALTER TABLE access_tokens
-      ADD COLUMN IF NOT EXISTS first_ip TEXT;
-    `);
-
-    await pool.query(`
-      ALTER TABLE access_tokens
-      ADD COLUMN IF NOT EXISTS first_user_agent TEXT;
-    `);
-
-    await pool.query(`
-      ALTER TABLE access_tokens
-      ADD COLUMN IF NOT EXISTS last_access TIMESTAMP;
-    `);
-
-    res.send("Seguridad de dispositivo instalada correctamente");
-
-  } catch (error) {
-    console.error("ERROR INSTALL SESSION SECURITY:", error);
-    res.status(500).send("Error instalando seguridad de dispositivo");
-  }
-});
 
 /* =========================================================
 ENDPOINT — GUARDAR FEEDBACK DEL ESTUDIANTE
