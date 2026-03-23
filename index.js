@@ -3146,8 +3146,8 @@ if (typeof message !== "string" || message.length > 1000) {
         DO UPDATE SET
           preferences = user_preferences.preferences || $2,
           updated_at = NOW()
-      `, [user.email, detectedPreferences]);
-    }
+      `, 
+    }[user.email, JSON.stringify(pref)]);
 
     /* =========================================================
     📥 CARGAR PREFERENCIAS
@@ -3392,7 +3392,7 @@ app.get("/api/chat", async (req, res) => {
             DO UPDATE SET
               preferences = user_preferences.preferences || $2,
               updated_at = NOW()
-          `, [user.email, pref]);
+          `, [user.email, JSON.stringify(pref)]);
         }
       }
 
