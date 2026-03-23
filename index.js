@@ -3137,17 +3137,18 @@ if (typeof message !== "string" || message.length > 1000) {
 
     const detectedPreferences = detectPreferences(msg);
 
-    if (Object.keys(detectedPreferences).length > 0) {
+if (Object.keys(detectedPreferences).length > 0) {
 
-      await pool.query(`
-        INSERT INTO user_preferences (email, preferences, updated_at)
-        VALUES ($1,$2,NOW())
-        ON CONFLICT (email)
-        DO UPDATE SET
-          preferences = user_preferences.preferences || $2,
-          updated_at = NOW()
-      `, 
-    }[user.email, JSON.stringify(pref)]);
+  await pool.query(`
+    INSERT INTO user_preferences (email, preferences, updated_at)
+    VALUES ($1,$2,NOW())
+    ON CONFLICT (email)
+    DO UPDATE SET
+      preferences = user_preferences.preferences || $2,
+      updated_at = NOW()
+  `, [user.email, JSON.stringify(detectedPreferences)]);
+
+}
 
     /* =========================================================
     📥 CARGAR PREFERENCIAS
