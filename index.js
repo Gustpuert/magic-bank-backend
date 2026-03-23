@@ -3448,6 +3448,49 @@ Nivel de riesgo del usuario: ${risk_level}
     ]);
 
     /* =========================================================
+🧠 ACTUALIZACIÓN AUTOMÁTICA DEL PERFIL (APRENDIZAJE REAL)
+========================================================= */
+
+let new_pacing = pacing_level;
+let new_depth = explanation_depth;
+
+// anti-manipulación
+if (risk_level === "manipulator") {
+  new_pacing = 3;
+}
+
+// usuario agresivo → modo seguro estable
+if (risk_level === "high") {
+  new_pacing = 2;
+  new_depth = 3;
+}
+
+await pool.query(`
+  INSERT INTO student_intelligence_profiles
+  (
+    student_id,
+    learning_speed,
+    technical_score,
+    last_updated
+  )
+  VALUES (
+    (SELECT id FROM students WHERE email = $1),
+    $2,
+    $3,
+    NOW()
+  )
+  ON CONFLICT (student_id)
+  DO UPDATE SET
+    learning_speed = EXCLUDED.learning_speed,
+    technical_score = EXCLUDED.technical_score,
+    last_updated = NOW()
+`, [
+  email,
+  new_pacing,
+  new_depth
+]);
+
+    /* =========================================================
     🧠 AUTO-APRENDIZAJE (CLAVE)
     ========================================================= */
 
