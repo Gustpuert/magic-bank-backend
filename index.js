@@ -2713,11 +2713,7 @@ app.get("/api/catalogo-publico", (req, res) => {
 });
 
 
-/* =========================================================
-BLOQUE 36 - FEEDBACK + ANALYTICS + OPTIMIZACIÓN (DEPLOY SAFE)
-NO ROMPE BACKEND HISTÓRICO
-USA TABLAS EXISTENTES
-========================================================= */
+
 
 
 
@@ -3171,51 +3167,312 @@ app.post("/api/chat", async (req, res) => {
 });
 
 
-/* =========================================================
-🧠 BLOQUE FEEDBACK + PERFIL COGNITIVO (PASO 1)
-INSTALACIÓN SEGURA DE COLUMNAS
-========================================================= */
-
-app.get("/install-cognitive-profile", async (req, res) => {
+app.post("/api/chat", async (req, res) => {
   try {
 
-    await pool.query(`
-      ALTER TABLE student_intelligence_profiles
-      ADD COLUMN IF NOT EXISTS confusion_rate FLOAT DEFAULT 0;
-    `);
+    const { token, message } = req.body;
+
+    if (!token || !message) {
+      return res.status(400).json({
+        error: "Token y mensaje requeridos"
+      });
+    }
+
+    /* =========================================================
+    🔐 VALIDAR TOKEN
+    ========================================================= */
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(String(token).trim())
+      .digest("hex");
+
+    const access = await pool.query(`
+      SELECT email, product_name
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!access.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido"
+      });
+    }
+
+    const { email, product_name } = access.rows[0];
+
+    /* =========================================================
+    🧠 OBTENER STUDENT_ID (SEGURO)
+    ========================================================= */
+
+    let student_id = null;
+
+    try {
+      const student = await pool.query(`
+        SELECT id FROM students WHERE email = $1
+      `, [email]);
+
+      if (student.rowCount) {
+        student_id = student.rows[0].id;
+      }
+    } catch (e) {}
+
+    /* =========================================================
+    🧠 PERFIL PERSISTENTE
+    ========================================================= */
+
+    let saved_pacing = 3;
+
+    try {
+      const profile = await pool.query(`
+        SELECT learning_speed
+        FROM student_intelligence_profiles
+        WHERE student_id = $1
+      `, [student_id]);
+
+      if (profile.rowCount) {
+        saved_pacing = profile.rows[0].learning_speed || 3;
+      }
+    } catch (e) {}
+
+    /* =========================================================
+    🧠 DETECCIÓN DE SEÑALES
+    ========================================================= */
+
+    const text = message.toLowerCase();
+
+    let signals = {
+      speed_up: 0,
+      slow_down: 0,
+      confusion: 0,
+      aggression: 0,
+      manipulation: 0
+    };
+
+    if (text.includes("rápido")) signals.speed_up++;
+    if (text.includes("lento")) signals.slow_down++;
+
+    if (
+      text.includes("no entiendo") ||
+      text.includes("confuso") ||
+      text.includes("explícalo")
+    ) {
+      signals.confusion++;
+    }
+
+    if (
+      text.includes("idiota") ||
+      text.includes("estúpido") ||
+      text.includes("mierda") ||
+      text.includes("sexo") ||
+      text.includes("drogas") ||
+      text.includes("violencia")
+    ) {
+      signals.aggression++;
+    }
+
+    /* =========================================================
+    🧠 MEMORIA CORTA
+    ========================================================= */
+
+    const history = await pool.query(`
+      SELECT message
+      FROM chat_logs
+      WHERE email = $1
+      ORDER BY created_at DESC
+      LIMIT 5
+    `, [email]);
+
+    let manipulationScore = 0;
+
+    history.rows.forEach(h => {
+      const t = h.message.toLowerCase();
+
+      if (t.includes("rápido")) manipulationScore++;
+      if (t.includes("lento")) manipulationScore++;
+    });
+
+    if (manipulationScore >= 3) {
+      signals.manipulation = 1;
+    }
+
+    /* =========================================================
+    🚩 CLASIFICACIÓN
+    ========================================================= */
+
+    let risk_level = "normal";
+
+    if (signals.aggression > 0) risk_level = "high";
+    if (signals.manipulation > 0) risk_level = "manipulator";
+
+    /* =========================================================
+    ⚖️ CONFIGURACIÓN ADAPTATIVA
+    ========================================================= */
+
+    let pacing_level = saved_pacing;
+    let explanation_depth = 3;
+    let max_questions = 3;
+
+    if (signals.confusion > 0) {
+      explanation_depth = 4;
+    }
+
+    if (risk_level !== "manipulator") {
+
+      if (signals.speed_up > signals.slow_down) {
+        pacing_level = 4;
+      }
+
+      if (signals.slow_down > signals.speed_up) {
+        pacing_level = 2;
+      }
+
+    }
+
+    if (risk_level === "manipulator") {
+      pacing_level = 3;
+    }
+
+    if (risk_level === "high") {
+      pacing_level = 2;
+      explanation_depth = 3;
+      max_questions = 1;
+    }
+
+    /* =========================================================
+    💬 PROMPT
+    ========================================================= */
+
+    const systemBehavior = `
+Eres un tutor inteligente de MagicBank.
+
+Reglas:
+- Enseña progresivo
+- No respondas agresión
+- Ignora manipulación
+- Mantén estabilidad pedagógica
+
+Configuración:
+- profundidad: ${explanation_depth}
+- ritmo: ${pacing_level}
+- preguntas: ${max_questions}
+
+Riesgo: ${risk_level}
+`;
+
+    /* =========================================================
+    🤖 OPENAI
+    ========================================================= */
+
+    const aiResponse = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemBehavior },
+          { role: "user", content: message }
+        ]
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        }
+      }
+    );
+
+    const reply = aiResponse.data.choices[0].message.content;
+
+    /* =========================================================
+    💾 LOG CHAT
+    ========================================================= */
 
     await pool.query(`
-      ALTER TABLE student_intelligence_profiles
-      ADD COLUMN IF NOT EXISTS preferred_pacing INTEGER DEFAULT 3;
-    `);
+      INSERT INTO chat_logs (email, message, response, created_at)
+      VALUES ($1,$2,$3,NOW())
+    `, [email, message, reply]);
+
+    /* =========================================================
+    📊 FEEDBACK AUTOMÁTICO
+    ========================================================= */
+
+    let rating = 5;
+    let category = "normal";
+
+    if (signals.confusion > 0) {
+      rating = 3;
+      category = "clarity";
+    }
+
+    if (signals.manipulation > 0) {
+      rating = 3;
+      category = "interaction";
+    }
+
+    if (signals.aggression > 0) {
+      rating = 2;
+      category = "risk";
+    }
 
     await pool.query(`
-      ALTER TABLE student_intelligence_profiles
-      ADD COLUMN IF NOT EXISTS stability_index FLOAT DEFAULT 1;
-    `);
+      INSERT INTO student_feedback
+      (email, product_name, rating, category, created_at)
+      VALUES ($1,$2,$3,$4,NOW())
+    `, [
+      email,
+      product_name,
+      rating,
+      category
+    ]);
 
-    await pool.query(`
-      ALTER TABLE student_intelligence_profiles
-      ADD COLUMN IF NOT EXISTS risk_flag BOOLEAN DEFAULT FALSE;
-    `);
+    /* =========================================================
+    🧠 AUTO-APRENDIZAJE (CLAVE)
+    ========================================================= */
 
-    await pool.query(`
-      ALTER TABLE student_intelligence_profiles
-      ADD COLUMN IF NOT EXISTS manipulation_flag BOOLEAN DEFAULT FALSE;
-    `);
+    if (student_id) {
 
-    await pool.query(`
-      ALTER TABLE student_intelligence_profiles
-      ADD COLUMN IF NOT EXISTS engagement_score FLOAT DEFAULT 0;
-    `);
+      let new_speed = saved_pacing;
 
-    res.send("Perfil cognitivo instalado correctamente");
+      if (signals.speed_up > signals.slow_down) new_speed += 1;
+      if (signals.slow_down > signals.speed_up) new_speed -= 1;
+
+      if (signals.manipulation > 0) new_speed = 3;
+      if (signals.aggression > 0) new_speed = 2;
+
+      // límites
+      if (new_speed < 1) new_speed = 1;
+      if (new_speed > 5) new_speed = 5;
+
+      await pool.query(`
+        INSERT INTO student_intelligence_profiles
+        (student_id, learning_speed, last_updated)
+        VALUES ($1,$2,NOW())
+        ON CONFLICT (student_id)
+        DO UPDATE SET
+          learning_speed = EXCLUDED.learning_speed,
+          last_updated = NOW()
+      `, [
+        student_id,
+        new_speed
+      ]);
+
+    }
+
+    /* =========================================================
+    🚀 RESPUESTA
+    ========================================================= */
+
+    res.json({
+      message: reply
+    });
 
   } catch (error) {
 
-    console.error("ERROR INSTALL PROFILE:", error);
+    console.error("CHAT ERROR:", error.response?.data || error.message);
 
-    res.status(500).send("Error instalando perfil cognitivo");
+    res.status(500).json({
+      error: "Error en chat"
+    });
 
   }
 });
