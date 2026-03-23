@@ -68,6 +68,41 @@ const chatLimiter = rateLimit({
     error: "Demasiados mensajes. Espera un momento."
   }
 });
+
+
+/* =========================================================
+📊 LOGS DE ACTIVIDAD
+========================================================= */
+
+app.use((req, res, next) => {
+
+  const ip =
+    req.headers["x-forwarded-for"] ||
+    req.socket.remoteAddress ||
+    "unknown";
+
+  const userAgent = req.headers["user-agent"] || "unknown";
+
+  console.log({
+    time: new Date().toISOString(),
+    method: req.method,
+    url: req.originalUrl,
+    ip,
+    userAgent
+  });
+
+  next();
+
+});
+
+app.use((req, res, next) => {
+  res.setTimeout(10000, () => {
+    console.warn("⏱ Timeout:", req.originalUrl);
+    res.status(408).send("Tiempo de espera agotado");
+  });
+  next();
+});
+
 /* =========================================================
 03 - CONEXIÓN BASE DE DATOS
 PostgreSQL Railway
@@ -2966,7 +3001,16 @@ app.post("/api/chat", chatLimiter, async (req, res) => {
   try {
 
     const { token, message } = req.body;
+    
+/* =========================================================
+🛡 VALIDACIÓN DE INPUT
+========================================================= */
 
+if (typeof message !== "string" || message.length > 1000) {
+  return res.status(400).json({
+    error: "Mensaje inválido"
+  });
+}
     if (!token || !message) {
       return res.status(400).json({
         error: "Token y message requeridos"
@@ -3531,6 +3575,11 @@ if (user_type === "confuso") {
   }
 
 }
+    if (message.includes("<script>") || message.includes("DROP TABLE")) {
+  return res.status(400).json({
+    error: "Entrada no permitida"
+  });
+    }
 
     /* =========================================================
     RESPUESTA
