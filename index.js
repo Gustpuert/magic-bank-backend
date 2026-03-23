@@ -3774,7 +3774,30 @@ app.get("/system/auto-evolve", async (req, res) => {
 
 });
 
+app.get("/dev/create-learning-signals-table", async (req, res) => {
+  try {
 
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS learning_signals (
+        id SERIAL PRIMARY KEY,
+        email TEXT,
+        product_name TEXT,
+        category TEXT,
+        message TEXT,
+        created_at TIMESTAMP DEFAULT NOW()
+      );
+    `);
+
+    res.send("✅ Tabla learning_signals creada correctamente");
+
+  } catch (error) {
+
+    console.error("ERROR CREATING TABLE:", error);
+
+    res.status(500).send("Error creando tabla");
+
+  }
+});
 
 
 /* =========================================================
