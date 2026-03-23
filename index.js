@@ -3346,16 +3346,18 @@ app.get("/api/chat", async (req, res) => {
     const implicitCategory = detectImplicitFeedback(msg);
 
     if (implicitCategory) {
-  await pool.query(`
-    INSERT INTO learning_signals
-    (email, product_name, category, message, created_at)
-    VALUES ($1,$2,$3,$4,NOW())
-  `, [
-    user.email,
-    user.product_name,
-    implicitCategory,
-    message
-  ]);
+
+  // await pool.query(`
+  //   INSERT INTO learning_signals
+  //   (email, product_name, category, message, created_at)
+  //   VALUES ($1,$2,$3,$4,NOW())
+  // `, [
+  //   user.email,
+  //   user.product_name,
+  //   implicitCategory,
+  //   message
+  // ]);
+
 }
 
     /* =========================================================
