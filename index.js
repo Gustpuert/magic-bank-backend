@@ -2830,7 +2830,21 @@ try {
 }
 
 
+/* ===============================
+FEEDBACK INTELIGENTE (SAFE INSERT)
+=============================== */
 
+try {
+
+  await saveFeedbackSafe({
+    email,
+    product_name,
+    message
+  });
+
+} catch (err) {
+  console.error("FEEDBACK IN CHAT ERROR:", err.message);
+}
     /* ===============================
     7. RESPUESTA FINAL SEGURA
     =============================== */
@@ -3249,6 +3263,115 @@ async function saveFeedbackSafe({ email, product_name, message }) {
 
     // 🔥 CLAVE: solo log → nunca rompe backend
     console.error("FEEDBACK SAVE SAFE:", err.message);
+  }
+}
+
+/* =========================================================
+BLOQUE 10 — AUTO-ADAPTACIÓN DEL TUTOR (SAFE)
+NO MODIFICA ENDPOINT
+========================================================= */
+
+
+/* ===============================
+1. OBTENER PERFIL ADAPTATIVO
+=============================== */
+
+async function getAdaptiveConfigSafe({ email, product_name }) {
+
+  try {
+
+    if (!email || !product_name) {
+      return {
+        pacing: 3,
+        depth: 3
+      };
+    }
+
+    const result = await pool.query(`
+      SELECT
+        ROUND(AVG(rating),2) as avg_rating,
+        COUNT(*) FILTER (WHERE category = 'clarity') as clarity_issues,
+        COUNT(*) FILTER (WHERE category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE category = 'interaction') as interaction_issues
+      FROM student_feedback
+      WHERE email = $1
+      AND product_name = $2
+      AND created_at > NOW() - INTERVAL '3 days'
+    `, [email, product_name]);
+
+    if (!result.rowCount) {
+      return {
+        pacing: 3,
+        depth: 3
+      };
+    }
+
+    const data = result.rows[0];
+
+    let pacing = 3;
+    let depth = 3;
+
+    // 🔴 claridad baja → más explicación
+    if (Number(data.clarity_issues) > 2) {
+      depth = 4;
+    }
+
+    // ⚡ velocidad problema → bajar ritmo
+    if (Number(data.speed_issues) > 2) {
+      pacing = 2;
+    }
+
+    // ❓ demasiada interacción → simplificar
+    if (Number(data.interaction_issues) > 3) {
+      depth = 2;
+    }
+
+    return {
+      pacing,
+      depth
+    };
+
+  } catch (err) {
+
+    console.error("ADAPTIVE CONFIG ERROR:", err.message);
+
+    return {
+      pacing: 3,
+      depth: 3
+    };
+  }
+}
+
+
+/* ===============================
+2. AJUSTE DE RESPUESTA FINAL
+=============================== */
+
+function adaptReplyStyle(reply, config) {
+
+  try {
+
+    const safeReply = String(reply || "");
+
+    if (!config) return safeReply;
+
+    // Más simple
+    if (config.depth === 2) {
+      return safeReply.split(".").slice(0,1).join(".") + ".";
+    }
+
+    // Más explicativo
+    if (config.depth === 4) {
+      return safeReply + " Te lo explico con más detalle si lo necesitas.";
+    }
+
+    return safeReply;
+
+  } catch (err) {
+
+    console.error("ADAPT STYLE ERROR:", err.message);
+
+    return reply;
   }
 }
 /*=========================================================
