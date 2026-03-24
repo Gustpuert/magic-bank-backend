@@ -2772,7 +2772,81 @@ app.post("/api/chat", async (req, res) => {
   }
 
 });
+/* =====================================================
+BLOQUE 2 — TRACKING + CONTEXTO BASE
+===================================================== */
+
+/* TRACKING DE USO */
+try {
+
+  await pool.query(`
+    UPDATE access_tokens
+    SET last_access = NOW()
+    WHERE token = $1
+  `, [tokenHash]);
+
+} catch (err) {
+
+  console.error("TRACKING ERROR:", err.message);
+
+}
+
+/* DETECCIÓN DE CONTEXTO BÁSICO */
+let context = "normal";
+
+const text = message.toLowerCase();
+
+if (text.includes("no entiendo") || text.includes("confuso")) {
+  context = "confusion";
+}
+
+if (text.includes("rápido")) {
+  context = "fast";
+}
+
+if (text.includes("lento") || text.includes("despacio")) {
+  context = "slow";
+}
     
+/* =====================================================
+BLOQUE 3 — LOG DE MENSAJES (MEMORIA REAL)
+===================================================== */
+
+/* GUARDAR MENSAJE DEL USUARIO */
+try {
+
+  await pool.query(`
+    INSERT INTO chat_logs (email, message, created_at)
+    VALUES ($1,$2,NOW())
+  `, [email, message]);
+
+} catch (err) {
+
+  console.error("CHAT LOG ERROR:", err.message);
+
+}
+
+/* OBTENER ÚLTIMOS MENSAJES (MEMORIA CORTA) */
+let recentMessages = [];
+
+try {
+
+  const history = await pool.query(`
+    SELECT message
+    FROM chat_logs
+    WHERE email = $1
+    ORDER BY created_at DESC
+    LIMIT 5
+  `, [email]);
+
+  recentMessages = history.rows.map(r => r.message);
+
+} catch (err) {
+
+  console.error("MEMORY ERROR:", err.message);
+
+}
+
 
 /*=========================================================
 START
