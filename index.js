@@ -2794,27 +2794,19 @@ app.post("/api/chat", async (req, res) => {
       context = "slow";
     }
 
+  
+
     /* ===============================
-    6. RESPUESTA BASE (SIN IA AÚN)
-    =============================== */
+6- RESPUESTA INTELIGENTE (SAFE INJECTION)
+=============================== */
 
-    let reply = "";
+const result = processChatMessage({
+  message,
+  context,
+  user: email
+});
 
-    if (context === "confusion") {
-      reply = "Vamos paso a paso. ¿Qué parte no te quedó clara?";
-    }
-
-    else if (context === "fast") {
-      reply = "Te explico de forma rápida: enfócate en la idea principal y aplica inmediatamente.";
-    }
-
-    else if (context === "slow") {
-      reply = "Perfecto, iremos despacio. Primero entendamos lo básico antes de avanzar.";
-    }
-
-    else {
-      reply = "Estoy listo para ayudarte. ¿Qué quieres aprender hoy?";
-    }
+let reply = result.reply;
 
     /* ===============================
     7. RESPUESTA FINAL SEGURA
@@ -3072,6 +3064,70 @@ function processChatMessage({ message, context, user }) {
     console.error("PROCESS CHAT ERROR:", err.message);
 
     return fallbackReply();
+  }
+}
+
+
+/* =========================================================
+BLOQUE 6 — OPENAI SAFE (NO CRASH)
+NO MODIFICA ENDPOINT
+========================================================= */
+
+
+/* ===============================
+1. GENERADOR IA SEGURO
+=============================== */
+
+async function generateAIReplySafe(message, context) {
+
+  try {
+
+    // Seguridad total
+    const safeMessage = String(message || "");
+    const safeContext = String(context || "normal");
+
+    // Si no hay API KEY → fallback inmediato (CRÍTICO)
+    if (!process.env.OPENAI_API_KEY) {
+      return null;
+    }
+
+    const response = await axios.post(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        model: "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content: `Eres un tutor inteligente. Contexto del usuario: ${safeContext}`
+          },
+          {
+            role: "user",
+            content: safeMessage
+          }
+        ],
+        max_tokens: 200
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        },
+        timeout: 8000 // evita cuelgues
+      }
+    );
+
+    const reply = response?.data?.choices?.[0]?.message?.content;
+
+    if (!reply) return null;
+
+    return reply;
+
+  } catch (err) {
+
+    console.error("OPENAI SAFE ERROR:", err.message);
+
+    // 🔥 CLAVE: nunca rompe el flujo
+    return null;
   }
 }
 /*=========================================================
