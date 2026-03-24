@@ -3123,7 +3123,6 @@ app.get("/analytics/auto-adjust", async (req, res) => {
 
     
 
-
 app.post("/api/chat", async (req, res) => {
   try {
 
@@ -3145,7 +3144,7 @@ app.post("/api/chat", async (req, res) => {
       .digest("hex");
 
     const access = await pool.query(`
-      SELECT email, product_name
+      SELECT email, product_name, area, last_access
       FROM access_tokens
       WHERE token = $1
       AND expires_at > NOW()
@@ -3157,32 +3156,60 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    const { email, product_name } = access.rows[0];
+    const { email, product_name, area, last_access } = access.rows[0];
 
     /* =========================================================
-🧠 PERFIL COGNITIVO PERSISTENTE (LECTURA)
-========================================================= */
+    2. ACTUALIZAR ÚLTIMO ACCESO (CLAVE PARA ABANDONO)
+    ========================================================= */
 
-let userProfile = await pool.query(`
-  SELECT *
-  FROM student_intelligence_profiles
-  WHERE student_id = (
-    SELECT id FROM students WHERE email = $1
-  )
-`, [email]);
-
-let cognitive = {
-  pacing_level: 3,
-  explanation_depth: 3
-};
-
-if (userProfile.rowCount) {
-  cognitive.pacing_level = userProfile.rows[0].learning_speed || 3;
-  cognitive.explanation_depth = userProfile.rows[0].technical_score || 3;
-}
+    await pool.query(`
+      UPDATE access_tokens
+      SET last_access = NOW()
+      WHERE token = $1
+    `, [tokenHash]);
 
     /* =========================================================
-    🧠 OBTENER STUDENT_ID (SEGURO)
+    3. OBTENER CONFIG DINÁMICA (AUTO-ADJUST REAL)
+    ========================================================= */
+
+    const configRes = await pool.query(`
+      SELECT *
+      FROM tutor_config
+      WHERE product_name = $1
+    `, [product_name]);
+
+    const tutor_config = configRes.rowCount
+      ? configRes.rows[0]
+      : {
+          max_questions: 3,
+          explanation_depth: 3,
+          pacing_level: 3
+        };
+
+    /* =========================================================
+    🧠 PERFIL COGNITIVO PERSISTENTE (LECTURA)
+    ========================================================= */
+
+    let userProfile = await pool.query(`
+      SELECT *
+      FROM student_intelligence_profiles
+      WHERE student_id = (
+        SELECT id FROM students WHERE email = $1
+      )
+    `, [email]);
+
+    let cognitive = {
+      pacing_level: 3,
+      explanation_depth: 3
+    };
+
+    if (userProfile.rowCount) {
+      cognitive.pacing_level = userProfile.rows[0].learning_speed || 3;
+      cognitive.explanation_depth = userProfile.rows[0].technical_score || 3;
+    }
+
+    /* =========================================================
+    🧠 OBTENER STUDENT_ID
     ========================================================= */
 
     let student_id = null;
@@ -3323,7 +3350,7 @@ if (userProfile.rowCount) {
     💬 PROMPT
     ========================================================= */
 
-let systemBehavior = `
+    let systemBehavior = `
 Eres un tutor inteligente de MagicBank especializado en enseñanza.
 
 Tu función es enseñar, no repetir.
@@ -3362,34 +3389,34 @@ CONFIGURACIÓN:
 
 Nivel de riesgo del usuario: ${risk_level}
 `;
-    
+
     /* =========================================================
     🤖 OPENAI
     ========================================================= */
 
     const aiResponse = await axios.post(
-  "https://api.openai.com/v1/responses",
-  {
-    model: "gpt-4o-mini",
-    input: [
+      "https://api.openai.com/v1/responses",
       {
-        role: "system",
-        content: systemBehavior
+        model: "gpt-4o-mini",
+        input: [
+          {
+            role: "system",
+            content: systemBehavior
+          },
+          {
+            role: "user",
+            content: message
+          }
+        ]
       },
       {
-        role: "user",
-        content: message
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+        }
       }
-    ]
-  },
-  {
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
-    }
-  }
-);
+    );
 
-const reply = aiResponse.data.output[0].content[0].text;
+    const reply = aiResponse.data.output[0].content[0].text;
 
     /* =========================================================
     💾 LOG CHAT
@@ -3434,50 +3461,48 @@ const reply = aiResponse.data.output[0].content[0].text;
     ]);
 
     /* =========================================================
-🧠 ACTUALIZACIÓN AUTOMÁTICA DEL PERFIL (APRENDIZAJE REAL)
-========================================================= */
+    🧠 ACTUALIZACIÓN AUTOMÁTICA DEL PERFIL
+    ========================================================= */
 
-let new_pacing = pacing_level;
-let new_depth = explanation_depth;
+    let new_pacing = pacing_level;
+    let new_depth = explanation_depth;
 
-// anti-manipulación
-if (risk_level === "manipulator") {
-  new_pacing = 3;
-}
+    if (risk_level === "manipulator") {
+      new_pacing = 3;
+    }
 
-// usuario agresivo → modo seguro estable
-if (risk_level === "high") {
-  new_pacing = 2;
-  new_depth = 3;
-}
+    if (risk_level === "high") {
+      new_pacing = 2;
+      new_depth = 3;
+    }
 
-await pool.query(`
-  INSERT INTO student_intelligence_profiles
-  (
-    student_id,
-    learning_speed,
-    technical_score,
-    last_updated
-  )
-  VALUES (
-    (SELECT id FROM students WHERE email = $1),
-    $2,
-    $3,
-    NOW()
-  )
-  ON CONFLICT (student_id)
-  DO UPDATE SET
-    learning_speed = EXCLUDED.learning_speed,
-    technical_score = EXCLUDED.technical_score,
-    last_updated = NOW()
-`, [
-  email,
-  new_pacing,
-  new_depth
-]);
+    await pool.query(`
+      INSERT INTO student_intelligence_profiles
+      (
+        student_id,
+        learning_speed,
+        technical_score,
+        last_updated
+      )
+      VALUES (
+        (SELECT id FROM students WHERE email = $1),
+        $2,
+        $3,
+        NOW()
+      )
+      ON CONFLICT (student_id)
+      DO UPDATE SET
+        learning_speed = EXCLUDED.learning_speed,
+        technical_score = EXCLUDED.technical_score,
+        last_updated = NOW()
+    `, [
+      email,
+      new_pacing,
+      new_depth
+    ]);
 
     /* =========================================================
-    🧠 AUTO-APRENDIZAJE (CLAVE)
+    🧠 AUTO-APRENDIZAJE
     ========================================================= */
 
     if (student_id) {
@@ -3490,7 +3515,6 @@ await pool.query(`
       if (signals.manipulation > 0) new_speed = 3;
       if (signals.aggression > 0) new_speed = 2;
 
-      // límites
       if (new_speed < 1) new_speed = 1;
       if (new_speed > 5) new_speed = 5;
 
@@ -3508,10 +3532,6 @@ await pool.query(`
       ]);
 
     }
-
-    /* =========================================================
-    🚀 RESPUESTA
-    ========================================================= */
 
     res.json({
       message: reply
@@ -3531,8 +3551,7 @@ await pool.query(`
 
 /*=========================================================
 START
-==========≈================================================*/
-
+=========================================================*/
 
 const PORT = process.env.PORT || 3000;
 
