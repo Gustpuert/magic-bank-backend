@@ -2837,35 +2837,7 @@ try {
 
 }
 
-app.post("/api/chat-tracking-safe", async (req, res) => {
 
-  try {
-
-    const token = req.body?.token || "";
-
-    if (!token) {
-      return res.json({ status: "no_token" });
-    }
-
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(String(token).trim())
-      .digest("hex");
-
-    try {
-      await pool.query(
-        "UPDATE access_tokens SET last_access = NOW() WHERE token = $1",
-        [tokenHash]
-      );
-    } catch (e) {}
-
-    return res.json({ status: "ok" });
-
-  } catch (e) {
-    return res.json({ status: "safe_fail" });
-  }
-
-});
 
 /*=========================================================
 START
