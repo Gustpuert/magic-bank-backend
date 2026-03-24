@@ -3399,7 +3399,7 @@ app.post("/api/landing-chat", async (req, res) => {
     /* =====================================================
     QUÉ ES MAGICBANK
     ===================================================== */
-    if (
+    else if (
       message.includes("que es") ||
       message.includes("magicbank")
     ) {
@@ -3451,7 +3451,7 @@ let isAcademy = academyPrograms.some(p => message.includes(p));
 CASO: NO EXISTE (ESTO ES LO NUEVO)
 ===================================================== */
 
-if (
+else if (
   message.includes("estudiar") &&
   !isUniversity &&
   !isAcademy
