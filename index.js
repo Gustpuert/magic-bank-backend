@@ -2992,21 +2992,7 @@ app.get("/analytics/auto-adjust", async (req, res) => {
 
 });
 
-/* =========================================================
-API CHAT — SUPREME CORE (FEEDBACK + ADAPTACIÓN REAL)
-========================================================= */
 
-app.post("/api/chat", async (req, res) => {
-
-  try {
-
-    const { token, message } = req.body;
-
-    if (!token || !message) {
-      return res.status(400).json({
-        message: "Token y mensaje requeridos"
-      });
-    }
 
     /* =====================================================
     1. VALIDACIÓN SEGURA (MISMO SISTEMA)
