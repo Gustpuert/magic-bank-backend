@@ -2800,13 +2800,36 @@ app.post("/api/chat", async (req, res) => {
 6- RESPUESTA INTELIGENTE (SAFE INJECTION)
 =============================== */
 
-const result = processChatMessage({
+/* ===============================
+RESPUESTA HÍBRIDA (IA + FALLBACK)
+=============================== */
+
+let reply = "";
+
+/* 1. RESPUESTA LOCAL (SIEMPRE EXISTE) */
+const localResult = processChatMessage({
   message,
   context,
   user: email
 });
 
-let reply = result.reply;
+reply = localResult.reply;
+
+/* 2. INTENTO IA (NO BLOQUEANTE SEGURO) */
+try {
+
+  const aiReply = await generateAIReplySafe(message, context);
+
+  // solo usa IA si es válida
+  if (aiReply && aiReply.length > 5) {
+    reply = aiReply;
+  }
+
+} catch (err) {
+  console.error("AI INJECTION ERROR:", err.message);
+}
+
+
 
     /* ===============================
     7. RESPUESTA FINAL SEGURA
@@ -3128,6 +3151,104 @@ async function generateAIReplySafe(message, context) {
 
     // 🔥 CLAVE: nunca rompe el flujo
     return null;
+  }
+}
+
+/* =========================================================
+BLOQUE 8 — FEEDBACK INTELIGENTE SAFE
+NO MODIFICA ENDPOINT
+========================================================= */
+
+
+/* ===============================
+1. CLASIFICADOR DE MENSAJE
+=============================== */
+
+function classifyUserFeedback(message) {
+
+  try {
+
+    const text = String(message || "").toLowerCase();
+
+    if (!text) return "neutral";
+
+    if (text.includes("no entiendo") || text.includes("confuso")) {
+      return "clarity";
+    }
+
+    if (text.includes("difícil")) {
+      return "difficulty";
+    }
+
+    if (text.includes("rápido") || text.includes("lento")) {
+      return "speed";
+    }
+
+    if (text.includes("?")) {
+      return "interaction";
+    }
+
+    return "normal";
+
+  } catch (err) {
+    console.error("FEEDBACK CLASSIFY ERROR:", err.message);
+    return "normal";
+  }
+}
+
+
+/* ===============================
+2. GENERADOR DE RATING AUTOMÁTICO
+=============================== */
+
+function generateAutoRating(category) {
+
+  try {
+
+    if (category === "clarity") return 3;
+    if (category === "difficulty") return 3;
+    if (category === "speed") return 4;
+    if (category === "interaction") return 5;
+
+    return 5;
+
+  } catch (err) {
+    return 5;
+  }
+}
+
+
+/* ===============================
+3. GUARDADO SEGURO (NO CRASH DB)
+=============================== */
+
+async function saveFeedbackSafe({ email, product_name, message }) {
+
+  try {
+
+    if (!email || !product_name) return;
+
+    const category = classifyUserFeedback(message);
+    const rating = generateAutoRating(category);
+
+    // 🔴 IMPORTANTE: esto puede fallar si la tabla no existe
+    // pero está protegido → NO CRASHEA
+
+    await pool.query(`
+      INSERT INTO student_feedback
+      (email, product_name, rating, category, created_at)
+      VALUES ($1,$2,$3,$4,NOW())
+    `, [
+      email,
+      product_name,
+      rating,
+      category
+    ]);
+
+  } catch (err) {
+
+    // 🔥 CLAVE: solo log → nunca rompe backend
+    console.error("FEEDBACK SAVE SAFE:", err.message);
   }
 }
 /*=========================================================
