@@ -2714,7 +2714,64 @@ app.get("/api/catalogo-publico", (req, res) => {
 
 
 
+/* =========================================================
+BLOQUE 1 — BASE + VALIDACIÓN (DEPLOY TEST)
+========================================================= */
 
+app.post("/api/chat", async (req, res) => {
+
+  try {
+
+    // ===== 1. INPUT =====
+    const { token, message } = req.body;
+
+    if (!token || !message) {
+      return res.status(400).json({
+        error: "Token y mensaje requeridos"
+      });
+    }
+
+    // ===== 2. HASH TOKEN =====
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(String(token).trim())
+      .digest("hex");
+
+    // ===== 3. VALIDACIÓN DB =====
+    const access = await pool.query(`
+      SELECT email, product_name, area
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!access.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido o expirado"
+      });
+    }
+
+    const { email, product_name, area } = access.rows[0];
+
+    // ===== 4. RESPUESTA BASE =====
+    return res.json({
+      message: "OK BASE",
+      email,
+      product_name,
+      area
+    });
+
+  } catch (error) {
+
+    console.error("ERROR BLOQUE 1:", error);
+
+    return res.status(500).json({
+      error: "Error base chat"
+    });
+
+  }
+
+});
     
 
 /*=========================================================
