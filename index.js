@@ -3121,36 +3121,7 @@ app.get("/analytics/auto-adjust", async (req, res) => {
       category
     ]);
 
-    /* =====================================================
-    7. RESPUESTA ESTRUCTURADA PARA EL TUTOR
-    ===================================================== */
-
-    res.json({
-      message,
-      tutor_config,
-      feedback: {
-        category,
-        rating: dynamic_rating
-      },
-      system: {
-        total_interactions: total,
-        interaction_pressure: interaction_count
-      },
-      product_name,
-      area
-    });
-
-  } catch (error) {
-
-    console.error("SUPREME CHAT ERROR:", error);
-
-    res.status(500).json({
-      message: "Error en sistema inteligente"
-    });
-
-  }
-
-});
+    
 
 
 app.post("/api/chat", async (req, res) => {
@@ -3397,22 +3368,28 @@ Nivel de riesgo del usuario: ${risk_level}
     ========================================================= */
 
     const aiResponse = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
+  "https://api.openai.com/v1/responses",
+  {
+    model: "gpt-4o-mini",
+    input: [
       {
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemBehavior },
-          { role: "user", content: message }
-        ]
+        role: "system",
+        content: systemBehavior
       },
       {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
-        }
+        role: "user",
+        content: message
       }
-    );
+    ]
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`
+    }
+  }
+);
 
-    const reply = aiResponse.data.choices[0].message.content;
+const reply = aiResponse.data.output[0].content[0].text;
 
     /* =========================================================
     💾 LOG CHAT
