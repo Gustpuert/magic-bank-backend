@@ -2840,6 +2840,129 @@ app.post("/api/chat", async (req, res) => {
 
 });
 
+/* =========================================================
+BLOQUE 2 — MOTOR DE RESPUESTA AVANZADO (SAFE EXTENSION)
+NO INTERFIERE CON /api/chat
+========================================================= */
+
+/* 
+Este bloque NO usa app.post
+NO redefine variables del endpoint
+NO rompe el servidor
+Solo crea funciones auxiliares seguras
+*/
+
+
+/* ===============================
+1. NORMALIZADOR UNIVERSAL
+=============================== */
+
+function normalizeText(text) {
+  try {
+    return String(text || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .trim();
+  } catch (err) {
+    console.error("NORMALIZE ERROR:", err.message);
+    return "";
+  }
+}
+
+
+/* ===============================
+2. DETECTOR DE INTENCIÓN
+=============================== */
+
+function detectIntent(message) {
+  try {
+
+    const text = normalizeText(message);
+
+    if (!text) return "empty";
+
+    if (text.includes("hola") || text.includes("buenas")) {
+      return "greeting";
+    }
+
+    if (text.includes("gracias")) {
+      return "thanks";
+    }
+
+    if (text.includes("no entiendo") || text.includes("confuso")) {
+      return "confusion";
+    }
+
+    if (text.includes("precio") || text.includes("cuanto cuesta")) {
+      return "pricing";
+    }
+
+    if (text.includes("curso") || text.includes("clase")) {
+      return "education";
+    }
+
+    return "general";
+
+  } catch (err) {
+    console.error("INTENT ERROR:", err.message);
+    return "general";
+  }
+}
+
+
+/* ===============================
+3. GENERADOR DE RESPUESTA LOCAL
+=============================== */
+
+function generateSmartReply(message, context = "normal") {
+
+  try {
+
+    const intent = detectIntent(message);
+
+    /* RESPUESTAS SEGÚN INTENCIÓN */
+
+    if (intent === "greeting") {
+      return "Hola 👋 Soy tu tutor IA de MagicBank. ¿Qué quieres aprender hoy?";
+    }
+
+    if (intent === "thanks") {
+      return "Con gusto 🙌 Estoy aquí para ayudarte a aprender mejor.";
+    }
+
+    if (intent === "confusion") {
+      return "Perfecto, vamos a simplificarlo. Dime exactamente qué parte no entiendes.";
+    }
+
+    if (intent === "pricing") {
+      return "MagicBank funciona por acceso mensual. Puedes explorar Academy o University según tu objetivo.";
+    }
+
+    if (intent === "education") {
+      return "Puedes elegir un tutor, comenzar desde tu nivel y avanzar progresivamente con guía inteligente.";
+    }
+
+    /* CONTEXTO COMO SEGUNDO FILTRO */
+
+    if (context === "fast") {
+      return "Respuesta rápida: enfócate en lo esencial y aplica de inmediato.";
+    }
+
+    if (context === "slow") {
+      return "Vamos paso a paso. Primero lo básico, luego avanzamos.";
+    }
+
+    /* DEFAULT */
+
+    return "Estoy listo para ayudarte. Hazme una pregunta concreta para avanzar mejor.";
+
+  } catch (err) {
+    console.error("REPLY ERROR:", err.message);
+    return "Hubo un problema generando la respuesta.";
+  }
+}
+
 
 /*=========================================================
 START
