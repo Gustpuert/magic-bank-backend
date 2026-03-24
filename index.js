@@ -2717,7 +2717,6 @@ app.get("/api/catalogo-publico", (req, res) => {
 /* =========================================================
 BLOQUE 1 — BASE + VALIDACIÓN (DEPLOY TEST)
 ========================================================= */
-
 app.post("/api/chat", async (req, res) => {
 
   try {
@@ -2837,7 +2836,150 @@ try {
   console.error("CONTEXT ERROR:", err.message);
 
 }
+/* =========================================================
+BLOQUE 4 - TRACKING SEGURO (NO INTERFIERE)
+========================================================= */
 
+app.post("/api/chat-tracking", async (req, res) => {
+
+  try {
+
+    const { token } = req.body;
+
+    if (!token) {
+      return res.status(400).json({
+        error: "Token requerido"
+      });
+    }
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(String(token).trim())
+      .digest("hex");
+
+    try {
+
+      await pool.query(`
+        UPDATE access_tokens
+        SET last_access = NOW()
+        WHERE token = $1
+      `, [tokenHash]);
+
+    } catch (err) {
+
+      // 🔒 NO CRASHEA SI LA COLUMNA NO EXISTE
+      console.warn("TRACKING OMITIDO:", err.message);
+
+    }
+
+    res.json({
+      status: "tracking_ok"
+    });
+
+  } catch (error) {
+
+    console.error("TRACKING ERROR:", error.message);
+
+    res.status(500).json({
+      error: "Error tracking"
+    });
+
+  }
+
+});
+/* =========================================================
+BLOQUE 5 - FEEDBACK SEGURO (NO INTERFIERE)
+========================================================= */
+
+app.post("/api/chat-feedback", async (req, res) => {
+
+  try {
+
+    const { token, message } = req.body;
+
+    if (!token || !message) {
+      return res.status(400).json({
+        error: "Token y mensaje requeridos"
+      });
+    }
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(String(token).trim())
+      .digest("hex");
+
+    const access = await pool.query(`
+      SELECT email, product_name
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!access.rowCount) {
+      return res.status(403).json({
+        error: "Token inválido"
+      });
+    }
+
+    const { email, product_name } = access.rows[0];
+
+    /* 🧠 CLASIFICACIÓN SIMPLE */
+
+    let category = "normal";
+    let rating = 5;
+
+    const text = message.toLowerCase();
+
+    if (text.includes("no entiendo") || text.includes("confuso")) {
+      category = "clarity";
+      rating = 3;
+    } else if (text.includes("rápido") || text.includes("lento")) {
+      category = "speed";
+      rating = 4;
+    } else if (text.includes("?")) {
+      category = "interaction";
+      rating = 4;
+    }
+
+    /* 💾 GUARDADO SEGURO */
+
+    try {
+
+      await pool.query(`
+        INSERT INTO student_feedback
+        (email, product_name, rating, category, created_at)
+        VALUES ($1,$2,$3,$4,NOW())
+      `, [
+        email,
+        product_name,
+        rating,
+        category
+      ]);
+
+    } catch (err) {
+
+      // 🔒 NO CRASHEA SI LA TABLA NO EXISTE
+      console.warn("FEEDBACK OMITIDO:", err.message);
+
+    }
+
+    res.json({
+      status: "feedback_ok",
+      category,
+      rating
+    });
+
+  } catch (error) {
+
+    console.error("FEEDBACK ERROR:", error.message);
+
+    res.status(500).json({
+      error: "Error feedback"
+    });
+
+  }
+
+});
 
 /*=========================================================
 START
