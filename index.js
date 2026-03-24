@@ -2857,48 +2857,54 @@ app.post("/api/chat", async (req, res) => {
     ]);
 
     /* =====================================================
-7. RESPUESTA CON OPENAI (INTEGRADA)
+7. RESPUESTA CON OPENAI (SAFE)
 ===================================================== */
 
-const systemPrompt = `
+let reply = "Error generando respuesta";
+
+try {
+
+  const systemPrompt = `
 Eres un tutor inteligente de MagicBank.
 
-Reglas:
 - Explica claro
 - No repitas la pregunta
-- Ajusta profundidad según configuración
-
-Configuración:
-- profundidad: ${tutor_config.explanation_depth}
-- ritmo: ${tutor_config.pacing_level}
-- preguntas máximas: ${tutor_config.max_questions}
+- Sé directo
 `;
 
-const aiResponse = await axios.post(
-  "https://api.openai.com/v1/chat/completions",
-  {
-    model: "gpt-4o-mini",
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: message }
-    ],
-    temperature: 0.7
-  },
-  {
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json"
+  const aiResponse = await axios.post(
+    "https://api.openai.com/v1/chat/completions",
+    {
+      model: "gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: message }
+      ],
+      temperature: 0.7
+    },
+    {
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      }
     }
-  }
-);
+  );
 
-const reply = aiResponse.data.choices[0].message.content;
+  reply = aiResponse.data.choices[0].message.content;
+
+} catch (err) {
+
+  console.error("OPENAI ERROR:", err.response?.data || err.message);
+
+  reply = "Error generando respuesta";
+
+}
 
 /* =====================================================
-RESPUESTA FINAL (MANTIENE TODO TU SISTEMA)
+RESPUESTA FINAL
 ===================================================== */
 
-res.json({
+return res.json({
   message: reply,
   tutor_config,
   feedback: {
