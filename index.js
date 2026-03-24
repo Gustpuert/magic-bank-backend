@@ -3023,6 +3023,57 @@ function fallbackReply() {
     }
   };
 }
+
+/* =========================================================
+BLOQUE 4 — INTEGRADOR DE RESPUESTA (SAFE)
+NO CREA ENDPOINT
+NO ROMPE /api/chat
+========================================================= */
+
+
+/* ===============================
+1. PROCESADOR PRINCIPAL DE CHAT
+=============================== */
+
+function processChatMessage({ message, context, user }) {
+
+  try {
+
+    // Seguridad de datos
+    const safeMessage = String(message || "");
+    const safeContext = String(context || "normal");
+
+    // Usar motor inteligente (bloque 2)
+    const smart = generateSmartReply(safeMessage, safeContext);
+
+    // Construcción final (bloque 3)
+    const final = buildFinalReply({
+      message: safeMessage,
+      context: safeContext,
+      user
+    });
+
+    // Si todo OK, usamos respuesta enriquecida
+    if (final && final.ok) {
+      return final;
+    }
+
+    // fallback interno
+    return {
+      ok: true,
+      reply: smart,
+      meta: {
+        context: safeContext
+      }
+    };
+
+  } catch (err) {
+
+    console.error("PROCESS CHAT ERROR:", err.message);
+
+    return fallbackReply();
+  }
+}
 /*=========================================================
 START
 ==========≈================================================*/
