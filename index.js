@@ -3375,7 +3375,107 @@ function adaptReplyStyle(reply, config) {
   }
 }
 
+app.post("/api/landing-chat", (req, res) => {
 
+  try {
+
+    const message = (req.body && req.body.message)
+      ? String(req.body.message).toLowerCase().trim()
+      : "";
+
+    let reply = "";
+
+    /* =========================
+    MENSAJE VACÍO
+    ========================= */
+    if (!message) {
+
+      reply = "Soy el asistente de MagicBank. Puedo orientarte según lo que deseas estudiar o explicarte cómo funciona la plataforma.";
+
+    }
+
+    /* =========================
+    MAGICBANK BASE
+    ========================= */
+    else if (message.includes("magicbank")) {
+
+      reply = "MagicBank es un ecosistema educativo automatizado con tutores de inteligencia artificial que enseñan, evalúan y certifican.";
+
+    }
+
+    /* =========================
+    UNIVERSITY (FACULTADES REALES)
+    ========================= */
+    else if (
+      message.includes("derecho") ||
+      message.includes("contadur") ||
+      message.includes("administracion") ||
+      message.includes("marketing") ||
+      message.includes("software")
+    ) {
+
+      reply = "MagicBank University incluye las siguientes facultades:\n\n";
+
+      reply += "- Derecho\n";
+      reply += "- Contaduría\n";
+      reply += "- Administración pública\n";
+      reply += "- Marketing\n";
+      reply += "- Administración de negocios\n";
+      reply += "- Desarrollo de software\n\n";
+
+      reply += "Cada facultad tiene 10 módulos, evaluación automática y certificación por el tutor.\n\n";
+
+      reply += "Acceso:\nhttps://gustpuert.github.io/university.magicbank.org/";
+
+    }
+
+    /* =========================
+    ACADEMY (PROGRAMAS REALES)
+    ========================= */
+    else if (
+      message.includes("idioma") ||
+      message.includes("nutricion") ||
+      message.includes("cocina") ||
+      message.includes("chatgpt") ||
+      message.includes("emprend") ||
+      message.includes("oficio")
+    ) {
+
+      reply = "MagicBank Academy incluye programas prácticos:\n\n";
+
+      reply += "- Idiomas: español, inglés, francés, italiano, portugués, alemán y chino\n";
+      reply += "- Nutrición inteligente\n";
+      reply += "- Cocina avanzada\n";
+      reply += "- Curso avanzado de ChatGPT\n";
+      reply += "- Emprendimiento (producción + ventas)\n";
+      reply += "- Artes y oficios\n\n";
+
+      reply += "Acceso:\nhttps://academy.magicbank.org";
+
+    }
+
+    /* =========================
+    DEFAULT
+    ========================= */
+    else {
+
+      reply = "Para información completa usa el tutor informativo oficial:\nhttps://chatgpt.com/g/g-697a851b8a148191a8971256abf33157-tutor-informativo-magibank";
+
+    }
+
+    return res.json({ message: reply });
+
+  } catch (error) {
+
+    console.error("LANDING CHAT ERROR:", error);
+
+    return res.json({
+      message: "Error interno"
+    });
+
+  }
+
+});
 
 
 /*=========================================================
