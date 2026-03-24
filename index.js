@@ -3159,7 +3159,7 @@ app.post("/api/chat", async (req, res) => {
     const { email, product_name, area, last_access } = access.rows[0];
 
     /* =========================================================
-    2. ACTUALIZAR ÚLTIMO ACCESO (CLAVE PARA ABANDONO)
+    ACTUALIZAR ÚLTIMO ACCESO
     ========================================================= */
 
     await pool.query(`
@@ -3169,7 +3169,7 @@ app.post("/api/chat", async (req, res) => {
     `, [tokenHash]);
 
     /* =========================================================
-    3. OBTENER CONFIG DINÁMICA (AUTO-ADJUST REAL)
+    CONFIG DINÁMICA
     ========================================================= */
 
     const configRes = await pool.query(`
@@ -3187,10 +3187,15 @@ app.post("/api/chat", async (req, res) => {
         };
 
     /* =========================================================
-    🧠 PERFIL COGNITIVO PERSISTENTE (LECTURA)
+    PERFIL COGNITIVO
     ========================================================= */
 
-    let userProfile = await pool.query(`
+    let cognitive = {
+      pacing_level: 3,
+      explanation_depth: 3
+    };
+
+    const userProfile = await pool.query(`
       SELECT *
       FROM student_intelligence_profiles
       WHERE student_id = (
@@ -3198,52 +3203,27 @@ app.post("/api/chat", async (req, res) => {
       )
     `, [email]);
 
-    let cognitive = {
-      pacing_level: 3,
-      explanation_depth: 3
-    };
-
     if (userProfile.rowCount) {
       cognitive.pacing_level = userProfile.rows[0].learning_speed || 3;
       cognitive.explanation_depth = userProfile.rows[0].technical_score || 3;
     }
 
     /* =========================================================
-    🧠 OBTENER STUDENT_ID
+    OBTENER STUDENT_ID
     ========================================================= */
 
     let student_id = null;
 
-    try {
-      const student = await pool.query(`
-        SELECT id FROM students WHERE email = $1
-      `, [email]);
+    const student = await pool.query(`
+      SELECT id FROM students WHERE email = $1
+    `, [email]);
 
-      if (student.rowCount) {
-        student_id = student.rows[0].id;
-      }
-    } catch (e) {}
+    if (student.rowCount) {
+      student_id = student.rows[0].id;
+    }
 
     /* =========================================================
-    🧠 PERFIL PERSISTENTE
-    ========================================================= */
-
-    let saved_pacing = 3;
-
-    try {
-      const profile = await pool.query(`
-        SELECT learning_speed
-        FROM student_intelligence_profiles
-        WHERE student_id = $1
-      `, [student_id]);
-
-      if (profile.rowCount) {
-        saved_pacing = profile.rows[0].learning_speed || 3;
-      }
-    } catch (e) {}
-
-    /* =========================================================
-    🧠 DETECCIÓN DE SEÑALES
+    DETECCIÓN DE SEÑALES
     ========================================================= */
 
     const text = message.toLowerCase();
@@ -3279,7 +3259,7 @@ app.post("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
-    🧠 MEMORIA CORTA
+    MEMORIA CORTA
     ========================================================= */
 
     const history = await pool.query(`
@@ -3294,7 +3274,6 @@ app.post("/api/chat", async (req, res) => {
 
     history.rows.forEach(h => {
       const t = h.message.toLowerCase();
-
       if (t.includes("rápido")) manipulationScore++;
       if (t.includes("lento")) manipulationScore++;
     });
@@ -3304,7 +3283,7 @@ app.post("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
-    🚩 CLASIFICACIÓN
+    CLASIFICACIÓN
     ========================================================= */
 
     let risk_level = "normal";
@@ -3313,12 +3292,12 @@ app.post("/api/chat", async (req, res) => {
     if (signals.manipulation > 0) risk_level = "manipulator";
 
     /* =========================================================
-    ⚖️ CONFIGURACIÓN ADAPTATIVA
+    CONFIG ADAPTATIVA
     ========================================================= */
 
-    let pacing_level = saved_pacing;
-    let explanation_depth = 3;
-    let max_questions = 3;
+    let pacing_level = cognitive.pacing_level;
+    let explanation_depth = cognitive.explanation_depth;
+    let max_questions = tutor_config.max_questions;
 
     if (signals.confusion > 0) {
       explanation_depth = 4;
@@ -3347,7 +3326,7 @@ app.post("/api/chat", async (req, res) => {
     }
 
     /* =========================================================
-    💬 PROMPT
+    PROMPT
     ========================================================= */
 
     let systemBehavior = `
@@ -3362,25 +3341,6 @@ REGLAS OBLIGATORIAS:
 - Usa lenguaje simple, claro y progresivo
 - Da ejemplos prácticos
 - Enseña paso a paso
-- No respondas con una sola frase vacía
-- No digas "no entiendo"
-- Siempre ayuda a avanzar
-
-COMPORTAMIENTO SEGÚN USUARIO:
-
-Si el usuario dice "no entiendo":
-→ Explica de forma más simple
-→ Usa un ejemplo
-→ Reduce la complejidad
-
-Si el usuario está confundido:
-→ Divide la explicación en pasos
-
-Si el usuario es agresivo:
-→ Responde con calma, sin confrontar
-
-IMPORTANTE:
-Tu objetivo es que el usuario entienda, no responder rápido.
 
 CONFIGURACIÓN:
 - profundidad: ${explanation_depth}
@@ -3391,7 +3351,7 @@ Nivel de riesgo del usuario: ${risk_level}
 `;
 
     /* =========================================================
-    🤖 OPENAI
+    OPENAI
     ========================================================= */
 
     const aiResponse = await axios.post(
@@ -3419,7 +3379,7 @@ Nivel de riesgo del usuario: ${risk_level}
     const reply = aiResponse.data.output[0].content[0].text;
 
     /* =========================================================
-    💾 LOG CHAT
+    LOG CHAT
     ========================================================= */
 
     await pool.query(`
@@ -3428,7 +3388,7 @@ Nivel de riesgo del usuario: ${risk_level}
     `, [email, message, reply]);
 
     /* =========================================================
-    📊 FEEDBACK AUTOMÁTICO
+    FEEDBACK
     ========================================================= */
 
     let rating = 5;
@@ -3461,111 +3421,29 @@ Nivel de riesgo del usuario: ${risk_level}
     ]);
 
     /* =========================================================
-    🧠 ACTUALIZACIÓN AUTOMÁTICA DEL PERFIL
-    ========================================================= */
-
-    let new_pacing = pacing_level;
-    let new_depth = explanation_depth;
-
-    if (risk_level === "manipulator") {
-      new_pacing = 3;
-    }
-
-    if (risk_level === "high") {
-      new_pacing = 2;
-      new_depth = 3;
-    }
-
-    const studentRes = await pool.query(
-  "SELECT id FROM students WHERE email = $1",
-  [email]
-);
-
-if (studentRes.rowCount) {
-
-  const sid = studentRes.rows[0].id;
-
-  const studentRes = await pool.query(
-  "SELECT id FROM students WHERE email = $1",
-  [email]
-);
-
-if (studentRes.rowCount) {
-
-  const sid = studentRes.rows[0].id;
-
-  
-    const studentRes = await pool.query(
-  "SELECT id FROM students WHERE email = $1",
-  [email]
-);
-
-if (studentRes.rowCount) {
-
-  const sid = studentRes.rows[0].id;
-
-  const studentRes = await pool.query(
-  "SELECT id FROM students WHERE email = $1",
-  [email]
-);
-
-if (studentRes.rowCount) {
-
-  const sid = studentRes.rows[0].id;
-
-  await pool.query(`
-    INSERT INTO student_intelligence_profiles
-    (
-      student_id,
-      learning_speed,
-      technical_score,
-      last_updated
-    )
-    VALUES ($1,$2,$3,NOW())
-    ON CONFLICT (student_id)
-    DO UPDATE SET
-      learning_speed = EXCLUDED.learning_speed,
-      technical_score = EXCLUDED.technical_score,
-      last_updated = NOW()
-  `, [
-    sid,
-    new_pacing,
-    new_depth
-  ]);
-
-}
-
-
-    /* =========================================================
-    🧠 AUTO-APRENDIZAJE
+    PERFIL
     ========================================================= */
 
     if (student_id) {
-
-      let new_speed = saved_pacing;
-
-      if (signals.speed_up > signals.slow_down) new_speed += 1;
-      if (signals.slow_down > signals.speed_up) new_speed -= 1;
-
-      if (signals.manipulation > 0) new_speed = 3;
-      if (signals.aggression > 0) new_speed = 2;
-
-      if (new_speed < 1) new_speed = 1;
-      if (new_speed > 5) new_speed = 5;
-
       await pool.query(`
         INSERT INTO student_intelligence_profiles
-        (student_id, learning_speed, last_updated)
-        VALUES ($1,$2,NOW())
+        (
+          student_id,
+          learning_speed,
+          technical_score,
+          last_updated
+        )
+        VALUES ($1,$2,$3,NOW())
         ON CONFLICT (student_id)
         DO UPDATE SET
           learning_speed = EXCLUDED.learning_speed,
+          technical_score = EXCLUDED.technical_score,
           last_updated = NOW()
       `, [
         student_id,
-        new_speed
+        pacing_level,
+        explanation_depth
       ]);
-
     }
 
     res.json({
@@ -3591,5 +3469,5 @@ START
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-console.log("MagicBank backend running on port", PORT);
+  console.log("MagicBank backend running on port", PORT);
 });
