@@ -3390,41 +3390,99 @@ app.post("/api/landing-chat", async (req, res) => {
 
     if (!message) {
       return res.json({
-        message: "Soy el asistente oficial de MagicBank. Puedo explicarte exactamente cómo funciona cada programa."
+        message: "MagicBank es un ecosistema educativo automatizado con tutores de inteligencia artificial.\n\nSi quieres entender cómo funciona en detalle, usa el tutor informativo:\nhttps://chatgpt.com/g/g-697a851b8a148191a8971256abf33157-tutor-informativo-magibank"
       });
     }
 
     let reply = "";
 
     /* =====================================================
-    UNIVERSITY
+    QUÉ ES MAGICBANK
     ===================================================== */
     if (
-      message.includes("universidad") ||
-      message.includes("university") ||
-      message.includes("facultad")
+      message.includes("que es") ||
+      message.includes("magicbank")
     ) {
 
-      reply = "MagicBank University tiene facultades de derecho, contaduría, administración pública, marketing, negocios y desarrollo de software.";
+      reply = "MagicBank es una plataforma educativa automatizada con tutores de inteligencia artificial que enseñan, evalúan y certifican.\n\n";
 
-      reply += " Cada facultad tiene 10 módulos con enseñanza personalizada, evaluaciones implícitas y un examen final.";
+      reply += "La calidad académica es alta porque combina conocimiento especializado con pedagogía avanzada y aprendizaje progresivo.\n\n";
 
-      reply += " La certificación es emitida automáticamente por el tutor cuando realmente demuestras dominio.";
+      reply += "Para entender todo el sistema paso a paso usa el tutor informativo:\n";
+      reply += "https://chatgpt.com/g/g-697a851b8a148191a8971256abf33157-tutor-informativo-magibank";
 
     }
 
+      /* =====================================================
+VALIDACIÓN DE PROGRAMAS (CRÍTICO)
+===================================================== */
+
+const universityPrograms = [
+  "derecho",
+  "contaduria",
+  "contabilidad",
+  "administracion",
+  "marketing",
+  "negocios",
+  "software"
+];
+
+const academyPrograms = [
+  "idioma",
+  "ingles",
+  "frances",
+  "italiano",
+  "portugues",
+  "aleman",
+  "chino",
+  "cocina",
+  "nutricion",
+  "emprendimiento",
+  "chatgpt",
+  "trading",
+  "crypto",
+  "finanzas"
+];
+
+let isUniversity = universityPrograms.some(p => message.includes(p));
+let isAcademy = academyPrograms.some(p => message.includes(p));
+
+/* =====================================================
+CASO: NO EXISTE (ESTO ES LO NUEVO)
+===================================================== */
+
+if (
+  message.includes("estudiar") &&
+  !isUniversity &&
+  !isAcademy
+) {
+
+  reply = "Ese programa no está disponible actualmente en MagicBank.\n\n";
+
+  reply += "Los programas disponibles están enfocados en áreas como derecho, contaduría, negocios, software, idiomas, nutrición, cocina, finanzas y más.\n\n";
+
+  reply += "Puedes ver las opciones aquí:\nhttps://academy.magicbank.org";
+
+}
+
+  reply += "\nSi quieres entender todo el ecosistema usa el tutor informativo:\n";
+reply += "https://chatgpt.com/g/g-697a851b8a148191a8971256abf33157-tutor-informativo-magibank";
+
     /* =====================================================
-    ACTUALIZACIÓN AUTOMÁTICA
+    UNIVERSITY
     ===================================================== */
     else if (
-      message.includes("actualizacion") ||
-      message.includes("actualizado") ||
-      message.includes("leyes")
+      message.includes("derecho") ||
+      message.includes("contadur") ||
+      message.includes("universidad") ||
+      message.includes("carrera")
     ) {
 
-      reply = "MagicBank tiene un sistema de actualización automática conectado a fuentes oficiales.";
+      reply = "Para formación profesional (derecho, contaduría, negocios, etc.) debes entrar a MagicBank University.\n\n";
 
-      reply += " Permite que los contenidos estén siempre actualizados en áreas como derecho y contaduría.";
+      reply += "Aquí eliges tu facultad y el tutor te guía, evalúa y certifica automáticamente.\n\n";
+
+      reply += "Accede aquí:\nhttps://academy.magicbank.org";
 
     }
 
@@ -3432,83 +3490,15 @@ app.post("/api/landing-chat", async (req, res) => {
     ACADEMY
     ===================================================== */
     else if (
-      message.includes("academy") ||
-      message.includes("cursos")
+      message.includes("idioma") ||
+      message.includes("cocina") ||
+      message.includes("nutricion") ||
+      message.includes("curso")
     ) {
 
-      reply = "MagicBank Academy ofrece programas prácticos como idiomas, emprendimiento, nutrición, cocina y tecnología.";
+      reply = "Para cursos prácticos (idiomas, cocina, nutrición, emprendimiento) debes entrar a MagicBank Academy.\n\n";
 
-    }
-
-    /* =====================================================
-    IDIOMAS
-    ===================================================== */
-    else if (message.includes("idioma")) {
-
-      reply = "Idiomas disponibles: español, inglés, francés, italiano, portugués, alemán y chino.";
-
-      reply += " El tutor enseña pronunciación, conversación y adaptación al contexto real.";
-
-    }
-
-    /* =====================================================
-    EMPRENDIMIENTO
-    ===================================================== */
-    else if (
-      message.includes("emprendimiento") ||
-      message.includes("negocio")
-    ) {
-
-      reply = "El programa de emprendimiento enseña producción real y estrategias de venta.";
-
-    }
-
-    /* =====================================================
-    NUTRICIÓN
-    ===================================================== */
-    else if (message.includes("nutricion")) {
-
-      reply = "El curso de nutrición inteligente permite diseñar alimentación personalizada según tu cuerpo y actividad.";
-
-    }
-
-    /* =====================================================
-    COCINA
-    ===================================================== */
-    else if (message.includes("cocina")) {
-
-      reply = "La cocina avanzada integra gastronomía con nutrición inteligente para resultados saludables y profesionales.";
-
-    }
-
-    /* =====================================================
-    CHATGPT
-    ===================================================== */
-    else if (message.includes("chatgpt")) {
-
-      reply = "El curso de ChatGPT en MagicBank es avanzado y propio. Enseña uso profesional y atajos reales.";
-
-    }
-
-    /* =====================================================
-    FINANZAS / CRIPTO
-    ===================================================== */
-    else if (
-      message.includes("crypto") ||
-      message.includes("finanzas") ||
-      message.includes("banca")
-    ) {
-
-      reply = "El curso de banca digital enseña manejo de criptomonedas y estrategias seguras.";
-
-    }
-
-    /* =====================================================
-    TRADING
-    ===================================================== */
-    else if (message.includes("trading")) {
-
-      reply = "El trading cíclico enseña a operar mercados siguiendo patrones de subida y bajada.";
+      reply += "Accede aquí:\nhttps://academy.magicbank.org";
 
     }
 
@@ -3517,28 +3507,13 @@ app.post("/api/landing-chat", async (req, res) => {
     ===================================================== */
     else if (
       message.includes("tutor") ||
-      message.includes("crear tutor")
+      message.includes("empresa") ||
+      message.includes("crear")
     ) {
 
-      reply = "MagicBank permite crear tutores personalizados para cualquier necesidad.";
+      reply = "La fábrica de tutores permite crear asistentes profesionales para empresas, médicos, abogados, ingenieros y más.\n\n";
 
-    }
-
-    /* =====================================================
-    TAP
-    ===================================================== */
-    else if (message.includes("tap")) {
-
-      reply = "Los TAP son Tutores Asistentes Profesionales para áreas específicas como salud, derecho o empresas.";
-
-    }
-
-    /* =====================================================
-    BACHILLERATO
-    ===================================================== */
-    else if (message.includes("bachillerato")) {
-
-      reply = "El bachillerato MagicBank cubre formación completa adaptativa con nivelación automática.";
+      reply += "Accede aquí:\nhttps://magicbank.org/fabrica-de-tutores-pago.html";
 
     }
 
@@ -3547,124 +3522,64 @@ app.post("/api/landing-chat", async (req, res) => {
     ===================================================== */
     else if (message.includes("musica")) {
 
-      reply = "El conservatorio enseña música completa: teoría, práctica e instrumento.";
+      reply = "El conservatorio musical ofrece formación completa en música.\n\n";
+
+      reply += "Accede aquí:\nhttps://magicbank2.mitiendanube.com/productos/facultad-de-musica-6k2ph/";
 
     }
 
     /* =====================================================
-    EVALUADOR
+    BACHILLERATO
+    ===================================================== */
+    else if (message.includes("bachillerato")) {
+
+      reply = "El bachillerato MagicBank es un sistema adaptativo completo por niveles.\n\n";
+
+      reply += "Accede aquí:\nhttps://magicbank2.mitiendanube.com/productos/magicbank-university1/";
+
+    }
+
+    /* =====================================================
+    PROBAR / DEMO
     ===================================================== */
     else if (
-      message.includes("evaluador") ||
-      message.includes("nivel")
+      message.includes("probar") ||
+      message.includes("demo")
     ) {
 
-      reply = "El Evaluador Tutor PRO analiza tu nivel real y detecta exactamente qué te falta.";
+      reply = "Puedes probar tutores reales en la visita guiada.\n\n";
+
+      reply += "Accede aquí:\nhttps://gustpuert.github.io/magicbank--demo/";
 
     }
 
     /* =====================================================
-    CERTIFICACIÓN
+    AYUDA / INFORMACION PROFUNDA
     ===================================================== */
     else if (
-      message.includes("certificacion") ||
-      message.includes("diploma")
+      message.includes("explicar") ||
+      message.includes("como funciona") ||
+      message.includes("detalle")
     ) {
 
-      reply = "La certificación la emite únicamente el tutor cuando detecta dominio real.";
+      reply = "Para una explicación completa usa el tutor informativo.\n\n";
+
+      reply += "Accede aquí:\nhttps://chatgpt.com/g/g-697a851b8a148191a8971256abf33157-tutor-informativo-magibank";
 
     }
 
     /* =====================================================
-    CURSO IA
-    ===================================================== */
-    else if (
-      message.includes("curso gratis") ||
-      message.includes("ia")
-    ) {
-
-      reply = "Existe un curso gratuito de introducción a la IA para entender cómo funciona MagicBank.";
-
-    }
-
-    /* =====================================================
-    USO CHAT
-    ===================================================== */
-    else if (
-      message.includes("chat") ||
-      message.includes("guardar")
-    ) {
-
-      reply = "Debes continuar en el mismo chat para mantener el contexto del aprendizaje.";
-
-    }
-
-    /* =====================================================
-    RENOMBRAR
-    ===================================================== */
-    else if (
-      message.includes("renombrar") ||
-      message.includes("modulo")
-    ) {
-
-      reply = "Puedes organizar tu aprendizaje renombrando chats por módulos.";
-
-    }
-
-    /* =====================================================
-    TUTORIAL
-    ===================================================== */
-    else if (
-      message.includes("tutorial") ||
-      message.includes("visita")
-    ) {
-
-      reply = "La visita guiada permite probar tutores reales con interacciones limitadas.";
-
-    }
-
-    /* =====================================================
-    CALIDAD
-    ===================================================== */
-    else if (
-      message.includes("calidad") ||
-      message.includes("nivel academico")
-    ) {
-
-      reply = "MagicBank combina conocimiento especializado con pedagogía avanzada y aprendizaje progresivo.";
-
-    }
-
-    /* =====================================================
-    PRECIO
-    ===================================================== */
-    else if (
-      message.includes("precio") ||
-      message.includes("cuanto")
-    ) {
-
-      reply = "El acceso funciona por activación de programas con duración de 30 días.";
-
-    }
-
-    /* =====================================================
-    INICIO
-    ===================================================== */
-    else if (
-      message.includes("empezar") ||
-      message.includes("comprar")
-    ) {
-
-      reply = "Para empezar eliges un programa y el tutor te evalúa automáticamente.";
-
-    }
-
-    /* =====================================================
-    DEFAULT
+    DEFAULT INTELIGENTE
     ===================================================== */
     else {
 
-      reply = "Puedo explicarte cualquier parte de MagicBank con precisión. ¿Qué deseas saber exactamente?";
+      reply = "Puedo ayudarte a orientarte dentro de MagicBank.\n\n";
+
+      reply += "Si quieres entender todo en profundidad usa el tutor informativo:\n";
+      reply += "https://chatgpt.com/g/g-697a851b8a148191a8971256abf33157-tutor-informativo-magibank\n\n";
+
+      reply += "O puedes probar tutores directamente aquí:\n";
+      reply += "https://gustpuert.github.io/magicbank--demo/";
 
     }
 
