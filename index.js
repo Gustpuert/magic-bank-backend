@@ -2963,7 +2963,66 @@ function generateSmartReply(message, context = "normal") {
   }
 }
 
+/* =========================================================
+BLOQUE 3 — WRAPPER DE RESPUESTA INTELIGENTE (SAFE)
+NO MODIFICA ENDPOINT
+========================================================= */
 
+
+/* ===============================
+1. WRAPPER PRINCIPAL
+=============================== */
+
+function buildFinalReply({ message, context, user }) {
+
+  try {
+
+    // Seguridad total de inputs
+    const safeMessage = String(message || "");
+    const safeContext = String(context || "normal");
+
+    // Generar respuesta inteligente (usa bloque 2)
+    const smartReply = generateSmartReply(safeMessage, safeContext);
+
+    // Enriquecer respuesta (sin romper nada)
+    return {
+      ok: true,
+      reply: smartReply,
+      meta: {
+        context: safeContext,
+        timestamp: Date.now(),
+        user: user || null
+      }
+    };
+
+  } catch (err) {
+
+    console.error("BUILD REPLY ERROR:", err.message);
+
+    return {
+      ok: false,
+      reply: "Ocurrió un error generando la respuesta.",
+      meta: {
+        context: "error"
+      }
+    };
+  }
+}
+
+
+/* ===============================
+2. FALLBACK UNIVERSAL
+=============================== */
+
+function fallbackReply() {
+  return {
+    ok: false,
+    reply: "No pude procesar tu mensaje. Intenta nuevamente.",
+    meta: {
+      context: "fallback"
+    }
+  };
+}
 /*=========================================================
 START
 ==========≈================================================*/
