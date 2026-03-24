@@ -2857,41 +2857,79 @@ app.post("/api/chat", async (req, res) => {
     ]);
 
     /* =====================================================
-    7. RESPUESTA ESTRUCTURADA PARA EL TUTOR
-    ===================================================== */
+7. RESPUESTA CON OPENAI (INTEGRADA)
+===================================================== */
 
-    res.json({
-      message,
-      tutor_config,
-      feedback: {
-        category,
-        rating: dynamic_rating
-      },
-      system: {
-        total_interactions: total,
-        interaction_pressure: interaction_count
-      },
-      product_name,
-      area
-    });
+const systemPrompt = `
+Eres un tutor inteligente de MagicBank.
 
-  } catch (error) {
+Reglas:
+- Explica claro
+- No repitas la pregunta
+- Ajusta profundidad según configuración
 
-    console.error("SUPREME CHAT ERROR:", error);
+Configuración:
+- profundidad: ${tutor_config.explanation_depth}
+- ritmo: ${tutor_config.pacing_level}
+- preguntas máximas: ${tutor_config.max_questions}
+`;
 
-    res.status(500).json({
-      message: "Error en sistema inteligente"
-    });
-
+const aiResponse = await axios.post(
+  "https://api.openai.com/v1/chat/completions",
+  {
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: message }
+    ],
+    temperature: 0.7
+  },
+  {
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    }
   }
+);
 
+const reply = aiResponse.data.choices[0].message.content;
+
+/* =====================================================
+RESPUESTA FINAL (MANTIENE TODO TU SISTEMA)
+===================================================== */
+
+res.json({
+  message: reply,
+  tutor_config,
+  feedback: {
+    category,
+    rating: dynamic_rating
+  },
+  system: {
+    total_interactions: total,
+    interaction_pressure: interaction_count
+  },
+  product_name,
+  area
 });
+  
+/* =========================================================
+API CHAT — CORE LIMPIO + OPENAI (ESTABLE)
+========================================================= */
 
+app.post("/api/chat", async (req, res) => {
+  try {
 
+    const { token, message } = req.body;
 
+    if (!token || !message) {
+      return res.status(400).json({
+        error: "Token y mensaje requeridos"
+      });
+    }
 
     /* =========================================================
-    🔐 VALIDAR TOKEN
+    🔐 VALIDACIÓN TOKEN
     ========================================================= */
 
     const tokenHash = crypto
@@ -2908,348 +2946,69 @@ app.post("/api/chat", async (req, res) => {
 
     if (!access.rowCount) {
       return res.status(403).json({
-        error: "Token inválido"
+        error: "Token inválido o expirado"
       });
     }
 
     const { email, product_name } = access.rows[0];
 
     /* =========================================================
-🧠 PERFIL COGNITIVO PERSISTENTE (LECTURA)
-========================================================= */
-
-let userProfile = await pool.query(`
-  SELECT *
-  FROM student_intelligence_profiles
-  WHERE student_id = (
-    SELECT id FROM students WHERE email = $1
-  )
-`, [email]);
-
-let cognitive = {
-  pacing_level: 3,
-  explanation_depth: 3
-};
-
-if (userProfile.rowCount) {
-  cognitive.pacing_level = userProfile.rows[0].learning_speed || 3;
-  cognitive.explanation_depth = userProfile.rows[0].technical_score || 3;
-}
-
-    /* =========================================================
-    🧠 OBTENER STUDENT_ID (SEGURO)
+    🧠 COMPORTAMIENTO DEL SISTEMA (CONTROLADO)
     ========================================================= */
 
-    let student_id = null;
-
-    try {
-      const student = await pool.query(`
-        SELECT id FROM students WHERE email = $1
-      `, [email]);
-
-      if (student.rowCount) {
-        student_id = student.rows[0].id;
-      }
-    } catch (e) {}
-
-    /* =========================================================
-    🧠 PERFIL PERSISTENTE
-    ========================================================= */
-
-    let saved_pacing = 3;
-
-    try {
-      const profile = await pool.query(`
-        SELECT learning_speed
-        FROM student_intelligence_profiles
-        WHERE student_id = $1
-      `, [student_id]);
-
-      if (profile.rowCount) {
-        saved_pacing = profile.rows[0].learning_speed || 3;
-      }
-    } catch (e) {}
-
-    /* =========================================================
-    🧠 DETECCIÓN DE SEÑALES
-    ========================================================= */
-
-    const text = message.toLowerCase();
-
-    let signals = {
-      speed_up: 0,
-      slow_down: 0,
-      confusion: 0,
-      aggression: 0,
-      manipulation: 0
-    };
-
-    if (text.includes("rápido")) signals.speed_up++;
-    if (text.includes("lento")) signals.slow_down++;
-
-    if (
-      text.includes("no entiendo") ||
-      text.includes("confuso") ||
-      text.includes("explícalo")
-    ) {
-      signals.confusion++;
-    }
-
-    if (
-      text.includes("idiota") ||
-      text.includes("estúpido") ||
-      text.includes("mierda") ||
-      text.includes("sexo") ||
-      text.includes("drogas") ||
-      text.includes("violencia")
-    ) {
-      signals.aggression++;
-    }
-
-    /* =========================================================
-    🧠 MEMORIA CORTA
-    ========================================================= */
-
-    const history = await pool.query(`
-      SELECT message
-      FROM chat_logs
-      WHERE email = $1
-      ORDER BY created_at DESC
-      LIMIT 5
-    `, [email]);
-
-    let manipulationScore = 0;
-
-    history.rows.forEach(h => {
-      const t = h.message.toLowerCase();
-
-      if (t.includes("rápido")) manipulationScore++;
-      if (t.includes("lento")) manipulationScore++;
-    });
-
-    if (manipulationScore >= 3) {
-      signals.manipulation = 1;
-    }
-
-    /* =========================================================
-    🚩 CLASIFICACIÓN
-    ========================================================= */
-
-    let risk_level = "normal";
-
-    if (signals.aggression > 0) risk_level = "high";
-    if (signals.manipulation > 0) risk_level = "manipulator";
-
-    /* =========================================================
-    ⚖️ CONFIGURACIÓN ADAPTATIVA
-    ========================================================= */
-
-    let pacing_level = saved_pacing;
-    let explanation_depth = 3;
-    let max_questions = 3;
-
-    if (signals.confusion > 0) {
-      explanation_depth = 4;
-    }
-
-    if (risk_level !== "manipulator") {
-
-      if (signals.speed_up > signals.slow_down) {
-        pacing_level = 4;
-      }
-
-      if (signals.slow_down > signals.speed_up) {
-        pacing_level = 2;
-      }
-
-    }
-
-    if (risk_level === "manipulator") {
-      pacing_level = 3;
-    }
-
-    if (risk_level === "high") {
-      pacing_level = 2;
-      explanation_depth = 3;
-      max_questions = 1;
-    }
-
-    /* =========================================================
-    💬 PROMPT
-    ========================================================= */
-
-    let systemBehavior = `
-Eres un tutor inteligente de MagicBank.
+    const systemPrompt = `
+Eres un tutor experto de MagicBank.
 
 Reglas:
-- Enseña de forma progresiva
-- No respondas agresión
-- No te adaptes a manipulación
-- Mantén estabilidad pedagógica
+- Explica claro
+- No seas largo innecesariamente
+- Da ejemplos simples
+- No repitas la pregunta del usuario
+- Responde directamente
 
-Configuración:
-- profundidad: ${explanation_depth}
-- ritmo: ${pacing_level}
-- preguntas: ${max_questions}
-
-Nivel de riesgo del usuario: ${risk_level}
+Curso actual: ${product_name}
 `;
 
     /* =========================================================
-    🤖 OPENAI
+    🤖 LLAMADA OPENAI
     ========================================================= */
 
     const aiResponse = await axios.post(
-  "https://api.openai.com/v1/responses",
-  {
-    model: "gpt-4o-mini",
-    input: [
+      "https://api.openai.com/v1/chat/completions",
       {
-        role: "system",
-        content: systemBehavior
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: message }
+        ],
+        temperature: 0.7
       },
       {
-        role: "user",
-        content: message
+        headers: {
+          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json"
+        }
       }
-    ]
-  },
-  {
-    headers: {
-      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json"
-    }
-  }
-);
+    );
 
-// RESPUESTA SEGURA
-const reply =
-  aiResponse.data.output?.[0]?.content?.[0]?.text ||
-  "No se pudo generar respuesta";
+    const reply = aiResponse.data.choices[0].message.content;
 
     /* =========================================================
-    💾 LOG CHAT
+    💾 LOG CHAT (OPCIONAL PERO RECOMENDADO)
     ========================================================= */
 
-    await pool.query(`
-      INSERT INTO chat_logs (email, message, response, created_at)
-      VALUES ($1,$2,$3,NOW())
-    `, [email, message, reply]);
-
-    /* =========================================================
-    📊 FEEDBACK AUTOMÁTICO
-    ========================================================= */
-
-    let rating = 5;
-    let category = "normal";
-
-    if (signals.confusion > 0) {
-      rating = 3;
-      category = "clarity";
-    }
-
-    if (signals.manipulation > 0) {
-      rating = 3;
-      category = "interaction";
-    }
-
-    if (signals.aggression > 0) {
-      rating = 2;
-      category = "risk";
-    }
-
-    await pool.query(`
-      INSERT INTO student_feedback
-      (email, product_name, rating, category, created_at)
-      VALUES ($1,$2,$3,$4,NOW())
-    `, [
-      email,
-      product_name,
-      rating,
-      category
-    ]);
-
-    /* =========================================================
-🧠 ACTUALIZACIÓN AUTOMÁTICA DEL PERFIL (APRENDIZAJE REAL)
-========================================================= */
-
-let new_pacing = pacing_level;
-let new_depth = explanation_depth;
-
-// anti-manipulación
-if (risk_level === "manipulator") {
-  new_pacing = 3;
-}
-
-// usuario agresivo → modo seguro estable
-if (risk_level === "high") {
-  new_pacing = 2;
-  new_depth = 3;
-}
-
-await pool.query(`
-  INSERT INTO student_intelligence_profiles
-  (
-    student_id,
-    learning_speed,
-    technical_score,
-    last_updated
-  )
-  VALUES (
-    (SELECT id FROM students WHERE email = $1),
-    $2,
-    $3,
-    NOW()
-  )
-  ON CONFLICT (student_id)
-  DO UPDATE SET
-    learning_speed = EXCLUDED.learning_speed,
-    technical_score = EXCLUDED.technical_score,
-    last_updated = NOW()
-`, [
-  email,
-  new_pacing,
-  new_depth
-]);
-
-    /* =========================================================
-    🧠 AUTO-APRENDIZAJE (CLAVE)
-    ========================================================= */
-
-    if (student_id) {
-
-      let new_speed = saved_pacing;
-
-      if (signals.speed_up > signals.slow_down) new_speed += 1;
-      if (signals.slow_down > signals.speed_up) new_speed -= 1;
-
-      if (signals.manipulation > 0) new_speed = 3;
-      if (signals.aggression > 0) new_speed = 2;
-
-      // límites
-      if (new_speed < 1) new_speed = 1;
-      if (new_speed > 5) new_speed = 5;
-
+    try {
       await pool.query(`
-        INSERT INTO student_intelligence_profiles
-        (student_id, learning_speed, last_updated)
-        VALUES ($1,$2,NOW())
-        ON CONFLICT (student_id)
-        DO UPDATE SET
-          learning_speed = EXCLUDED.learning_speed,
-          last_updated = NOW()
-      `, [
-        student_id,
-        new_speed
-      ]);
-
-    }
+        INSERT INTO chat_logs (email, message, response, created_at)
+        VALUES ($1,$2,$3,NOW())
+      `, [email, message, reply]);
+    } catch (e) {}
 
     /* =========================================================
-    🚀 RESPUESTA
+    🚀 RESPUESTA FINAL
     ========================================================= */
 
-    res.json({
+    return res.json({
       message: reply
     });
 
@@ -3257,13 +3016,12 @@ await pool.query(`
 
     console.error("CHAT ERROR:", error.response?.data || error.message);
 
-    res.status(500).json({
-      error: "Error en chat"
+    return res.status(500).json({
+      error: "Error en el sistema de chat"
     });
 
   }
 });
-
 
 /*=========================================================
 START
