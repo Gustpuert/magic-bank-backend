@@ -3374,6 +3374,67 @@ function adaptReplyStyle(reply, config) {
     return reply;
   }
 }
+
+/* =========================================================
+LANDING CHAT — SIMPLE Y ESTABLE (NO TUTOR)
+========================================================= */
+
+app.post("/api/landing-chat", async (req, res) => {
+
+  try {
+
+    const message = String(req.body.message || "").toLowerCase();
+
+    if (!message) {
+      return res.json({
+        reply: "¿En qué puedo ayudarte sobre MagicBank?"
+      });
+    }
+
+    let reply = "";
+
+    /* ===============================
+    RESPUESTAS COMERCIALES
+    =============================== */
+
+    if (message.includes("precio") || message.includes("cuesta")) {
+      reply = "MagicBank funciona por suscripción mensual. Puedes elegir un curso o tutor y acceder inmediatamente.";
+    }
+
+    else if (message.includes("que es") || message.includes("qué es")) {
+      reply = "MagicBank es una plataforma educativa automatizada con tutores de inteligencia artificial que enseñan paso a paso.";
+    }
+
+    else if (message.includes("como funciona")) {
+      reply = "Eliges un tutor, activas tu acceso y comienzas a aprender con guía inteligente. Todo el proceso es automático.";
+    }
+
+    else if (message.includes("gratis")) {
+      reply = "Puedes probar algunos tutores gratis en la visita guiada antes de activar tu acceso completo.";
+    }
+
+    else if (message.includes("curso")) {
+      reply = "Tenemos cursos en idiomas, negocios, tecnología, salud y más. Puedes buscar directamente en el catálogo.";
+    }
+
+    else {
+      reply = "Puedo ayudarte a entender cómo funciona MagicBank o guiarte para empezar. ¿Qué quieres saber?";
+    }
+
+    return res.json({
+      reply
+    });
+
+  } catch (err) {
+
+    console.error("LANDING CHAT ERROR:", err.message);
+
+    return res.json({
+      reply: "Hubo un problema. Intenta nuevamente."
+    });
+  }
+
+});
 /*=========================================================
 START
 ==========≈================================================*/
