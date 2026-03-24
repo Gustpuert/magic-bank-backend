@@ -2856,74 +2856,12 @@ app.post("/api/chat", async (req, res) => {
       category
     ]);
 
-    /* =====================================================
-7. RESPUESTA CON OPENAI (SAFE)
-===================================================== */
-
-let reply = "Error generando respuesta";
-
-try {
-
-  const systemPrompt = `
-Eres un tutor inteligente de MagicBank.
-
-- Explica claro
-- No repitas la pregunta
-- Sé directo
-`;
-
-  const aiResponse = await axios.post(
-    "https://api.openai.com/v1/chat/completions",
-    {
-      model: "gpt-4o-mini",
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: message }
-      ],
-      temperature: 0.7
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
-      }
-    }
-  );
-
-  reply = aiResponse.data.choices[0].message.content;
-
-} catch (err) {
-
-  console.error("OPENAI ERROR:", err.response?.data || err.message);
-
-  reply = "Error generando respuesta";
-
-}
-
-/* =====================================================
-RESPUESTA FINAL
-===================================================== */
-
-return res.json({
-  message: reply,
-  tutor_config,
-  feedback: {
-    category,
-    rating: dynamic_rating
-  },
-  system: {
-    total_interactions: total,
-    interaction_pressure: interaction_count
-  },
-  product_name,
-  area
-});
-  
-/* =========================================================
-API CHAT — CORE LIMPIO + OPENAI (ESTABLE)
+    /* =========================================================
+API CHAT — CORE INTELIGENTE + OPENAI (AUDITADO SAFE)
 ========================================================= */
 
 app.post("/api/chat", async (req, res) => {
+
   try {
 
     const { token, message } = req.body;
@@ -2934,9 +2872,9 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    /* =========================================================
-    🔐 VALIDACIÓN TOKEN
-    ========================================================= */
+    /* =====================================================
+    1. VALIDACIÓN TOKEN
+    ===================================================== */
 
     const tokenHash = crypto
       .createHash("sha256")
@@ -2944,7 +2882,7 @@ app.post("/api/chat", async (req, res) => {
       .digest("hex");
 
     const access = await pool.query(`
-      SELECT email, product_name
+      SELECT email, product_name, area
       FROM access_tokens
       WHERE token = $1
       AND expires_at > NOW()
@@ -2952,56 +2890,150 @@ app.post("/api/chat", async (req, res) => {
 
     if (!access.rowCount) {
       return res.status(403).json({
-        error: "Token inválido o expirado"
+        error: "Acceso inválido o expirado"
       });
     }
 
-    const { email, product_name } = access.rows[0];
+    const { email, product_name, area } = access.rows[0];
 
-    /* =========================================================
-    🧠 COMPORTAMIENTO DEL SISTEMA (CONTROLADO)
-    ========================================================= */
+    /* =====================================================
+    2. CONFIG DINÁMICA
+    ===================================================== */
 
-    const systemPrompt = `
-Eres un tutor experto de MagicBank.
+    let tutor_config = {
+      max_questions: 3,
+      explanation_depth: 3,
+      pacing_level: 3
+    };
+
+    try {
+      const configRes = await pool.query(`
+        SELECT *
+        FROM tutor_config
+        WHERE product_name = $1
+      `, [product_name]);
+
+      if (configRes.rowCount) {
+        tutor_config = configRes.rows[0];
+      }
+    } catch (e) {}
+
+    /* =====================================================
+    3. CLASIFICACIÓN FEEDBACK
+    ===================================================== */
+
+    function classifyFeedback(text = "") {
+      const t = text.toLowerCase();
+
+      if (t.includes("no entiendo") || t.includes("confuso")) return "clarity";
+      if (t.includes("rápido") || t.includes("lento")) return "speed";
+      if (t.includes("difícil")) return "difficulty";
+      if (t.includes("?")) return "interaction";
+
+      return "content";
+    }
+
+    const category = classifyFeedback(message);
+
+    /* =====================================================
+    4. ESTADÍSTICAS USUARIO
+    ===================================================== */
+
+    let total = 0;
+    let interaction_count = 0;
+
+    try {
+      const stats = await pool.query(`
+        SELECT COUNT(*) as total,
+        COUNT(*) FILTER (WHERE category = 'interaction') as interaction_count
+        FROM student_feedback
+        WHERE email = $1
+        AND product_name = $2
+        AND created_at > NOW() - INTERVAL '1 day'
+      `, [email, product_name]);
+
+      total = Number(stats.rows[0].total);
+      interaction_count = Number(stats.rows[0].interaction_count);
+    } catch (e) {}
+
+    /* =====================================================
+    5. RATING DINÁMICO
+    ===================================================== */
+
+    let dynamic_rating = 5;
+
+    if (category === "clarity" || category === "difficulty") dynamic_rating = 3;
+    if (category === "speed") dynamic_rating = 4;
+    if (interaction_count > total * 0.6) dynamic_rating = 2;
+
+    /* =====================================================
+    6. GUARDAR FEEDBACK
+    ===================================================== */
+
+    try {
+      await pool.query(`
+        INSERT INTO student_feedback
+        (email, product_name, rating, useful, improve, category, created_at)
+        VALUES ($1,$2,$3,$4,$5,$6,NOW())
+      `, [
+        email,
+        product_name,
+        dynamic_rating,
+        "",
+        message,
+        category
+      ]);
+    } catch (e) {}
+
+    /* =====================================================
+    7. OPENAI (SAFE)
+    ===================================================== */
+
+    let reply = "Error generando respuesta";
+
+    try {
+
+      const systemPrompt = `
+Eres un tutor inteligente de MagicBank.
 
 Reglas:
 - Explica claro
-- No seas largo innecesariamente
-- Da ejemplos simples
-- No repitas la pregunta del usuario
-- Responde directamente
-
-Curso actual: ${product_name}
+- No repitas la pregunta
+- Ajusta profundidad: ${tutor_config.explanation_depth}
+- Ajusta ritmo: ${tutor_config.pacing_level}
+- Máximo preguntas: ${tutor_config.max_questions}
 `;
 
-    /* =========================================================
-    🤖 LLAMADA OPENAI
-    ========================================================= */
-
-    const aiResponse = await axios.post(
-      "https://api.openai.com/v1/chat/completions",
-      {
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: message }
-        ],
-        temperature: 0.7
-      },
-      {
-        headers: {
-          Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json"
+      const aiResponse = await axios.post(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-4o-mini",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: message }
+          ],
+          temperature: 0.7
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+            "Content-Type": "application/json"
+          }
         }
-      }
-    );
+      );
 
-    const reply = aiResponse.data.choices[0].message.content;
+      reply = aiResponse.data.choices[0].message.content;
 
-    /* =========================================================
-    💾 LOG CHAT (OPCIONAL PERO RECOMENDADO)
-    ========================================================= */
+    } catch (err) {
+
+      console.error("OPENAI ERROR:", err.response?.data || err.message);
+      reply = "Error generando respuesta";
+
+    }
+
+    /* =====================================================
+    8. LOG CHAT (NO CRÍTICO)
+    ===================================================== */
 
     try {
       await pool.query(`
@@ -3010,23 +3042,35 @@ Curso actual: ${product_name}
       `, [email, message, reply]);
     } catch (e) {}
 
-    /* =========================================================
-    🚀 RESPUESTA FINAL
-    ========================================================= */
+    /* =====================================================
+    9. RESPUESTA FINAL (UNA SOLA)
+    ===================================================== */
 
     return res.json({
-      message: reply
+      message: reply,
+      tutor_config,
+      feedback: {
+        category,
+        rating: dynamic_rating
+      },
+      system: {
+        total_interactions: total,
+        interaction_pressure: interaction_count
+      },
+      product_name,
+      area
     });
 
   } catch (error) {
 
-    console.error("CHAT ERROR:", error.response?.data || error.message);
+    console.error("CHAT ERROR:", error);
 
     return res.status(500).json({
       error: "Error en el sistema de chat"
     });
 
   }
+
 });
 
 /*=========================================================
