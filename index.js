@@ -2809,41 +2809,32 @@ if (text.includes("lento") || text.includes("despacio")) {
 }
     
 /* =====================================================
-BLOQUE 3 — LOG DE MENSAJES (MEMORIA REAL)
+BLOQUE 3 — MEMORIA VOLÁTIL (SIN DB, ANTI-CRASH)
 ===================================================== */
 
-/* GUARDAR MENSAJE DEL USUARIO */
-try {
+/* MEMORIA EN RAM (POR REQUEST, NO PERSISTENTE) */
 
-  await pool.query(`
-    INSERT INTO chat_logs (email, message, created_at)
-    VALUES ($1,$2,NOW())
-  `, [email, message]);
-
-} catch (err) {
-
-  console.error("CHAT LOG ERROR:", err.message);
-
-}
-
-/* OBTENER ÚLTIMOS MENSAJES (MEMORIA CORTA) */
-let recentMessages = [];
+let context = "normal";
 
 try {
 
-  const history = await pool.query(`
-    SELECT message
-    FROM chat_logs
-    WHERE email = $1
-    ORDER BY created_at DESC
-    LIMIT 5
-  `, [email]);
+  const text = String(message || "").toLowerCase();
 
-  recentMessages = history.rows.map(r => r.message);
+  if (text.includes("no entiendo") || text.includes("confuso")) {
+    context = "confusion";
+  }
+
+  else if (text.includes("rápido")) {
+    context = "fast";
+  }
+
+  else if (text.includes("lento") || text.includes("despacio")) {
+    context = "slow";
+  }
 
 } catch (err) {
 
-  console.error("MEMORY ERROR:", err.message);
+  console.error("CONTEXT ERROR:", err.message);
 
 }
 
