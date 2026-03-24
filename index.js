@@ -3476,30 +3476,65 @@ Nivel de riesgo del usuario: ${risk_level}
       new_depth = 3;
     }
 
-    await pool.query(`
-      INSERT INTO student_intelligence_profiles
-      (
-        student_id,
-        learning_speed,
-        technical_score,
-        last_updated
-      )
-      VALUES (
-        (SELECT id FROM students WHERE email = $1),
-        $2,
-        $3,
-        NOW()
-      )
-      ON CONFLICT (student_id)
-      DO UPDATE SET
-        learning_speed = EXCLUDED.learning_speed,
-        technical_score = EXCLUDED.technical_score,
-        last_updated = NOW()
-    `, [
-      email,
-      new_pacing,
-      new_depth
-    ]);
+    const studentRes = await pool.query(
+  "SELECT id FROM students WHERE email = $1",
+  [email]
+);
+
+if (studentRes.rowCount) {
+
+  const sid = studentRes.rows[0].id;
+
+  const studentRes = await pool.query(
+  "SELECT id FROM students WHERE email = $1",
+  [email]
+);
+
+if (studentRes.rowCount) {
+
+  const sid = studentRes.rows[0].id;
+
+  
+    const studentRes = await pool.query(
+  "SELECT id FROM students WHERE email = $1",
+  [email]
+);
+
+if (studentRes.rowCount) {
+
+  const sid = studentRes.rows[0].id;
+
+  const studentRes = await pool.query(
+  "SELECT id FROM students WHERE email = $1",
+  [email]
+);
+
+if (studentRes.rowCount) {
+
+  const sid = studentRes.rows[0].id;
+
+  await pool.query(`
+    INSERT INTO student_intelligence_profiles
+    (
+      student_id,
+      learning_speed,
+      technical_score,
+      last_updated
+    )
+    VALUES ($1,$2,$3,NOW())
+    ON CONFLICT (student_id)
+    DO UPDATE SET
+      learning_speed = EXCLUDED.learning_speed,
+      technical_score = EXCLUDED.technical_score,
+      last_updated = NOW()
+  `, [
+    sid,
+    new_pacing,
+    new_depth
+  ]);
+
+}
+
 
     /* =========================================================
     🧠 AUTO-APRENDIZAJE
