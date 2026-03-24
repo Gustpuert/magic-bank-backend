@@ -2714,15 +2714,21 @@ app.get("/api/catalogo-publico", (req, res) => {
 
 
 
+
 /* =========================================================
-BLOQUE 1 — BASE + VALIDACIÓN (DEPLOY TEST)
+API CHAT — MAGICBANK (VERSIÓN ESTABLE ANTI-CRASH)
 ========================================================= */
+
 app.post("/api/chat", async (req, res) => {
 
   try {
 
-    // ===== 1. INPUT =====
-    const { token, message } = req.body;
+    /* ===============================
+    1. INPUT SEGURO
+    =============================== */
+
+    const token = String(req.body.token || "").trim();
+    const message = String(req.body.message || "").trim();
 
     if (!token || !message) {
       return res.status(400).json({
@@ -2730,13 +2736,19 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    // ===== 2. HASH TOKEN =====
+    /* ===============================
+    2. HASH TOKEN (SEGURO)
+    =============================== */
+
     const tokenHash = crypto
       .createHash("sha256")
-      .update(String(token).trim())
+      .update(token)
       .digest("hex");
 
-    // ===== 3. VALIDACIÓN DB =====
+    /* ===============================
+    3. VALIDACIÓN DB
+    =============================== */
+
     const access = await pool.query(`
       SELECT email, product_name, area
       FROM access_tokens
@@ -2744,7 +2756,7 @@ app.post("/api/chat", async (req, res) => {
       AND expires_at > NOW()
     `, [tokenHash]);
 
-    if (!access.rowCount) {
+    if (!access || !access.rowCount) {
       return res.status(403).json({
         error: "Token inválido o expirado"
       });
@@ -2752,9 +2764,65 @@ app.post("/api/chat", async (req, res) => {
 
     const { email, product_name, area } = access.rows[0];
 
-    // ===== 4. RESPUESTA BASE =====
+    /* ===============================
+    4. TRACKING (NO BLOQUEANTE)
+    =============================== */
+
+    try {
+      await pool.query(`
+        UPDATE access_tokens
+        SET last_access = NOW()
+        WHERE token = $1
+      `, [tokenHash]);
+    } catch (err) {
+      console.error("TRACKING ERROR:", err.message);
+    }
+
+    /* ===============================
+    5. CONTEXTO INTELIGENTE (UNA SOLA VEZ)
+    =============================== */
+
+    let context = "normal";
+
+    const text = message.toLowerCase();
+
+    if (text.includes("no entiendo") || text.includes("confuso")) {
+      context = "confusion";
+    } else if (text.includes("rápido")) {
+      context = "fast";
+    } else if (text.includes("lento") || text.includes("despacio")) {
+      context = "slow";
+    }
+
+    /* ===============================
+    6. RESPUESTA BASE (SIN IA AÚN)
+    =============================== */
+
+    let reply = "";
+
+    if (context === "confusion") {
+      reply = "Vamos paso a paso. ¿Qué parte no te quedó clara?";
+    }
+
+    else if (context === "fast") {
+      reply = "Te explico de forma rápida: enfócate en la idea principal y aplica inmediatamente.";
+    }
+
+    else if (context === "slow") {
+      reply = "Perfecto, iremos despacio. Primero entendamos lo básico antes de avanzar.";
+    }
+
+    else {
+      reply = "Estoy listo para ayudarte. ¿Qué quieres aprender hoy?";
+    }
+
+    /* ===============================
+    7. RESPUESTA FINAL SEGURA
+    =============================== */
+
     return res.json({
-      message: "OK BASE",
+      message: reply,
+      context,
       email,
       product_name,
       area
@@ -2762,81 +2830,15 @@ app.post("/api/chat", async (req, res) => {
 
   } catch (error) {
 
-    console.error("ERROR BLOQUE 1:", error);
+    console.error("CHAT ERROR:", error);
 
     return res.status(500).json({
-      error: "Error base chat"
+      error: "Error interno del chat"
     });
 
   }
 
 });
-/* =====================================================
-BLOQUE 2 — TRACKING + CONTEXTO BASE
-===================================================== */
-
-/* TRACKING DE USO */
-try {
-
-  await pool.query(`
-    UPDATE access_tokens
-    SET last_access = NOW()
-    WHERE token = $1
-  `, [tokenHash]);
-
-} catch (err) {
-
-  console.error("TRACKING ERROR:", err.message);
-
-}
-
-/* DETECCIÓN DE CONTEXTO BÁSICO */
-let context = "normal";
-
-const text = message.toLowerCase();
-
-if (text.includes("no entiendo") || text.includes("confuso")) {
-  context = "confusion";
-}
-
-if (text.includes("rápido")) {
-  context = "fast";
-}
-
-if (text.includes("lento") || text.includes("despacio")) {
-  context = "slow";
-}
-    
-/* =====================================================
-BLOQUE 3 — MEMORIA VOLÁTIL (SIN DB, ANTI-CRASH)
-===================================================== */
-
-/* MEMORIA EN RAM (POR REQUEST, NO PERSISTENTE) */
-
-let context = "normal";
-
-try {
-
-  const text = String(message || "").toLowerCase();
-
-  if (text.includes("no entiendo") || text.includes("confuso")) {
-    context = "confusion";
-  }
-
-  else if (text.includes("rápido")) {
-    context = "fast";
-  }
-
-  else if (text.includes("lento") || text.includes("despacio")) {
-    context = "slow";
-  }
-
-} catch (err) {
-
-  console.error("CONTEXT ERROR:", err.message);
-
-}
-
 
 
 /*=========================================================
