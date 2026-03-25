@@ -2836,12 +2836,16 @@ try {
 🧠 3. ADAPTACIÓN EN TIEMPO REAL (CLAVE)
 =============================== */
 
+
 try {
 
-  const adaptiveConfig = await getAdaptiveConfigSafe({
-    email,
-    product_name
-  });
+  const [adaptiveConfigRaw, risk] = await Promise.all([
+    getAdaptiveConfigSafe({ email, product_name }),
+    detectUserRisk({ email, product_name })
+  ]);
+
+  const adaptiveConfig = adaptiveConfigRaw || {};
+  adaptiveConfig.risk = risk;
 
   reply = adaptReplyStyle(reply, adaptiveConfig);
 
@@ -2853,17 +2857,14 @@ try {
 📊 4. FEEDBACK AUTOMÁTICO (NO BLOQUEANTE)
 =============================== */
 
-try {
 
-  await saveFeedbackSafe({
-    email,
-    product_name,
-    message
-  });
-
-} catch (err) {
-  console.error("FEEDBACK IN CHAT ERROR:", err.message);
-}
+saveFeedbackSafe({
+  email,
+  product_name,
+  message
+}).catch(err => {
+  console.error("FEEDBACK ASYNC ERROR:", err.message);
+});
 
 
 const category = classifyUserFeedback(message);
