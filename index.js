@@ -129,15 +129,23 @@ const ventasPorDia = await pool.query(`
 `);
 
 res.send(`
-  <html>
-  <head>
-    <title>MagicBank Analytics</title>
-  </head>
-  <body>
-    <h1>MAGICBANK DASHBOARD</h1>
-    <p>Total alumnos: ${totalAlumnos.rows[0].count}</p>
-  </body>
-  </html>
+<html>
+<head>
+<title>MagicBank System</title>
+</head>
+
+<body style="font-family:Arial">
+
+<h1>📊 MagicBank Control Panel</h1>
+
+<h2>Usuarios en riesgo</h2>
+<pre>${JSON.stringify(alerts.rows, null, 2)}</pre>
+
+<h2>Optimización</h2>
+<pre>${JSON.stringify(optimization.rows, null, 2)}</pre>
+
+</body>
+</html>
 `);
 
 } catch (error) {
@@ -3580,7 +3588,13 @@ function adaptReplyStyle(reply, config) {
     if (config.depth === 2) {
       return safeReply.split(".").slice(0,1).join(".") + ".";
     }
+if (config.risk === "frustrated") {
+  return "Entiendo que esto puede estar siendo frustrante. Vamos a resolverlo paso a paso. " + safeReply;
+}
 
+if (config.risk === "abandonment") {
+  return "Antes de continuar, quiero asegurarme de que esto te esté aportando valor. Ajustemos el enfoque. " + safeReply;
+}
     // Más explicativo
     if (config.depth === 4) {
       return safeReply + " Te lo explico con más detalle si lo necesitas.";
@@ -3596,7 +3610,51 @@ function adaptReplyStyle(reply, config) {
   }
 }
 
+async function detectUserRisk({ email, product_name }) {
 
+  try {
+
+    const feedback = await pool.query(`
+      SELECT
+        COUNT(*) as total,
+        COUNT(*) FILTER (WHERE rating <= 3) as low_rating,
+        COUNT(*) FILTER (
+          WHERE created_at > NOW() - INTERVAL '1 day'
+        ) as recent_activity
+      FROM student_feedback
+      WHERE email = $1
+      AND product_name = $2
+    `, [email, product_name]);
+
+    const behavior = await pool.query(`
+      SELECT change_count
+      FROM user_behavior
+      WHERE email = $1
+    `, [email]);
+
+    const data = feedback.rows[0];
+    const changes = behavior.rowCount ? behavior.rows[0].change_count : 0;
+
+    let risk = "low";
+
+    if (Number(data.low_rating) > 3) {
+      risk = "frustrated";
+    }
+
+    if (changes > 6) {
+      risk = "unstable";
+    }
+
+    if (Number(data.recent_activity) === 0) {
+      risk = "abandonment";
+    }
+
+    return risk;
+
+  } catch (err) {
+    return "low";
+  }
+}
 
 
 
@@ -3843,7 +3901,95 @@ message: "Ocurrió un error. Intenta nuevamente."
 }
 
 });
+setInterval(async () => {
 
+  try {
+
+    await pool.query(`
+
+      INSERT INTO tutor_config
+      (product_name, max_questions, explanation_depth, pacing_level, updated_at)
+
+      SELECT
+        product_name,
+
+        CASE
+          WHEN COUNT(*) FILTER (WHERE category = 'interaction') > COUNT(*) * 0.3
+          THEN 2 ELSE 3
+        END,
+
+        CASE
+          WHEN COUNT(*) FILTER (WHERE category = 'clarity') > COUNT(*) * 0.3
+          THEN 4 ELSE 3
+        END,
+
+        CASE
+          WHEN COUNT(*) FILTER (WHERE category = 'speed') > COUNT(*) * 0.3
+          THEN 2 ELSE 3
+        END,
+
+        NOW()
+
+      FROM student_feedback
+
+      GROUP BY product_name
+
+      ON CONFLICT (product_name)
+
+      DO UPDATE SET
+
+        max_questions = EXCLUDED.max_questions,
+        explanation_depth = EXCLUDED.explanation_depth,
+        pacing_level = EXCLUDED.pacing_level,
+        updated_at = NOW()
+
+    `);
+
+    console.log("AUTO-OPTIMIZATION RUNNING");
+
+  } catch (err) {
+
+    console.error("AUTO OPTIMIZATION ERROR:", err.message);
+
+  }
+
+}, 1000 * 60 * 10); // cada 10 minutos
+
+app.get("/system/alerts", async (req, res) => {
+
+  try {
+
+    const alerts = await pool.query(`
+
+      SELECT
+        email,
+        product_name,
+
+        COUNT(*) FILTER (WHERE rating <= 3) as low_scores,
+
+        MAX(created_at) as last_feedback
+
+      FROM student_feedback
+
+      GROUP BY email, product_name
+
+      HAVING COUNT(*) FILTER (WHERE rating <= 3) >= 3
+
+    `);
+
+    res.json({
+      alerts: alerts.rows
+    });
+
+  } catch (error) {
+
+    console.error("ALERT SYSTEM ERROR:", error);
+
+    res.status(500).send("Error generating alerts");
+
+  }
+
+});
 
 /*=========================================================
 START
