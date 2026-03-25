@@ -2797,11 +2797,7 @@ app.post("/api/chat", async (req, res) => {
   
 
     /* ===============================
-6- RESPUESTA INTELIGENTE (SAFE INJECTION)
-=============================== */
-
-/* ===============================
-RESPUESTA HÍBRIDA (IA + FALLBACK)
+6- RESPUESTA INTELIGENTE (SAFE + ADAPTATIVA)
 =============================== */
 
 let reply = "";
@@ -2820,7 +2816,6 @@ try {
 
   const aiReply = await generateAIReplySafe(message, context);
 
-  // solo usa IA si es válida
   if (aiReply && aiReply.length > 5) {
     reply = aiReply;
   }
@@ -2829,9 +2824,25 @@ try {
   console.error("AI INJECTION ERROR:", err.message);
 }
 
+/* ===============================
+🧠 3. ADAPTACIÓN EN TIEMPO REAL (CLAVE)
+=============================== */
+
+try {
+
+  const adaptiveConfig = await getAdaptiveConfigSafe({
+    email,
+    product_name
+  });
+
+  reply = adaptReplyStyle(reply, adaptiveConfig);
+
+} catch (err) {
+  console.error("ADAPTATION ERROR:", err.message);
+}
 
 /* ===============================
-FEEDBACK INTELIGENTE (SAFE INSERT)
+📊 4. FEEDBACK AUTOMÁTICO (NO BLOQUEANTE)
 =============================== */
 
 try {
@@ -2845,6 +2856,10 @@ try {
 } catch (err) {
   console.error("FEEDBACK IN CHAT ERROR:", err.message);
 }
+
+
+
+    
     /* ===============================
     7. RESPUESTA FINAL SEGURA
     =============================== */
@@ -3374,6 +3389,10 @@ function adaptReplyStyle(reply, config) {
     return reply;
   }
 }
+
+
+
+
 
 app.post("/api/landing-chat", (req, res) => {
 
