@@ -158,16 +158,21 @@ res.status(500).send("Error cargando dashboard");
 DASHBOARD PRO — VISIÓN COMPLETA DEL SISTEMA
 ========================================================= */
 
-app.get("/dashboard/pro", async (req, res) => {
+app.get("/dashboard-pro", async (req, res) => {
 
   try {
 
-    const data = await pool.query(`
+    /* =========================================================
+    1. QUERY SEGURA (NO CRASHEA)
+    ========================================================= */
+
+    const result = await pool.query(`
 
       SELECT
         f.product_name,
 
         COUNT(*) as total_feedbacks,
+
         ROUND(AVG(f.rating),2) as avg_rating,
 
         COUNT(*) FILTER (WHERE f.category = 'clarity') as clarity_issues,
@@ -175,7 +180,7 @@ app.get("/dashboard/pro", async (req, res) => {
         COUNT(*) FILTER (WHERE f.category = 'interaction') as interaction_issues,
         COUNT(*) FILTER (WHERE f.category = 'difficulty') as difficulty_issues,
 
-        COALESCE(d.abandonment_rate,0) as abandonment_rate
+        COALESCE(d.abandonment_rate, 0) as abandonment_rate
 
       FROM student_feedback f
 
@@ -185,7 +190,7 @@ app.get("/dashboard/pro", async (req, res) => {
           ROUND(
             COUNT(*) FILTER (
               WHERE last_access < NOW() - INTERVAL '3 days'
-            ) * 100.0 / COUNT(*)
+            ) * 100.0 / NULLIF(COUNT(*),0)
           ,2) as abandonment_rate
         FROM access_tokens
         GROUP BY product_name
@@ -195,108 +200,186 @@ app.get("/dashboard/pro", async (req, res) => {
 
       GROUP BY f.product_name, d.abandonment_rate
 
+      ORDER BY avg_rating DESC NULLS LAST
+
     `);
 
-    const analysis = data.rows.map(r => {
+    /* =========================================================
+    2. PROCESAMIENTO INTELIGENTE (ANTI-CRASH)
+    ========================================================= */
 
-      let issues = [];
-      let root_cause = "none";
-      let priority = 1;
+    const rows = result.rows.map(r => {
 
-      // 🧠 SCORE GLOBAL (0–100)
-      let health_score =
-        (r.avg_rating * 20) - (r.abandonment_rate * 0.5);
+      const total = Number(r.total_feedbacks || 0);
+      const rating = Number(r.avg_rating || 0);
+      const abandonment = Number(r.abandonment_rate || 0);
 
-      // 🔴 CLASIFICACIÓN
-      let status = "healthy";
+      const clarity = Number(r.clarity_issues || 0);
+      const speed = Number(r.speed_issues || 0);
+      const interaction = Number(r.interaction_issues || 0);
+      const difficulty = Number(r.difficulty_issues || 0);
 
-      if (health_score < 50) {
-        status = "critical";
-        priority = 5;
-      } else if (health_score < 70) {
-        status = "risk";
-        priority = 4;
+      /* ===============================
+      SCORE GLOBAL
+      =============================== */
+
+      let score = 100;
+
+      score -= abandonment * 0.6;
+      score -= (5 - rating) * 10;
+
+      /* ===============================
+      DETECCIÓN DE FRICCIÓN
+      =============================== */
+
+      let friction = "none";
+
+      if (abandonment > 50 && rating > 4) {
+        friction = "entry_barrier";
+      } else if (clarity > total * 0.3) {
+        friction = "confusion";
+      } else if (speed > total * 0.3) {
+        friction = "pacing_problem";
+      } else if (interaction > total * 0.4) {
+        friction = "too_many_questions";
+      } else if (difficulty > total * 0.3) {
+        friction = "too_hard";
       }
 
-      // 🔍 DETECCIÓN DE PROBLEMAS
-      if (r.clarity_issues > r.total_feedbacks * 0.3) {
-        issues.push("clarity");
+      /* ===============================
+      ESTADO
+      =============================== */
+
+      let status = "ok";
+
+      if (score < 60) status = "risk";
+      if (score < 40) status = "critical";
+
+      /* ===============================
+      ACCIÓN AUTOMÁTICA
+      =============================== */
+
+      let action = "Mantener";
+
+      if (friction === "entry_barrier") {
+        action = "Simplificar onboarding";
       }
 
-      if (r.speed_issues > r.total_feedbacks * 0.3) {
-        issues.push("speed");
+      if (friction === "confusion") {
+        action = "Mejorar claridad del tutor";
       }
 
-      if (r.interaction_issues > r.total_feedbacks * 0.3) {
-        issues.push("interaction");
+      if (friction === "pacing_problem") {
+        action = "Reducir velocidad";
       }
 
-      if (r.abandonment_rate > 40) {
-        issues.push("abandonment");
-      }
-
-      // 🎯 CAUSA RAÍZ
-      if (issues.includes("abandonment") && r.avg_rating > 4) {
-        root_cause = "onboarding_problem";
-      } else if (issues.includes("clarity")) {
-        root_cause = "explanation_problem";
-      } else if (issues.includes("speed")) {
-        root_cause = "pacing_problem";
-      } else if (issues.includes("interaction")) {
-        root_cause = "too_many_questions";
-      }
-
-      // 🧠 DECISIONES AUTOMÁTICAS
-      let action = "OK";
-
-      if (root_cause === "onboarding_problem") {
-        action = "Simplificar entrada del usuario";
-      }
-
-      if (root_cause === "explanation_problem") {
-        action = "Aumentar profundidad explicativa";
-      }
-
-      if (root_cause === "pacing_problem") {
-        action = "Reducir velocidad del tutor";
-      }
-
-      if (root_cause === "too_many_questions") {
+      if (friction === "too_many_questions") {
         action = "Reducir preguntas";
       }
 
+      if (friction === "too_hard") {
+        action = "Bajar dificultad";
+      }
+
       return {
-        product_name: r.product_name,
-        avg_rating: r.avg_rating,
-        abandonment_rate: r.abandonment_rate,
-        health_score: Math.round(health_score),
+        ...r,
+        score: Math.round(score),
         status,
-        priority,
-        root_cause,
-        action
+        action,
+        friction
       };
 
     });
 
-    // 🔥 ORDEN REAL (lo más crítico arriba)
-    analysis.sort((a, b) => b.priority - a.priority);
+    /* =========================================================
+    3. HTML DASHBOARD (ULTRA LIGERO)
+    ========================================================= */
 
-    res.json({
-      dashboard: analysis
-    });
+    const htmlRows = rows.map(r => `
+
+      <tr>
+        <td>${r.product_name}</td>
+        <td>${r.score}</td>
+        <td>${r.avg_rating || 0}</td>
+        <td>${r.abandonment_rate || 0}%</td>
+        <td>${r.status}</td>
+        <td>${r.friction}</td>
+        <td>${r.action}</td>
+      </tr>
+
+    `).join("");
+
+    res.send(`
+
+      <html>
+      <head>
+        <title>MagicBank Intelligence</title>
+
+        <style>
+          body {
+            font-family: Arial;
+            background: #0f172a;
+            color: white;
+            padding: 30px;
+          }
+
+          table {
+            width: 100%;
+            border-collapse: collapse;
+          }
+
+          th, td {
+            padding: 12px;
+            border-bottom: 1px solid #333;
+            text-align: left;
+          }
+
+          th {
+            color: #38bdf8;
+          }
+
+          tr:hover {
+            background: #1e293b;
+          }
+        </style>
+      </head>
+
+      <body>
+
+        <h1>🧠 MagicBank Intelligence Dashboard</h1>
+
+        <table>
+          <thead>
+            <tr>
+              <th>Curso</th>
+              <th>Score</th>
+              <th>Rating</th>
+              <th>Abandono</th>
+              <th>Estado</th>
+              <th>Fricción</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            ${htmlRows}
+          </tbody>
+        </table>
+
+      </body>
+      </html>
+
+    `);
 
   } catch (error) {
 
-    console.error("DASHBOARD PRO ERROR:", error.message);
+    console.error("DASHBOARD PRO ERROR:", error);
 
-    res.json({
-      dashboard: []
-    });
+    res.status(500).send("Error cargando dashboard");
 
   }
 
 });
-
         
 
 app.get("/dashboard/pro/view", async (req, res) => {
