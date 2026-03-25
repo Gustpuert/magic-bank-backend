@@ -3377,103 +3377,245 @@ function adaptReplyStyle(reply, config) {
 
 app.post("/api/landing-chat", (req, res) => {
 
-  try {
+try {
 
-    const message = (req.body && req.body.message)
-      ? String(req.body.message).toLowerCase().trim()
-      : "";
+/* =========================================
+NORMALIZADOR (SEGURO)
+========================================= */
 
-    let reply = "";
+const normalize = (text = "") =>
+String(text)
+.toLowerCase()
+.normalize("NFD")
+.replace(/[\u0300-\u036f]/g, "")
+.trim();
 
-    /* =========================
-    MENSAJE VACÍO
-    ========================= */
-    if (!message) {
+/* =========================================
+INPUT
+========================================= */
 
-      reply = "Soy el asistente de MagicBank. Puedo orientarte según lo que deseas estudiar o explicarte cómo funciona la plataforma.";
+const message = normalize(req.body && req.body.message ? req.body.message : "");
 
-    }
+/* =========================================
+ESTADO GLOBAL SIMPLE (SIN CRASH)
+========================================= */
 
-    /* =========================
-    MAGICBANK BASE
-    ========================= */
-    else if (message.includes("magicbank")) {
+if (!global.userState) {
+global.userState = {};
+}
 
-      reply = "MagicBank es un ecosistema educativo automatizado con tutores de inteligencia artificial que enseñan, evalúan y certifican.";
+const state = global.userState;
 
-    }
+/* =========================================
+FLUJO: CONFIRMACIÓN DE CURSO
+========================================= */
 
-    /* =========================
-    UNIVERSITY (FACULTADES REALES)
-    ========================= */
-    else if (
-      message.includes("derecho") ||
-      message.includes("contadur") ||
-      message.includes("administracion") ||
-      message.includes("marketing") ||
-      message.includes("software")
-    ) {
+if (state.pendingCourse) {
 
-      reply = "MagicBank University incluye las siguientes facultades:\n\n";
+if (
+message === "si" ||
+message === "sí" ||
+message === "ok" ||
+message.includes("explorar")
+) {
 
-      reply += "- Derecho\n";
-      reply += "- Contaduría\n";
-      reply += "- Administración pública\n";
-      reply += "- Marketing\n";
-      reply += "- Administración de negocios\n";
-      reply += "- Desarrollo de software\n\n";
+const url = state.pendingCourse.url;
+state.pendingCourse = null;
 
-      reply += "Cada facultad tiene 10 módulos, evaluación automática y certificación por el tutor.\n\n";
+return res.json({
+message: "Perfecto 🚀 Te llevo al curso...",
+redirect: url
+});
+}
 
-      reply += "Acceso:\nhttps://gustpuert.github.io/university.magicbank.org/";
+if (message.includes("no")) {
 
-    }
+state.pendingCourse = null;
 
-    /* =========================
-    ACADEMY (PROGRAMAS REALES)
-    ========================= */
-    else if (
-      message.includes("idioma") ||
-      message.includes("nutricion") ||
-      message.includes("cocina") ||
-      message.includes("chatgpt") ||
-      message.includes("emprend") ||
-      message.includes("oficio")
-    ) {
+return res.json({
+message: "Perfecto 👍 dime qué quieres aprender."
+});
+}
 
-      reply = "MagicBank Academy incluye programas prácticos:\n\n";
+}
 
-      reply += "- Idiomas: español, inglés, francés, italiano, portugués, alemán y chino\n";
-      reply += "- Nutrición inteligente\n";
-      reply += "- Cocina avanzada\n";
-      reply += "- Curso avanzado de ChatGPT\n";
-      reply += "- Emprendimiento (producción + ventas)\n";
-      reply += "- Artes y oficios\n\n";
+/* =========================================
+RESPUESTA: MAGICBANK (COMPLETA)
+========================================= */
 
-      reply += "Acceso:\nhttps://academy.magicbank.org";
+if (
+message.includes("magicbank") ||
+message.includes("como funciona") ||
+message.includes("como empezar") ||
+message.includes("acceso") ||
+message.includes("como estudiar")
+) {
 
-    }
+return res.json({
+message: `MagicBank es un ecosistema educativo automatizado basado en tutores de inteligencia artificial.
 
-    /* =========================
-    DEFAULT
-    ========================= */
-    else {
+No compras cursos.
+Accedes a tutores especializados por 30 días.
 
-      reply = "Para información completa usa el tutor informativo oficial:\nhttps://chatgpt.com/g/g-697a851b8a148191a8971256abf33157-tutor-informativo-magibank";
+━━━━━━━━━━━━━━━━━━
+⚠️ FUNDAMENTO DEL SISTEMA
+━━━━━━━━━━━━━━━━━━
 
-    }
+MAGICBANK OPERA CON CHATGPT
 
-    return res.json({ message: reply });
+Debes tener una cuenta activa en ChatGPT.
 
-  } catch (error) {
+MagicBank potencia a ChatGPT
+ChatGPT potencia a MagicBank
 
-    console.error("LANDING CHAT ERROR:", error);
+━━━━━━━━━━━━━━━━━━
+FUNCIONAMIENTO
+━━━━━━━━━━━━━━━━━━
 
-    return res.json({
-      message: "Error interno"
-    });
+1. Escoges el curso o tutor
+2. Realizas el pago
+3. Recibes en tu correo:
+   - email
+   - access token
 
-  }
+4. Ingresas al tutor:
+   - pegas email + token
+   - clic en la flecha
+   - acceso validado
+
+El acceso dura 30 días
+Puedes cancelarlo cuando quieras
+Puedes cambiar de tutor
+Puedes tener varios tutores
+
+━━━━━━━━━━━━━━━━━━
+USO CORRECTO DEL CHAT
+━━━━━━━━━━━━━━━━━━
+
+1. Haz clic en las 3 líneas
+2. Busca el chat "access token"
+3. Mantén presionado
+4. Renombrar → MODULO 1
+
+Luego:
+MODULO 2, MODULO 3...
+
+En cursos usa:
+COCINA ASIATICA
+COCINA MEDITERRANEA
+COCINA MEXICANA
+
+━━━━━━━━━━━━━━━━━━
+REGLAS IMPORTANTES
+━━━━━━━━━━━━━━━━━━
+
+- No mezclar temas
+- Un chat = un tema
+- No mezclar voz y texto
+
+El chat escrito es más preciso
+El de voz es útil para idiomas
+
+━━━━━━━━━━━━━━━━━━
+CALIDAD ACADEMICA
+━━━━━━━━━━━━━━━━━━
+
+- Nivel superior (pregrado + especialización)
+- Evaluación automática
+- Certificación por tutor
+- Futuro: blockchain
+
+━━━━━━━━━━━━━━━━━━
+
+Tutor completo:
+https://chatgpt.com/g/g-697a851b8a148191a8971256abf33157-tutor-informativo-magibank
+`
+});
+}
+
+/* =========================================
+BUSCADOR INTELIGENTE (CATÁLOGO REAL)
+========================================= */
+
+let bestMatch = null;
+let bestScore = 0;
+
+if (typeof SEARCH_CATALOG !== "undefined" && Array.isArray(SEARCH_CATALOG)) {
+
+for (const c of SEARCH_CATALOG) {
+
+let score = 0;
+
+const nombre = normalize(c.nombre || "");
+const keywords = Array.isArray(c.keywords)
+? c.keywords.map(k => normalize(k))
+: [];
+
+/* MATCH FUERTE */
+if (message.includes(nombre)) score += 50;
+
+/* MATCH POR PALABRAS */
+const words = message.split(" ");
+
+for (const w of words) {
+
+if (!w) continue;
+
+if (nombre.includes(w)) score += 10;
+
+for (const k of keywords) {
+if (k.includes(w)) score += 6;
+}
+
+}
+
+/* PRIORIDAD */
+score += c.prioridad || 0;
+
+/* MEJOR MATCH */
+if (score > bestScore) {
+bestScore = score;
+bestMatch = c;
+}
+
+}
+
+}
+
+/* =========================================
+SI DETECTA CURSO
+========================================= */
+
+if (bestMatch && bestScore >= 10) {
+
+state.pendingCourse = bestMatch;
+
+return res.json({
+message: `Veo que te interesa ${bestMatch.nombre}. ¿Quieres explorar este curso ahora?`
+});
+}
+
+/* =========================================
+DEFAULT
+========================================= */
+
+return res.json({
+message: "Dime exactamente qué quieres aprender y te guío paso a paso."
+});
+
+} catch (error) {
+
+/* =========================================
+ERROR CONTROLADO (NO CRASH)
+========================================= */
+
+console.error("LANDING CHAT ERROR:", error);
+
+return res.json({
+message: "Ocurrió un error. Intenta nuevamente."
+});
+
+}
 
 });
 
