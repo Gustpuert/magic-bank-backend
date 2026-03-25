@@ -153,6 +153,195 @@ console.error(error);
 res.status(500).send("Error cargando dashboard");
 }
 });
+
+/* =========================================================
+DASHBOARD PRO — VISIÓN COMPLETA DEL SISTEMA
+========================================================= */
+
+app.get("/dashboard/pro", async (req, res) => {
+
+  try {
+
+    const data = await pool.query(`
+
+      SELECT
+        f.product_name,
+
+        COUNT(*) as total_feedbacks,
+        ROUND(AVG(f.rating),2) as avg_rating,
+
+        COUNT(*) FILTER (WHERE f.category = 'clarity') as clarity_issues,
+        COUNT(*) FILTER (WHERE f.category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE f.category = 'interaction') as interaction_issues,
+        COUNT(*) FILTER (WHERE f.category = 'difficulty') as difficulty_issues,
+
+        COALESCE(d.abandonment_rate,0) as abandonment_rate
+
+      FROM student_feedback f
+
+      LEFT JOIN (
+        SELECT
+          product_name,
+          ROUND(
+            COUNT(*) FILTER (
+              WHERE last_access < NOW() - INTERVAL '3 days'
+            ) * 100.0 / COUNT(*)
+          ,2) as abandonment_rate
+        FROM access_tokens
+        GROUP BY product_name
+      ) d
+
+      ON d.product_name = f.product_name
+
+      GROUP BY f.product_name, d.abandonment_rate
+
+      ORDER BY avg_rating ASC
+
+    `);
+
+    const analysis = data.rows.map(r => {
+
+      let status = "healthy";
+      let priority = 1;
+      let actions = [];
+
+      // 🔴 CRÍTICO
+      if (r.avg_rating < 3.5) {
+        status = "critical";
+        priority = 5;
+        actions.push("Revisar tutor completo");
+      }
+
+      // 🟠 ALERTA
+      if (r.abandonment_rate > 40) {
+        status = "risk";
+        priority = 4;
+        actions.push("Mejorar onboarding");
+      }
+
+      // 🧠 CLARIDAD
+      if (r.clarity_issues > r.total_feedbacks * 0.3) {
+        actions.push("Explicar mejor conceptos");
+      }
+
+      // ⚡ VELOCIDAD
+      if (r.speed_issues > r.total_feedbacks * 0.3) {
+        actions.push("Reducir ritmo del tutor");
+      }
+
+      // ❓ INTERACCIÓN
+      if (r.interaction_issues > r.total_feedbacks * 0.3) {
+        actions.push("Reducir preguntas innecesarias");
+      }
+
+      return {
+        product_name: r.product_name,
+        avg_rating: r.avg_rating,
+        abandonment_rate: r.abandonment_rate,
+        total_feedbacks: r.total_feedbacks,
+        status,
+        priority,
+        actions
+      };
+
+    });
+
+    res.json({
+      dashboard: analysis
+    });
+
+  } catch (error) {
+
+    console.error("DASHBOARD PRO ERROR:", error.message);
+
+    res.json({
+      dashboard: []
+    });
+
+  }
+
+});
+
+app.get("/dashboard/pro/view", async (req, res) => {
+
+  res.send(`
+  <html>
+  <head>
+    <title>MagicBank Pro Dashboard</title>
+    <style>
+      body {
+        font-family: Arial;
+        background: #0f172a;
+        color: white;
+        padding: 20px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th, td {
+        padding: 10px;
+        border-bottom: 1px solid #333;
+        text-align: left;
+      }
+      .critical { color: #ff4d4d; }
+      .risk { color: #ffaa00; }
+      .healthy { color: #00ff88; }
+    </style>
+  </head>
+
+  <body>
+
+    <h1>🧠 MagicBank Dashboard PRO</h1>
+
+    <table id="table">
+      <thead>
+        <tr>
+          <th>Curso</th>
+          <th>Rating</th>
+          <th>Abandono</th>
+          <th>Estado</th>
+          <th>Acción</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <script>
+      async function load() {
+        const res = await fetch('/dashboard/pro');
+        const data = await res.json();
+
+        const tbody = document.querySelector("tbody");
+        tbody.innerHTML = "";
+
+        data.dashboard.forEach(row => {
+
+          const tr = document.createElement("tr");
+
+          tr.innerHTML = \`
+            <td>\${row.product_name}</td>
+            <td>\${row.avg_rating}</td>
+            <td>\${row.abandonment_rate}%</td>
+            <td class="\${row.status}">\${row.status}</td>
+            <td>\${row.actions.join(", ")}</td>
+          \`;
+
+          tbody.appendChild(tr);
+        });
+      }
+
+      load();
+
+      setInterval(load, 5000); // 🔥 actualiza en tiempo real
+
+    </script>
+
+  </body>
+  </html>
+  `);
+
+});
 /* =========================================================
 07 - AUTENTICACIÓN TIENDANUBE (OAUTH)
 Conecta la tienda con MagicBank
