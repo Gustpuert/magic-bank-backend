@@ -4318,6 +4318,189 @@ app.get("/system/alerts", async (req, res) => {
 
 });
 
+/* =========================================================
+ACCESS PAGE MAGICBANK (ONBOARDING)
+COPIAR Y PEGAR COMPLETO
+========================================================= */
+
+app.get("/access-page/:token", async (req, res) => {
+
+  try {
+
+    const rawToken = req.params.token;
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    const result = await pool.query(`
+      SELECT email, redirect_url
+      FROM access_tokens
+      WHERE token = $1
+      AND expires_at > NOW()
+    `, [tokenHash]);
+
+    if (!result.rowCount) {
+      return res.status(403).send("Acceso inválido o expirado");
+    }
+
+    const { email, redirect_url } = result.rows[0];
+
+    /* =========================================================
+    HTML COMPLETO
+    ========================================================= */
+
+    const html = `
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MagicBank · Acceso</title>
+
+<style>
+body { margin:0; font-family:system-ui; background:#f3f4f6; color:#111827; }
+
+.header {
+  background: linear-gradient(135deg,#5b4bdb,#6d5dfc);
+  padding:20px; color:white; display:flex; justify-content:space-between;
+}
+
+.logo {
+  width:45px;height:45px;border-radius:50%;background:white;color:#5b4bdb;
+  display:flex;align-items:center;justify-content:center;font-weight:bold;
+}
+
+.container { max-width:850px;margin:auto;padding:20px; }
+
+.card {
+  background:white;border-radius:18px;padding:22px;margin-top:20px;
+}
+
+.access-box {
+  background:#111827;color:#e5e7eb;padding:15px;border-radius:10px;
+  margin-top:10px;white-space:pre-wrap;
+}
+
+button {
+  width:100%;padding:16px;margin-top:10px;background:#6d5dfc;
+  color:white;border:none;border-radius:14px;font-weight:bold;
+}
+
+.cta {
+  display:block;text-align:center;padding:18px;margin-top:10px;
+  background:#22c55e;color:white;border-radius:14px;text-decoration:none;
+  font-weight:bold;
+}
+
+.highlight {
+  background:#eef2ff;padding:12px;border-radius:10px;margin-top:10px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="header">
+  <div class="logo">MB</div>
+  <div>MAGICBANK</div>
+</div>
+
+<div class="container">
+
+<div class="card">
+
+<h1>🎓 Bienvenido a MagicBank</h1>
+
+<p class="highlight">
+Estás a punto de entrar a tu tutor inteligente.
+</p>
+
+<p>MagicBank es un sistema donde el tutor se adapta a ti.</p>
+
+<hr>
+
+<h2>🔐 Activa tu acceso</h2>
+
+<p><strong>Primero copia tu acceso. Luego entra al tutor.</strong></p>
+
+<div id="accessData" class="access-box">
+Correo: ${email}
+Token: ${rawToken}
+</div>
+
+<button onclick="copyAccess()">1️⃣ Copiar acceso</button>
+
+<a href="${redirect_url}" target="_blank" class="cta">
+2️⃣ Acceder al tutor
+</a>
+
+<div class="highlight">
+Pega lo que copiaste → presiona la flecha → presiona confirmar → empieza el estudio
+</div>
+
+</div>
+
+<div class="card">
+
+<h2>📚 Cómo usar el tutor</h2>
+
+<p>Cada chat es un tema diferente.</p>
+
+<p>Arriba a la izquierda hay tres rayitas ☰</p>
+
+<p>Ahí verás el chat llamado:</p>
+
+<div class="highlight">AccessToken</div>
+
+<p>Mantén presionado → Renombrar</p>
+
+<p><strong>University:</strong> MODULO 1, MODULO 2</p>
+
+<p><strong>Cursos:</strong> COCINA ESPAÑOLA, INGLES BASICO</p>
+
+</div>
+
+<div class="card">
+
+<h2>⚠️ Reglas</h2>
+
+<ul>
+<li>No mezclar temas</li>
+<li>Un chat = un tema</li>
+<li>No mezclar voz y texto</li>
+</ul>
+
+</div>
+
+</div>
+
+<script>
+function copyAccess() {
+  const text = document.getElementById("accessData").innerText;
+  navigator.clipboard.writeText(text);
+  alert("Acceso copiado");
+}
+</script>
+
+</body>
+</html>
+`;
+
+    /* ========================================================= */
+
+    res.send(html);
+
+  } catch (error) {
+
+    console.error("ACCESS PAGE ERROR:", error);
+    res.status(500).send("Error cargando página");
+
+  }
+
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
