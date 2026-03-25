@@ -981,7 +981,7 @@ async function enviarCorreo(destino, curso, token) {
 <p>1️⃣ Haz clic en el siguiente botón:</p>
 
 <p>
-<a href="${curso.url}?token=${token}"
+<a href="https://magic-bank-backend-production-713e.up.railway.app/access-page/${token}"
 style="background-color:#0a1f44;
 color:#ffffff;
 padding:12px 20px;
