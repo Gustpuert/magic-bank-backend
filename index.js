@@ -3348,6 +3348,39 @@ async function updateUserBehaviorSafe({ email, category }) {
   }
 }
 
+function buildUserProfile({ behavior, feedbackStats }) {
+
+  try {
+
+    let profile = "balanced";
+
+    if (!behavior) return profile;
+
+    const changes = behavior.change_count || 0;
+
+    if (changes > 6) {
+      return "unstable";
+    }
+
+    if (feedbackStats.clarity_issues > 3) {
+      return "confused";
+    }
+
+    if (feedbackStats.speed_issues > 3) {
+      return "slow";
+    }
+
+    if (feedbackStats.interaction_issues > 5) {
+      return "impatient";
+    }
+
+    return "balanced";
+
+  } catch (err) {
+    return "balanced";
+  }
+}
+
 /* =========================================================
 BLOQUE 10 — AUTO-ADAPTACIÓN DEL TUTOR (SAFE)
 NO MODIFICA ENDPOINT
@@ -3362,12 +3395,21 @@ async function getAdaptiveConfigSafe({ email, product_name }) {
 
   try {
 
+    /* ===============================
+    1. VALIDACIÓN BÁSICA
+    =============================== */
+
     if (!email || !product_name) {
       return {
         pacing: 3,
-        depth: 3
+        depth: 3,
+        mode: "balanced"
       };
     }
+
+    /* ===============================
+    2. ANALÍTICA DE FEEDBACK RECIENTE
+    =============================== */
 
     const result = await pool.query(`
       SELECT
@@ -3381,47 +3423,133 @@ async function getAdaptiveConfigSafe({ email, product_name }) {
       AND created_at > NOW() - INTERVAL '3 days'
     `, [email, product_name]);
 
-    if (!result.rowCount) {
-      return {
-        pacing: 3,
-        depth: 3
-      };
-    }
-const behavior = await pool.query(`
-  SELECT change_count
-  FROM user_behavior
-  WHERE email = $1
-`, [email]);
+    const feedbackStats = result.rowCount ? result.rows[0] : {
+      avg_rating: 5,
+      clarity_issues: 0,
+      speed_issues: 0,
+      interaction_issues: 0
+    };
 
-const unstableUser = behavior.rowCount && behavior.rows[0].change_count > 5;
-    const data = result.rows[0];
-if (unstableUser) {
-  return {
-    pacing: 3,
-    depth: 3
-  };
-}
+    /* ===============================
+    3. COMPORTAMIENTO DEL USUARIO
+    =============================== */
+
+    let behavior = null;
+
+    try {
+      const behaviorResult = await pool.query(`
+        SELECT change_count
+        FROM user_behavior
+        WHERE email = $1
+      `, [email]);
+
+      if (behaviorResult.rowCount) {
+        behavior = behaviorResult.rows[0];
+      }
+
+    } catch (err) {
+      console.error("BEHAVIOR READ ERROR:", err.message);
+    }
+
+    /* ===============================
+    4. PERFIL DEL USUARIO
+    =============================== */
+
+    let profile = "balanced";
+
+    try {
+
+      const changes = behavior?.change_count || 0;
+
+      if (changes > 6) {
+        profile = "unstable";
+      }
+      else if (Number(feedbackStats.clarity_issues) > 3) {
+        profile = "confused";
+      }
+      else if (Number(feedbackStats.speed_issues) > 3) {
+        profile = "slow";
+      }
+      else if (Number(feedbackStats.interaction_issues) > 5) {
+        profile = "impatient";
+      }
+
+    } catch (err) {
+      console.error("PROFILE BUILD ERROR:", err.message);
+    }
+
+    /* ===============================
+    5. CONFIGURACIÓN BASE
+    =============================== */
+
     let pacing = 3;
     let depth = 3;
+    let mode = "balanced";
 
-    // 🔴 claridad baja → más explicación
-    if (Number(data.clarity_issues) > 2) {
+    /* ===============================
+    6. REGLAS ADAPTATIVAS
+    =============================== */
+
+    // 🔴 usuario inestable → bloquear cambios
+    if (profile === "unstable") {
+      return {
+        pacing: 3,
+        depth: 3,
+        mode: "neutral_lock"
+      };
+    }
+
+    // 🧠 usuario confundido → más explicación
+    if (profile === "confused") {
+      return {
+        pacing: 2,
+        depth: 4,
+        mode: "explanatory"
+      };
+    }
+
+    // ⚡ usuario impaciente → directo
+    if (profile === "impatient") {
+      return {
+        pacing: 4,
+        depth: 2,
+        mode: "direct"
+      };
+    }
+
+    // 🐢 usuario lento → bajar ritmo
+    if (profile === "slow") {
+      return {
+        pacing: 2,
+        depth: 3,
+        mode: "calm"
+      };
+    }
+
+    /* ===============================
+    7. AJUSTE FINO POR FEEDBACK
+    =============================== */
+
+    if (Number(feedbackStats.clarity_issues) > 2) {
       depth = 4;
     }
 
-    // ⚡ velocidad problema → bajar ritmo
-    if (Number(data.speed_issues) > 2) {
+    if (Number(feedbackStats.speed_issues) > 2) {
       pacing = 2;
     }
 
-    // ❓ demasiada interacción → simplificar
-    if (Number(data.interaction_issues) > 3) {
+    if (Number(feedbackStats.interaction_issues) > 3) {
       depth = 2;
     }
 
+    /* ===============================
+    8. RETURN FINAL SEGURO
+    =============================== */
+
     return {
       pacing,
-      depth
+      depth,
+      mode
     };
 
   } catch (err) {
@@ -3430,11 +3558,11 @@ if (unstableUser) {
 
     return {
       pacing: 3,
-      depth: 3
+      depth: 3,
+      mode: "balanced"
     };
   }
 }
-
 
 /* ===============================
 2. AJUSTE DE RESPUESTA FINAL
