@@ -2858,7 +2858,12 @@ try {
 }
 
 
+const category = classifyUserFeedback(message);
 
+await updateUserBehaviorSafe({
+  email,
+  category
+});
     
     /* ===============================
     7. RESPUESTA FINAL SEGURA
@@ -3281,6 +3286,68 @@ async function saveFeedbackSafe({ email, product_name, message }) {
   }
 }
 
+
+
+
+
+
+async function updateUserBehaviorSafe({ email, category }) {
+
+  try {
+
+    if (!email || !category) return;
+
+    const existing = await pool.query(`
+      SELECT change_count, last_preferences
+      FROM user_behavior
+      WHERE email = $1
+    `, [email]);
+
+    let change_count = 0;
+    let last_preferences = category;
+
+    if (existing.rowCount) {
+
+      const prev = existing.rows[0];
+
+      // si cambia comportamiento → suma
+      if (prev.last_preferences !== category) {
+        change_count = (prev.change_count || 0) + 1;
+      } else {
+        change_count = prev.change_count || 0;
+      }
+
+      await pool.query(`
+        UPDATE user_behavior
+        SET
+          change_count = $2,
+          last_preferences = $3,
+          updated_at = NOW()
+        WHERE email = $1
+      `, [
+        email,
+        change_count,
+        category
+      ]);
+
+    } else {
+
+      await pool.query(`
+        INSERT INTO user_behavior
+        (email, change_count, last_preferences, updated_at)
+        VALUES ($1,1,$2,NOW())
+      `, [
+        email,
+        category
+      ]);
+
+    }
+
+  } catch (err) {
+    console.error("USER BEHAVIOR ERROR:", err.message);
+  }
+}
+
 /* =========================================================
 BLOQUE 10 — AUTO-ADAPTACIÓN DEL TUTOR (SAFE)
 NO MODIFICA ENDPOINT
@@ -3320,9 +3387,20 @@ async function getAdaptiveConfigSafe({ email, product_name }) {
         depth: 3
       };
     }
+const behavior = await pool.query(`
+  SELECT change_count
+  FROM user_behavior
+  WHERE email = $1
+`, [email]);
 
+const unstableUser = behavior.rowCount && behavior.rows[0].change_count > 5;
     const data = result.rows[0];
-
+if (unstableUser) {
+  return {
+    pacing: 3,
+    depth: 3
+  };
+}
     let pacing = 3;
     let depth = 3;
 
