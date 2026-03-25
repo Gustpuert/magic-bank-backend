@@ -195,56 +195,91 @@ app.get("/dashboard/pro", async (req, res) => {
 
       GROUP BY f.product_name, d.abandonment_rate
 
-      ORDER BY avg_rating ASC
-
     `);
 
     const analysis = data.rows.map(r => {
 
-      let status = "healthy";
+      let issues = [];
+      let root_cause = "none";
       let priority = 1;
-      let actions = [];
 
-      // 🔴 CRÍTICO
-      if (r.avg_rating < 3.5) {
+      // 🧠 SCORE GLOBAL (0–100)
+      let health_score =
+        (r.avg_rating * 20) - (r.abandonment_rate * 0.5);
+
+      // 🔴 CLASIFICACIÓN
+      let status = "healthy";
+
+      if (health_score < 50) {
         status = "critical";
         priority = 5;
-        actions.push("Revisar tutor completo");
-      }
-
-      // 🟠 ALERTA
-      if (r.abandonment_rate > 40) {
+      } else if (health_score < 70) {
         status = "risk";
         priority = 4;
-        actions.push("Mejorar onboarding");
       }
 
-      // 🧠 CLARIDAD
+      // 🔍 DETECCIÓN DE PROBLEMAS
       if (r.clarity_issues > r.total_feedbacks * 0.3) {
-        actions.push("Explicar mejor conceptos");
+        issues.push("clarity");
       }
 
-      // ⚡ VELOCIDAD
       if (r.speed_issues > r.total_feedbacks * 0.3) {
-        actions.push("Reducir ritmo del tutor");
+        issues.push("speed");
       }
 
-      // ❓ INTERACCIÓN
       if (r.interaction_issues > r.total_feedbacks * 0.3) {
-        actions.push("Reducir preguntas innecesarias");
+        issues.push("interaction");
+      }
+
+      if (r.abandonment_rate > 40) {
+        issues.push("abandonment");
+      }
+
+      // 🎯 CAUSA RAÍZ
+      if (issues.includes("abandonment") && r.avg_rating > 4) {
+        root_cause = "onboarding_problem";
+      } else if (issues.includes("clarity")) {
+        root_cause = "explanation_problem";
+      } else if (issues.includes("speed")) {
+        root_cause = "pacing_problem";
+      } else if (issues.includes("interaction")) {
+        root_cause = "too_many_questions";
+      }
+
+      // 🧠 DECISIONES AUTOMÁTICAS
+      let action = "OK";
+
+      if (root_cause === "onboarding_problem") {
+        action = "Simplificar entrada del usuario";
+      }
+
+      if (root_cause === "explanation_problem") {
+        action = "Aumentar profundidad explicativa";
+      }
+
+      if (root_cause === "pacing_problem") {
+        action = "Reducir velocidad del tutor";
+      }
+
+      if (root_cause === "too_many_questions") {
+        action = "Reducir preguntas";
       }
 
       return {
         product_name: r.product_name,
         avg_rating: r.avg_rating,
         abandonment_rate: r.abandonment_rate,
-        total_feedbacks: r.total_feedbacks,
+        health_score: Math.round(health_score),
         status,
         priority,
-        actions
+        root_cause,
+        action
       };
 
     });
+
+    // 🔥 ORDEN REAL (lo más crítico arriba)
+    analysis.sort((a, b) => b.priority - a.priority);
 
     res.json({
       dashboard: analysis
@@ -262,12 +297,14 @@ app.get("/dashboard/pro", async (req, res) => {
 
 });
 
+        
+
 app.get("/dashboard/pro/view", async (req, res) => {
 
   res.send(`
   <html>
   <head>
-    <title>MagicBank Pro Dashboard</title>
+    <title>MagicBank Intelligence Dashboard</title>
     <style>
       body {
         font-family: Arial;
@@ -275,44 +312,58 @@ app.get("/dashboard/pro/view", async (req, res) => {
         color: white;
         padding: 20px;
       }
+
+      h1 {
+        color: #00d4ff;
+      }
+
       table {
         width: 100%;
         border-collapse: collapse;
       }
+
       th, td {
         padding: 10px;
         border-bottom: 1px solid #333;
-        text-align: left;
       }
+
       .critical { color: #ff4d4d; }
       .risk { color: #ffaa00; }
       .healthy { color: #00ff88; }
+
+      .score {
+        font-weight: bold;
+      }
+
     </style>
   </head>
 
   <body>
 
-    <h1>🧠 MagicBank Dashboard PRO</h1>
+    <h1>🧠 MagicBank Intelligence Dashboard</h1>
 
-    <table id="table">
+    <table>
       <thead>
         <tr>
           <th>Curso</th>
+          <th>Score</th>
           <th>Rating</th>
           <th>Abandono</th>
           <th>Estado</th>
+          <th>Causa</th>
           <th>Acción</th>
         </tr>
       </thead>
-      <tbody></tbody>
+      <tbody id="table"></tbody>
     </table>
 
     <script>
       async function load() {
+
         const res = await fetch('/dashboard/pro');
         const data = await res.json();
 
-        const tbody = document.querySelector("tbody");
+        const tbody = document.getElementById("table");
         tbody.innerHTML = "";
 
         data.dashboard.forEach(row => {
@@ -321,10 +372,12 @@ app.get("/dashboard/pro/view", async (req, res) => {
 
           tr.innerHTML = \`
             <td>\${row.product_name}</td>
+            <td class="score">\${row.health_score}</td>
             <td>\${row.avg_rating}</td>
             <td>\${row.abandonment_rate}%</td>
             <td class="\${row.status}">\${row.status}</td>
-            <td>\${row.actions.join(", ")}</td>
+            <td>\${row.root_cause}</td>
+            <td>\${row.action}</td>
           \`;
 
           tbody.appendChild(tr);
@@ -332,8 +385,7 @@ app.get("/dashboard/pro/view", async (req, res) => {
       }
 
       load();
-
-      setInterval(load, 5000); // 🔥 actualiza en tiempo real
+      setInterval(load, 4000);
 
     </script>
 
@@ -342,6 +394,8 @@ app.get("/dashboard/pro/view", async (req, res) => {
   `);
 
 });
+
+
 /* =========================================================
 07 - AUTENTICACIÓN TIENDANUBE (OAUTH)
 Conecta la tienda con MagicBank
