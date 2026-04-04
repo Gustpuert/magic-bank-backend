@@ -609,7 +609,43 @@ area:"tutor",
 nombre:"TAP Contaduría",
 url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-accounting-pat"
 }
+/* ===== TUTORES ESPECIALES CHATGPT ===== */
 
+{
+  product_id: 317323052,
+  nombre: "Super Yo",
+  url: "https://chatgpt.com/g/g-69610a47b1cc8191bda50cf5c0dea773-super-yo-tutor-pro"
+},
+
+{
+  product_id: 335874975,
+  nombre: "Cristo Tutor Pro",
+  url: "https://chatgpt.com/g/g-695e8993d4ac8191a153940adbde48d4-cristotutor-pro"
+},
+
+{
+  product_id: 317258375,
+  nombre: "Sensei Tutor Pro",
+  url: "https://chatgpt.com/g/g-69547fda3efc81918ba83ac2b0ec7af7-sensei-magic-tutor-pro"
+},
+
+{
+  product_id: 316685090,
+  nombre: "Bienestar Tutor Pro",
+  url: "https://chatgpt.com/g/g-693e3bb199b881919ad636fff9084249-bienestartutor-pro"
+},
+
+{
+  product_id: 316684646,
+  nombre: "Super Traductor",
+  url: "https://chatgpt.com/g/g-6936d30471708191b9ac5f00163d8605-supertraductor-magic-tutor-pro"
+},
+
+{
+  product_id: 316685729,
+  nombre: "MagicBank Council",
+  url: "https://chatgpt.com/g/g-693b0820918c819199d3922ac8bfd57f-magicbank-council"
+}
 };
 
 
@@ -865,7 +901,61 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("programacion",["software"]),
   prioridad:9
 }
+/* ===== TUTORES ESPECIALES ===== */
 
+{
+  product_id: 335874975,
+  area: "tutores",
+  nombre: "Cristo Tutor Pro",
+  url: "https://magicbank2.mitiendanube.com/productos/cristo-tutor-pro-159hk/",
+  keywords: buildKeywords("cristo biblia fe dios espiritual"),
+  prioridad: 10
+},
+
+{
+  product_id: 317323052,
+  area: "tutores",
+  nombre: "Super Yo",
+  url: "https://magicbank2.mitiendanube.com/productos/super-yo/",
+  keywords: buildKeywords("super yo asistente personal emociones psicologia"),
+  prioridad: 10
+},
+
+{
+  product_id: 317258375,
+  area: "tutores",
+  nombre: "Sensei Tutor Pro",
+  url: "https://magicbank2.mitiendanube.com/productos/sensei-tutor-pro/",
+  keywords: buildKeywords("sensei reuniones inteligencia presentaciones"),
+  prioridad: 10
+},
+
+{
+  product_id: 316685729,
+  area: "tutores",
+  nombre: "MagicBank Council",
+  url: "https://magicbank2.mitiendanube.com/productos/magicbank-council/",
+  keywords: buildKeywords("council negocio empresa estrategia"),
+  prioridad: 10
+},
+
+{
+  product_id: 316685090,
+  area: "tutores",
+  nombre: "Bienestar Tutor Pro",
+  url: "https://magicbank2.mitiendanube.com/productos/bienestar-tutor-pro/",
+  keywords: buildKeywords("bienestar emocional ansiedad ayuda psicologia"),
+  prioridad: 10
+},
+
+{
+  product_id: 316684646,
+  area: "tutores",
+  nombre: "Super Traductor",
+  url: "https://magicbank2.mitiendanube.com/productos/supertraductor/",
+  keywords: buildKeywords("traductor idiomas ingles traducir hablar"),
+  prioridad: 10
+}
 ];
 
 /* =========================================================
