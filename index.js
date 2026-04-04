@@ -608,7 +608,7 @@ variant:1438540878,
 area:"tutor",
 nombre:"TAP Contaduría",
 url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-accounting-pat"
-}
+},
 /* ===== TUTORES ESPECIALES CHATGPT ===== */
 
 {
@@ -900,7 +900,7 @@ const SEARCH_CATALOG = [
   url:"https://magicbank2.mitiendanube.com/productos/facultad-de-desarrollo-de-software/",
   keywords:buildKeywords("programacion",["software"]),
   prioridad:9
-}
+},
 /* ===== TUTORES ESPECIALES ===== */
 
 {
