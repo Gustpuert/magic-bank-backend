@@ -651,7 +651,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("español",["idioma","lengua","curso"]),
   prioridad:10
 },
-
 {
   nombre:"Inglés",
   area:"academy",
@@ -659,7 +658,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("ingles",["english","idioma"]),
   prioridad:10
 },
-
 {
   nombre:"Portugués",
   area:"academy",
@@ -667,7 +665,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("portugues",["idioma"]),
   prioridad:8
 },
-
 {
   nombre:"Chino",
   area:"academy",
@@ -675,7 +672,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("chino",["mandarin"]),
   prioridad:8
 },
-
 {
   nombre:"Italiano",
   area:"academy",
@@ -683,7 +679,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("italiano"),
   prioridad:7
 },
-
 {
   nombre:"Francés",
   area:"academy",
@@ -691,7 +686,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("frances",["idioma"]),
   prioridad:9
 },
-
 {
   nombre:"Alemán",
   area:"academy",
@@ -700,16 +694,15 @@ const SEARCH_CATALOG = [
   prioridad:9
 },
 
-/* ===== HABILIDADES ===== */
+/* ===== CURSOS ===== */
 
 {
   nombre:"Cocina avanzada",
   area:"academy",
-  url:"https://magicbank2.mitiendanube.com/productos/curso-de-cocina-avanzado-con-tutor-con-ia/",
+  url:"https://magicbank2.mitiendanube.com/productos/curso-de-cocina-avanzado-advance-cooking-course/",
   keywords:buildKeywords("cocina",["chef","recetas"]),
   prioridad:9
 },
-
 {
   nombre:"Nutrición inteligente",
   area:"academy",
@@ -717,7 +710,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("nutricion",["salud"]),
   prioridad:9
 },
-
 {
   nombre:"ChatGPT avanzado",
   area:"academy",
@@ -725,7 +717,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("chatgpt",["ia","inteligencia artificial"]),
   prioridad:10
 },
-
 {
   nombre:"Trading cíclico",
   area:"academy",
@@ -733,15 +724,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("trading",["inversion"]),
   prioridad:10
 },
-
-{
-  nombre:"Banca digital",
-  area:"academy",
-  url:"https://magicbank2.mitiendanube.com/productos/magicbank-curso-de-banca-digital1/",
-  keywords:buildKeywords("banca",["finanzas"]),
-  prioridad:9
-},
-
 {
   nombre:"Artes y oficios",
   area:"academy",
@@ -749,7 +731,6 @@ const SEARCH_CATALOG = [
   keywords:buildKeywords("oficios",["manualidades","trabajo"]),
   prioridad:10
 },
-
 {
   nombre:"Diseño de interiores",
   area:"academy",
@@ -758,112 +739,93 @@ const SEARCH_CATALOG = [
   prioridad:9
 },
 
-{
-  nombre:"Conservatorio musical",
-  area:"academy",
-  url:"https://magicbank2.mitiendanube.com/productos/facultad-de-musica-6k2ph/",
-  keywords:buildKeywords("musica",["instrumentos"]),
-  prioridad:10
-},
-
-/* ===== TAP ===== */
-
-{
-  nombre:"TAP Salud",
-  area:"tutor",
-  url:"https://magicbank2.mitiendanube.com/productos/tap-salud/",
-  keywords:buildKeywords("salud",["medicina"]),
-  prioridad:10
-},
-
-{
-  nombre:"TAP Derecho",
-  area:"tutor",
-  url:"https://magicbank2.mitiendanube.com/productos/tap-derecho/",
-  keywords:buildKeywords("derecho",["abogado"]),
-  prioridad:10
-},
-
-{
-  nombre:"TAP Contaduría",
-  area:"tutor",
-  url:"https://magicbank2.mitiendanube.com/productos/asistente-profesional-para-contabilidad-b14t5/",
-  keywords:buildKeywords("contabilidad",["finanzas"]),
-  prioridad:10
-},
-
-{
-  nombre:"TAP Empresas",
-  area:"tutor",
-  url:"https://magicbank2.mitiendanube.com/productos/tap-empresas/",
-  keywords:buildKeywords("empresa",["negocio"]),
-  prioridad:10
-},
-
-{
-  nombre:"TAP Ingeniería",
-  area:"tutor",
-  url:"https://magicbank2.mitiendanube.com/productos/tap-ingenieros/",
-  keywords:buildKeywords("ingenieria",["tecnico"]),
-  prioridad:10
-},
-
-{
-  nombre:"TAP Educación",
-  area:"tutor",
-  url:"https://magicbank2.mitiendanube.com/productos/tap-educacion/",
-  keywords:buildKeywords("educacion",["docente"]),
-  prioridad:10
-},
-
 /* ===== UNIVERSITY ===== */
 
 {
-  nombre:"Bachillerato MagicBank",
+  nombre:"Facultad Derecho",
   area:"university",
-  url:"https://magicbank2.mitiendanube.com/productos/magicbank-university1/",
-  keywords:buildKeywords("bachillerato",["colegio"]),
+  url:"https://magicbank2.mitiendanube.com/productos/curso-facultad-de-derecho/",
+  keywords:buildKeywords("derecho",["leyes"]),
   prioridad:10
 },
-
 {
-  nombre:"Administración y Negocios",
+  nombre:"Administración y negocios",
   area:"university",
   url:"https://magicbank2.mitiendanube.com/productos/facultad-de-administracion-y-negocios/",
-  keywords:buildKeywords("administracion",["negocios"]),
+  keywords:buildKeywords("empresa",["negocios"]),
   prioridad:10
 },
-
 {
   nombre:"Marketing",
   area:"university",
   url:"https://magicbank2.mitiendanube.com/productos/facultad-de-marketing/",
   keywords:buildKeywords("marketing",["ventas"]),
-  prioridad:8
+  prioridad:10
 },
-
 {
   nombre:"Contaduría",
   area:"university",
   url:"https://magicbank2.mitiendanube.com/productos/facultad-de-contaduria/",
-  keywords:buildKeywords("contabilidad",["contador"]),
-  prioridad:9
+  keywords:buildKeywords("contabilidad",["finanzas"]),
+  prioridad:10
 },
-
 {
-  nombre:"Derecho",
-  area:"university",
-  url:"https://magicbank2.mitiendanube.com/productos/curso-facultad-de-derecho/",
-  keywords:buildKeywords("derecho",["leyes"]),
-  prioridad:9
-},
-
-{
-  nombre:"Software",
+  nombre:"Desarrollo de software",
   area:"university",
   url:"https://magicbank2.mitiendanube.com/productos/facultad-de-desarrollo-de-software/",
   keywords:buildKeywords("programacion",["software"]),
-  prioridad:9
+  prioridad:10
+},
+
+/* ===== TUTORES ESPECIALES (CORRECTO) ===== */
+
+{
+  product_id:317323052,
+  nombre:"Super Yo",
+  area:"tutores",
+  url:"https://chatgpt.com/g/g-69610a47b1cc8191bda50cf5c0dea773-super-yo-tutor-pro",
+  keywords:buildKeywords("super yo",["asistente","emociones"]),
+  prioridad:10
+},
+{
+  product_id:335874975,
+  nombre:"Cristo Tutor Pro",
+  area:"tutores",
+  url:"https://chatgpt.com/g/g-695e8993d4ac8191a153940adbde48d4-cristotutor-pro",
+  keywords:buildKeywords("cristo biblia fe"),
+  prioridad:10
+},
+{
+  product_id:317258375,
+  nombre:"Sensei Tutor Pro",
+  area:"tutores",
+  url:"https://chatgpt.com/g/g-69547fda3efc81918ba83ac2b0ec7af7-sensei-magic-tutor-pro",
+  keywords:buildKeywords("sensei reuniones"),
+  prioridad:10
+},
+{
+  product_id:316685090,
+  nombre:"Bienestar Tutor Pro",
+  area:"tutores",
+  url:"https://chatgpt.com/g/g-693e3bb199b881919ad636fff9084249-bienestartutor-pro",
+  keywords:buildKeywords("bienestar ansiedad"),
+  prioridad:10
+},
+{
+  product_id:316684646,
+  nombre:"Super Traductor",
+  area:"tutores",
+  url:"https://chatgpt.com/g/g-6936d30471708191b9ac5f00163d8605-supertraductor-magic-tutor-pro",
+  keywords:buildKeywords("traductor idiomas"),
+  prioridad:10
+},
+{
+  product_id:316685729,
+  nombre:"MagicBank Council",
+  area:"tutores",
+  url:"https://chatgpt.com/g/g-693b0820918c819199d3922ac8bfd57f-magicbank-council",
+  keywords:buildKeywords("negocio estrategia"),
+  prioridad:10
 }
 
 ];
