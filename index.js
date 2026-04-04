@@ -609,41 +609,45 @@ area:"tutor",
 nombre:"TAP Contaduría",
 url:"https://chatgpt.com/g/g-69684f74a91c8191850a3f43493f2c78-tap-de-contaduria-accounting-pat"
 },
-  /* ===== TUTORES ESPECIALES CHATGPT ===== */
-
-317323052: {
+  317323052: {
   product_id: 317323052,
   nombre: "Super Yo",
+  area: "tutores",
   url: "https://chatgpt.com/g/g-69610a47b1cc8191bda50cf5c0dea773-super-yo-tutor-pro"
 },
 
 335874975: {
   product_id: 335874975,
   nombre: "Cristo Tutor Pro",
+  area: "tutores",
   url: "https://chatgpt.com/g/g-695e8993d4ac8191a153940adbde48d4-cristotutor-pro"
 },
 
 317258375: {
   product_id: 317258375,
   nombre: "Sensei Tutor Pro",
+  area: "tutores",
   url: "https://chatgpt.com/g/g-69547fda3efc81918ba83ac2b0ec7af7-sensei-magic-tutor-pro"
 },
 
 316685090: {
   product_id: 316685090,
   nombre: "Bienestar Tutor Pro",
+  area: "tutores",
   url: "https://chatgpt.com/g/g-693e3bb199b881919ad636fff9084249-bienestartutor-pro"
 },
 
 316684646: {
   product_id: 316684646,
   nombre: "Super Traductor",
+  area: "tutores",
   url: "https://chatgpt.com/g/g-6936d30471708191b9ac5f00163d8605-supertraductor-magic-tutor-pro"
 },
 
 316685729: {
   product_id: 316685729,
   nombre: "MagicBank Council",
+  area: "tutores",
   url: "https://chatgpt.com/g/g-693b0820918c819199d3922ac8bfd57f-magicbank-council"
 }
 
