@@ -4541,7 +4541,25 @@ app.get("/fix-old-tokens", async (req, res) => {
     res.status(500).send("Error corrigiendo tokens");
   }
 });
+app.get("/reset-token-security", async (req, res) => {
+  try {
 
+    await pool.query(`
+      UPDATE access_tokens
+      SET
+        activated = FALSE,
+        device_fingerprint = NULL,
+        first_ip = NULL,
+        first_user_agent = NULL
+    `);
+
+    res.send("Seguridad de tokens reiniciada");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error reiniciando tokens");
+  }
+});
 
 /*=========================================================
 START
