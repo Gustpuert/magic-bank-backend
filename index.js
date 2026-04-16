@@ -4604,6 +4604,81 @@ app.get("/reset-token-security", async (req, res) => {
   }
 });
 
+app.post("/api/register-device", async (req, res) => {
+  try {
+
+    const token = String(req.body.token || "").trim();
+    const email = String(req.body.email || "").trim().toLowerCase();
+    const deviceId = String(req.body.device_id || "").trim();
+
+    if (!token || !email || !deviceId) {
+      return res.status(400).json({
+        ok: false,
+        error: "Datos incompletos"
+      });
+    }
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const result = await pool.query(`
+      SELECT activated, device_fingerprint
+      FROM access_tokens
+      WHERE token = $1
+      AND LOWER(email) = $2
+      AND expires_at > NOW()
+    `, [tokenHash, email]);
+
+    if (!result.rowCount) {
+      return res.status(404).json({
+        ok: false,
+        error: "Token inválido"
+      });
+    }
+
+    const access = result.rows[0];
+
+    // primer dispositivo
+    if (!access.activated) {
+
+      await pool.query(`
+        UPDATE access_tokens
+        SET
+          activated = TRUE,
+          device_fingerprint = $2
+        WHERE token = $1
+      `, [tokenHash, deviceId]);
+
+      return res.json({
+        ok: true,
+        registered: true
+      });
+    }
+
+    // otro dispositivo distinto
+    if (access.device_fingerprint !== deviceId) {
+      return res.status(403).json({
+        ok: false,
+        error: "Este token ya fue activado en otro dispositivo"
+      });
+    }
+
+    return res.json({
+      ok: true,
+      registered: true
+    });
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      ok: false,
+      error: "Error registrando dispositivo"
+    });
+  }
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
