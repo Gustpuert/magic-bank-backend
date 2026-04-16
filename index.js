@@ -4515,6 +4515,34 @@ app.get("/install-token-security", async (req, res) => {
     res.status(500).send("Error instalando seguridad de token");
   }
 });
+app.get("/fix-old-tokens", async (req, res) => {
+  try {
+
+    await pool.query(`
+      UPDATE access_tokens
+      SET
+        activated = FALSE
+      WHERE activated IS NULL
+    `);
+
+    await pool.query(`
+      UPDATE access_tokens
+      SET
+        device_fingerprint = NULL,
+        first_ip = NULL,
+        first_user_agent = NULL
+      WHERE activated = FALSE
+    `);
+
+    res.send("Tokens antiguos corregidos");
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).send("Error corrigiendo tokens");
+  }
+});
+
+
 /*=========================================================
 START
 ==========≈================================================*/
