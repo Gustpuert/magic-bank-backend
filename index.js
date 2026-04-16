@@ -4508,6 +4508,52 @@ Pega lo que copiaste → presiona la flecha → presiona confirmar → empieza e
 </div>
 
 <script>
+// =====================================================
+// IDENTIFICADOR ÚNICO DEL DISPOSITIVO
+// =====================================================
+
+let deviceId = localStorage.getItem("magicbank_device_id");
+
+if (!deviceId) {
+  deviceId = crypto.randomUUID();
+  localStorage.setItem("magicbank_device_id", deviceId);
+}
+
+// =====================================================
+// REGISTRAR EL PRIMER DISPOSITIVO QUE USA EL TOKEN
+// =====================================================
+
+fetch("https://magic-bank-backend-production-713e.up.railway.app/api/register-device", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    token: "${rawToken}",
+    email: "${email}",
+    device_id: deviceId
+  })
+})
+.then(async r => {
+
+  const data = await r.json();
+
+  if (!data.ok) {
+    alert(data.error || "No fue posible activar este acceso");
+
+    // bloquea el botón del tutor
+    const btn = document.querySelector(".cta");
+
+    if (btn) {
+      btn.style.pointerEvents = "none";
+      btn.style.opacity = "0.5";
+      btn.innerText = "ACCESO BLOQUEADO";
+    }
+  }
+})
+.catch(() => {
+  alert("Error validando el dispositivo");
+});
 function copyAccess() {
   const text = document.getElementById("accessData").innerText;
   navigator.clipboard.writeText(text);
