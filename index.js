@@ -2509,7 +2509,6 @@ app.post("/api/validate-token", async (req, res) => {
         redirect_url,
         expires_at,
         activated,
-        device_fingerprint,
         first_ip,
         first_user_agent,
         last_access
@@ -2539,15 +2538,9 @@ app.post("/api/validate-token", async (req, res) => {
     const currentAgent =
       req.headers["user-agent"] || "unknown";
 
-    // Huella mínima del dispositivo
-    const currentFingerprint = crypto
-      .createHash("sha256")
-      .update(`${cleanEmail}|${currentAgent}|${currentIP}`)
-      .digest("hex");
-
-    /* =====================================================
+    /* =========================================
        PRIMER USO DEL TOKEN
-    ===================================================== */
+    ========================================= */
 
     if (!access.activated) {
 
@@ -2555,14 +2548,12 @@ app.post("/api/validate-token", async (req, res) => {
         UPDATE access_tokens
         SET
           activated = TRUE,
-          device_fingerprint = $2,
-          first_ip = $3,
-          first_user_agent = $4,
+          first_ip = $2,
+          first_user_agent = $3,
           last_access = NOW()
         WHERE token = $1
       `, [
         tokenHash,
-        currentFingerprint,
         currentIP,
         currentAgent
       ]);
@@ -2576,12 +2567,15 @@ app.post("/api/validate-token", async (req, res) => {
       });
     }
 
-    /* =====================================================
-       SI YA FUE ACTIVADO, SOLO DEJA ENTRAR
-       AL MISMO DISPOSITIVO / MISMA IP
-    ===================================================== */
+    /* =========================================
+       SI YA ESTÁ ACTIVADO, SOLO DEJA
+       ENTRAR AL MISMO IP + NAVEGADOR
+    ========================================= */
 
-    if (access.first_ip && access.first_ip !== currentIP) {
+    if (
+      access.first_ip &&
+      access.first_ip !== currentIP
+    ) {
       return res.status(403).json({
         valid: false,
         error: "Este token ya fue activado en otro dispositivo"
@@ -2594,23 +2588,9 @@ app.post("/api/validate-token", async (req, res) => {
     ) {
       return res.status(403).json({
         valid: false,
-        error: "Este token ya fue activado en otro navegador o dispositivo"
+        error: "Este token ya fue activado en otro navegador"
       });
     }
-
-    if (
-      access.device_fingerprint &&
-      access.device_fingerprint !== currentFingerprint
-    ) {
-      return res.status(403).json({
-        valid: false,
-        error: "Este token ya fue activado en otro dispositivo"
-      });
-    }
-
-    /* =====================================================
-       ACTUALIZA ÚLTIMO ACCESO
-    ===================================================== */
 
     await pool.query(`
       UPDATE access_tokens
