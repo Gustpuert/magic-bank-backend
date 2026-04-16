@@ -3026,13 +3026,10 @@ app.get("/api/catalogo-publico", (req, res) => {
 API CHAT — MAGICBANK (VERSIÓN ESTABLE ANTI-CRASH)
 ========================================================= */
 
+
 app.post("/api/chat", async (req, res) => {
 
   try {
-
-    /* ===============================
-    1. INPUT SEGURO
-    =============================== */
 
     const token = String(req.body.token || "").trim();
     const message = String(req.body.message || "").trim();
@@ -3043,18 +3040,10 @@ app.post("/api/chat", async (req, res) => {
       });
     }
 
-    /* ===============================
-    2. HASH TOKEN (SEGURO)
-    =============================== */
-
     const tokenHash = crypto
       .createHash("sha256")
       .update(token)
       .digest("hex");
-
-    /* ===============================
-    3. VALIDACIÓN DB
-    =============================== */
 
     const access = await pool.query(`
       SELECT email, product_name, area
@@ -3063,17 +3052,13 @@ app.post("/api/chat", async (req, res) => {
       AND expires_at > NOW()
     `, [tokenHash]);
 
-    if (!access || !access.rowCount) {
+    if (!access.rowCount) {
       return res.status(403).json({
         error: "Token inválido o expirado"
       });
     }
 
     const { email, product_name, area } = access.rows[0];
-
-    /* ===============================
-    4. TRACKING (NO BLOQUEANTE)
-    =============================== */
 
     try {
       await pool.query(`
@@ -3085,104 +3070,216 @@ app.post("/api/chat", async (req, res) => {
       console.error("TRACKING ERROR:", err.message);
     }
 
-    /* ===============================
-    5. CONTEXTO INTELIGENTE (UNA SOLA VEZ)
-    =============================== */
-
     let context = "normal";
-
     const text = message.toLowerCase();
 
     if (text.includes("no entiendo") || text.includes("confuso")) {
       context = "confusion";
-    } else if (text.includes("rápido")) {
+    } else if (text.includes("rápido") || text.includes("rapido")) {
       context = "fast";
     } else if (text.includes("lento") || text.includes("despacio")) {
       context = "slow";
     }
 
-  
+    let reply = "";
 
-    /* ===============================
-6- RESPUESTA INTELIGENTE (SAFE + ADAPTATIVA)
-=============================== */
+    const localResult = processChatMessage({
+      message,
+      context,
+      user: email
+    });
 
-let reply = "";
+    reply = localResult.reply;
 
-/* 1. RESPUESTA LOCAL (SIEMPRE EXISTE) */
-const localResult = processChatMessage({
-  message,
-  context,
-  user: email
-});
+    try {
+      const aiReply = await generateAIReplySafe(message, context);
 
-reply = localResult.reply;
+      if (aiReply && aiReply.length > 5) {
+        reply = aiReply;
+      }
+    } catch (err) {
+      console.error("AI ERROR:", err.message);
+    }
 
-/* 2. INTENTO IA (NO BLOQUEANTE SEGURO) */
-try {
+    try {
+      const [adaptiveConfigRaw, risk] = await Promise.all([
+        getAdaptiveConfigSafe({ email, product_name }),
+        detectUserRisk({ email, product_name })
+      ]);
 
-  const aiReply = await generateAIReplySafe(message, context);
+      const adaptiveConfig = adaptiveConfigRaw || {};
+      adaptiveConfig.risk = risk;
 
-  if (aiReply && aiReply.length > 5) {
-    reply = aiReply;
-  }
+      reply = adaptReplyStyle(reply, adaptiveConfig);
 
-} catch (err) {
-  console.error("AI INJECTION ERROR:", err.message);
-}
+    } catch (err) {
+      console.error("ADAPTATION ERROR:", err.message);
+    }
 
-/* ===============================
-🧠 3. ADAPTACIÓN EN TIEMPO REAL (CLAVE)
-=============================== */
+    saveFeedbackSafe({
+      email,
+      product_name,
+      message
+    }).catch(err => {
+      console.error("FEEDBACK ERROR:", err.message);
+    });
 
+    const category = classifyUserFeedback(message);
 
-try {
+    await updateUserBehaviorSafe({
+      email,
+      category
+    });
 
-  const [adaptiveConfigRaw, risk] = await Promise.all([
-    getAdaptiveConfigSafe({ email, product_name }),
-    detectUserRisk({ email, product_name })
-  ]);
+    const visual = (() => {
+      try {
 
-  const adaptiveConfig = adaptiveConfigRaw || {};
-  adaptiveConfig.risk = risk;
+        const product = String(product_name || "").toLowerCase();
 
-  reply = adaptReplyStyle(reply, adaptiveConfig);
+        if (product.includes("derecho")) {
+          return {
+            type: "diagram",
+            title: "Proceso Jurídico Básico",
+            mermaid: `graph TD
+A[Demanda] --> B[Admisión]
+B --> C[Pruebas]
+C --> D[Sentencia]`
+          };
+        }
 
-} catch (err) {
-  console.error("ADAPTATION ERROR:", err.message);
-}
+        if (product.includes("contadur")) {
+          return {
+            type: "chart",
+            title: "Balance General",
+            chartType: "bar",
+            data: {
+              labels: ["Activos", "Pasivos", "Patrimonio"],
+              datasets: [{
+                label: "Ejemplo",
+                data: [100, 60, 40],
+                backgroundColor: ["#4f46e5", "#ef4444", "#10b981"]
+              }]
+            }
+          };
+        }
 
-/* ===============================
-📊 4. FEEDBACK AUTOMÁTICO (NO BLOQUEANTE)
-=============================== */
+        if (
+          product.includes("administración") ||
+          product.includes("administracion") ||
+          product.includes("negocios")
+        ) {
+          return {
+            type: "chart",
+            title: "Cadena de Valor",
+            chartType: "line",
+            data: {
+              labels: ["Producción", "Ventas", "Clientes", "Fidelización"],
+              datasets: [{
+                label: "Crecimiento",
+                data: [10, 25, 40, 60],
+                borderColor: "#3b82f6",
+                backgroundColor: "rgba(59,130,246,0.2)",
+                fill: true
+              }]
+            }
+          };
+        }
 
+        if (product.includes("marketing")) {
+          return {
+            type: "chart",
+            title: "Embudo de Conversión",
+            chartType: "line",
+            data: {
+              labels: ["Visitas", "Interés", "Lead", "Compra"],
+              datasets: [{
+                label: "Conversión",
+                data: [1000, 400, 120, 30],
+                borderColor: "#8b5cf6",
+                backgroundColor: "rgba(139,92,246,0.2)",
+                fill: true
+              }]
+            }
+          };
+        }
 
-saveFeedbackSafe({
-  email,
-  product_name,
-  message
-}).catch(err => {
-  console.error("FEEDBACK ASYNC ERROR:", err.message);
-});
+        if (product.includes("software")) {
+          return {
+            type: "diagram",
+            title: "Arquitectura de Software",
+            mermaid: `graph TD
+A[Usuario] --> B[Frontend]
+B --> C[API]
+C --> D[Base de Datos]`
+          };
+        }
 
+        if (
+          product.includes("ingles") ||
+          product.includes("inglés") ||
+          product.includes("frances") ||
+          product.includes("francés") ||
+          product.includes("italiano") ||
+          product.includes("aleman") ||
+          product.includes("alemán") ||
+          product.includes("portugues") ||
+          product.includes("portugués") ||
+          product.includes("español") ||
+          product.includes("espanol") ||
+          product.includes("chino")
+        ) {
+          return {
+            type: "table",
+            title: "Vocabulario Básico",
+            headers: ["Español", "Traducción"],
+            rows: [
+              ["Hola", "Hello"],
+              ["Gracias", "Thank you"],
+              ["Aprender", "Learn"]
+            ]
+          };
+        }
 
-const category = classifyUserFeedback(message);
+        if (product.includes("cocina")) {
+          return {
+            type: "timeline",
+            title: "Proceso de Preparación",
+            steps: [
+              "Preparar ingredientes",
+              "Cortar y organizar",
+              "Cocinar",
+              "Servir"
+            ]
+          };
+        }
 
-await updateUserBehaviorSafe({
-  email,
-  category
-});
-    
-    /* ===============================
-    7. RESPUESTA FINAL SEGURA
-    =============================== */
+        if (
+          product.includes("musica") ||
+          product.includes("música") ||
+          product.includes("conservatorio")
+        ) {
+          return {
+            type: "music",
+            title: "Escala Musical",
+            notes: ["C4", "D4", "E4", "F4", "G4"]
+          };
+        }
+
+        return null;
+
+      } catch (err) {
+        console.error("VISUAL ERROR:", err.message);
+        return null;
+      }
+    })();
 
     return res.json({
       message: reply,
       context,
       email,
       product_name,
-      area
+      area,
+      visual
     });
 
   } catch (error) {
@@ -3194,7 +3291,6 @@ await updateUserBehaviorSafe({
     });
 
   }
-
 });
 
 /* =========================================================
