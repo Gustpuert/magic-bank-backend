@@ -4527,6 +4527,19 @@ if (!deviceId) {
 }
 
 // =====================================================
+// TEXTO QUE EL USUARIO COPIA
+// =====================================================
+
+const accessText = `Correo: ${email}
+Token: ${token}
+Device: ${deviceId}`;
+
+document.getElementById("accessText").innerText = accessText;
+
+// copia automática
+navigator.clipboard.writeText(accessText).catch(() => {});
+
+// =====================================================
 // REGISTRAR EL PRIMER DISPOSITIVO QUE USA EL TOKEN
 // =====================================================
 
@@ -4536,20 +4549,18 @@ fetch("https://magic-bank-backend-production-713e.up.railway.app/api/register-de
     "Content-Type": "application/json"
   },
   body: JSON.stringify({
-    token: "${rawToken}",
-    email: "${email}",
+    token: token,
+    email: email,
     device_id: deviceId
   })
 })
 .then(async r => {
-
   const data = await r.json();
 
   if (!data.ok) {
     alert(data.error || "No fue posible activar este acceso");
 
-    // bloquea el botón del tutor
-    const btn = document.querySelector(".cta");
+    const btn = document.getElementById("tutorLink");
 
     if (btn) {
       btn.style.pointerEvents = "none";
@@ -4561,9 +4572,13 @@ fetch("https://magic-bank-backend-production-713e.up.railway.app/api/register-de
 .catch(() => {
   alert("Error validando el dispositivo");
 });
+
+// =====================================================
+// COPIAR MANUALMENTE
+// =====================================================
+
 function copyAccess() {
-  const text = document.getElementById("accessData").innerText;
-  navigator.clipboard.writeText(text);
+  navigator.clipboard.writeText(accessText);
   alert("Acceso copiado");
 }
 </script>
