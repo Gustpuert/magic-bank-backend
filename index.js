@@ -2477,10 +2477,16 @@ res.json(logs.rows);
 app.post("/api/validate-token", async (req, res) => {
   try {
 
+    /* =====================================================
+    1. DATOS RECIBIDOS
+    ===================================================== */
+
     const rawToken = req.body.token;
     const rawEmail = req.body.email;
 
     const cleanToken = String(rawToken || "")
+      .replace(/Correo:/gi, "")
+      .replace(/Token:/gi, "")
       .replace(/\s+/g, "")
       .trim();
 
@@ -2495,10 +2501,18 @@ app.post("/api/validate-token", async (req, res) => {
       });
     }
 
+    /* =====================================================
+    2. HASH DEL TOKEN
+    ===================================================== */
+
     const tokenHash = crypto
       .createHash("sha256")
       .update(cleanToken)
       .digest("hex");
+
+    /* =====================================================
+    3. BUSCAR TOKEN EN BASE DE DATOS
+    ===================================================== */
 
     const result = await pool.query(`
       SELECT
@@ -2509,6 +2523,7 @@ app.post("/api/validate-token", async (req, res) => {
         redirect_url,
         expires_at,
         activated,
+        device_fingerprint,
         first_ip,
         first_user_agent,
         last_access
@@ -2527,32 +2542,41 @@ app.post("/api/validate-token", async (req, res) => {
 
     const access = result.rows[0];
 
+    /* =====================================================
+    4. DETECTAR IP Y DISPOSITIVO
+    ===================================================== */
+
     const currentIP =
-  (req.headers["x-forwarded-for"] || "")
-    .toString()
-    .split(",")[0]
-    .trim() ||
-  req.socket.remoteAddress ||
-  "unknown";
+      (req.headers["x-forwarded-for"] || "")
+        .toString()
+        .split(",")[0]
+        .trim() ||
+      req.socket.remoteAddress ||
+      "unknown";
 
-const currentAgent = req.headers["user-agent"] || "unknown";
+    const currentAgent =
+      req.headers["user-agent"] || "unknown";
 
-// NUEVA HUELLA MÁS ESTRICTA
-const fingerprintSource =
-  cleanEmail +
-  "|" +
-  currentAgent +
-  "|" +
-  currentIP;
+    /* =====================================================
+    5. CREAR HUELLA ÚNICA
+    ===================================================== */
 
-const currentFingerprint = crypto
-  .createHash("sha256")
-  .update(fingerprintSource)
-  .digest("hex");
+    const fingerprintSource =
+      cleanEmail +
+      "|" +
+      currentAgent +
+      "|" +
+      currentIP;
 
-    /* =========================================
-       PRIMER USO DEL TOKEN
-    ========================================= */
+    const currentFingerprint = crypto
+      .createHash("sha256")
+      .update(fingerprintSource)
+      .digest("hex");
+
+    /* =====================================================
+    6. PRIMER USO DEL TOKEN
+    Guarda el primer dispositivo e IP
+    ===================================================== */
 
     if (!access.activated) {
 
@@ -2560,18 +2584,21 @@ const currentFingerprint = crypto
         UPDATE access_tokens
         SET
           activated = TRUE,
-          first_ip = $2,
-          first_user_agent = $3,
+          device_fingerprint = $2,
+          first_ip = $3,
+          first_user_agent = $4,
           last_access = NOW()
         WHERE token = $1
       `, [
         tokenHash,
+        currentFingerprint,
         currentIP,
         currentAgent
       ]);
 
       return res.json({
         valid: true,
+        first_activation: true,
         email: access.email,
         product: access.product_name,
         area: access.area,
@@ -2579,13 +2606,19 @@ const currentFingerprint = crypto
       });
     }
 
-    /* =========================================
-       SI YA ESTÁ ACTIVADO, SOLO DEJA
-       ENTRAR AL MISMO IP + NAVEGADOR
-    ========================================= */
+    /* =====================================================
+    7. SI YA FUE ACTIVADO, DEBE SER EL MISMO DISPOSITIVO
+    ===================================================== */
+
+    if (!access.device_fingerprint) {
+      return res.status(403).json({
+        valid: false,
+        error: "Token activado sin huella registrada"
+      });
+    }
 
     if (
-      access.first_ip &&
+      access.device_fingerprint !== currentFingerprint ||
       access.first_ip !== currentIP
     ) {
       return res.status(403).json({
@@ -2594,15 +2627,9 @@ const currentFingerprint = crypto
       });
     }
 
-    if (
-      access.first_user_agent &&
-      access.first_user_agent !== currentAgent
-    ) {
-      return res.status(403).json({
-        valid: false,
-        error: "Este token ya fue activado en otro navegador"
-      });
-    }
+    /* =====================================================
+    8. ACTUALIZAR ÚLTIMO ACCESO
+    ===================================================== */
 
     await pool.query(`
       UPDATE access_tokens
@@ -2610,8 +2637,13 @@ const currentFingerprint = crypto
       WHERE token = $1
     `, [tokenHash]);
 
+    /* =====================================================
+    9. ACCESO CORRECTO
+    ===================================================== */
+
     return res.json({
       valid: true,
+      first_activation: false,
       email: access.email,
       product: access.product_name,
       area: access.area,
@@ -2628,7 +2660,6 @@ const currentFingerprint = crypto
     });
   }
 });
-
 
     
 
