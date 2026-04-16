@@ -2506,45 +2506,49 @@ res.json(logs.rows);
 
 app.post("/api/validate-token", async (req, res) => {
   try {
-    const rawToken = String(req.body.token || "").trim();
+    const rawInput = String(req.body.token || "").trim();
 
-    if (!rawToken) {
+    if (!rawInput) {
       return res.status(400).json({
         valid: false,
         error: "Token requerido"
       });
     }
 
-    // Si el usuario pega un bloque completo tipo:
+    // Permite pegar:
     // Correo: ...
-    // Token: ...
-    // extraemos únicamente el token real
-    const tokenMatch = rawToken.match(/token\s*:\s*([a-zA-Z0-9]+)/i);
+    // Token: xxxxx
+    const tokenMatch = rawInput.match(/token\s*:\s*([a-zA-Z0-9]+)/i);
 
-    const token = tokenMatch
+    const rawToken = tokenMatch
       ? tokenMatch[1].trim()
-      : rawToken;
+      : rawInput;
 
-    const result = await db.query(
-      `
-      SELECT *
+    // Tu sistema guarda el token hasheado
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    const result = await pool.query(`
+      SELECT
+        email,
+        first_ip,
+        expires_at
       FROM access_tokens
-      WHERE token = ?
+      WHERE token = $1
       LIMIT 1
-      `,
-      [token]
-    );
+    `, [tokenHash]);
 
-    const access = result[0]?.[0] || result[0];
-
-    if (!access) {
+    if (!result.rowCount) {
       return res.status(403).json({
         valid: false,
         error: "Your MagicBank access token is invalid or expired."
       });
     }
 
-    // expiración opcional
+    const access = result.rows[0];
+
     if (access.expires_at && new Date(access.expires_at) < new Date()) {
       return res.status(403).json({
         valid: false,
@@ -2552,7 +2556,6 @@ app.post("/api/validate-token", async (req, res) => {
       });
     }
 
-    // obtener IP real
     const currentIp = (
       req.headers["x-forwarded-for"] ||
       req.socket.remoteAddress ||
@@ -2562,47 +2565,44 @@ app.post("/api/validate-token", async (req, res) => {
       .split(",")[0]
       .trim();
 
-    // primera vez que se usa el token
+    // Primer uso del token
     if (!access.first_ip) {
-      await db.query(
-        `
+      await pool.query(`
         UPDATE access_tokens
-        SET first_ip = ?, activated_at = NOW()
-        WHERE token = ?
-        `,
-        [currentIp, token]
-      );
+        SET
+          first_ip = $1,
+          activated_at = NOW()
+        WHERE token = $2
+      `, [currentIp, tokenHash]);
 
       return res.json({
         valid: true,
-        message: "Access validated. Your MagicBank tutor is now active."
+        email: access.email
       });
     }
 
-    // mismo teléfono / misma conexión
+    // Mismo dispositivo / misma red
     if (access.first_ip === currentIp) {
       return res.json({
         valid: true,
-        message: "Access validated. Your MagicBank tutor is now active."
+        email: access.email
       });
     }
 
-    // otro teléfono u otra red
+    // Otro teléfono o red distinta
     return res.status(403).json({
       valid: false,
-      error: "Este acceso ya fue activado en otro dispositivo"
+      error: "This MagicBank access was already activated on another device."
     });
 
   } catch (err) {
-    console.error("validate-token error:", err);
-
+    console.error("VALIDATE TOKEN ERROR:", err);
     return res.status(500).json({
       valid: false,
-      error: "Error interno validando el acceso"
+      error: "Internal validation error"
     });
   }
 });
-
     
 
 /* =========================================================
@@ -4476,23 +4476,22 @@ function copyAccess() {
 
 app.get("/create-first-ip-column", async (req, res) => {
   try {
-    await db.query(`
+    await pool.query(`
       ALTER TABLE access_tokens
-      ADD COLUMN first_ip VARCHAR(255) NULL,
-      ADD COLUMN activated_at DATETIME NULL
+      ADD COLUMN IF NOT EXISTS first_ip TEXT;
     `);
 
-    res.send("Columna first_ip creada correctamente");
-  } catch (err) {
-    if (String(err.message).includes("Duplicate column")) {
-      return res.send("La columna ya existe");
-    }
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS activated_at TIMESTAMP;
+    `);
 
+    res.send("first_ip y activated_at creados correctamente");
+  } catch (err) {
     console.error(err);
     res.status(500).send(err.message);
   }
 });
-
 
 /*=========================================================
 START
