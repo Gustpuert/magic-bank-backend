@@ -2478,26 +2478,42 @@ app.post("/api/validate-token", async (req, res) => {
   try {
 
     /* =====================================================
-    1. DATOS RECIBIDOS
+    1. LEER DATOS RECIBIDOS
+    Puede venir:
+    - email separado + token separado
+    - o todo junto dentro de token
     ===================================================== */
 
-    const rawToken = req.body.token;
-    const rawEmail = req.body.email;
+    const rawTokenInput = String(req.body.token || "");
+    const rawEmailInput = String(req.body.email || "");
 
-    const cleanToken = String(rawToken || "")
-      .replace(/Correo:/gi, "")
-      .replace(/Token:/gi, "")
-      .replace(/\s+/g, "")
-      .trim();
+    let extractedEmail = rawEmailInput;
+    let extractedToken = rawTokenInput;
 
-    const cleanEmail = String(rawEmail || "")
+    // Si el tutor manda todo el bloque completo dentro de token
+    const emailMatch = rawTokenInput.match(/correo:\s*([^\n\r]+)/i);
+    const tokenMatch = rawTokenInput.match(/token:\s*([a-zA-Z0-9]+)/i);
+
+    if (emailMatch) {
+      extractedEmail = emailMatch[1].trim().toLowerCase();
+    }
+
+    if (tokenMatch) {
+      extractedToken = tokenMatch[1].trim();
+    }
+
+    const cleanEmail = String(extractedEmail || "")
       .trim()
       .toLowerCase();
 
-    if (!cleanToken || !cleanEmail) {
+    const cleanToken = String(extractedToken || "")
+      .replace(/\s+/g, "")
+      .trim();
+
+    if (!cleanEmail || !cleanToken) {
       return res.status(400).json({
         valid: false,
-        error: "Token y email son requeridos"
+        error: "Correo y token requeridos"
       });
     }
 
@@ -2520,13 +2536,9 @@ app.post("/api/validate-token", async (req, res) => {
         email,
         product_name,
         area,
-        redirect_url,
         expires_at,
         activated,
-        device_fingerprint,
-        first_ip,
-        first_user_agent,
-        last_access
+        device_fingerprint
       FROM access_tokens
       WHERE token = $1
       AND LOWER(email) = $2
@@ -2543,58 +2555,50 @@ app.post("/api/validate-token", async (req, res) => {
     const access = result.rows[0];
 
     /* =====================================================
-    4. DETECTAR IP Y DISPOSITIVO
+    4. OBTENER IDENTIFICADOR DEL DISPOSITIVO
+    Este valor lo envía /access-page/:token
     ===================================================== */
 
-    const currentIP =
-      (req.headers["x-forwarded-for"] || "")
-        .toString()
-        .split(",")[0]
-        .trim() ||
-      req.socket.remoteAddress ||
-      "unknown";
-
-    const currentAgent =
-      req.headers["user-agent"] || "unknown";
+    const deviceId = String(
+      req.body.device_id ||
+      req.headers["x-device-id"] ||
+      ""
+    ).trim();
 
     /* =====================================================
-    5. CREAR HUELLA ÚNICA
-    ===================================================== */
-
-    const fingerprintSource =
-      cleanEmail +
-      "|" +
-      currentAgent +
-      "|" +
-      currentIP;
-
-    const currentFingerprint = crypto
-      .createHash("sha256")
-      .update(fingerprintSource)
-      .digest("hex");
-
-    /* =====================================================
-    6. PRIMER USO DEL TOKEN
-    Guarda el primer dispositivo e IP
+    5. SI EL TOKEN NO HA SIDO ACTIVADO TODAVÍA
     ===================================================== */
 
     if (!access.activated) {
+
+      // Si aún no llegó deviceId, dejamos pasar una sola vez
+      // pero guardamos que está activado sin dispositivo
+      if (!deviceId) {
+
+        await pool.query(`
+          UPDATE access_tokens
+          SET
+            activated = TRUE
+          WHERE token = $1
+        `, [tokenHash]);
+
+        return res.json({
+          valid: true,
+          warning: "Token activado sin device_id",
+          email: access.email,
+          product: access.product_name,
+          area: access.area,
+          expires_at: access.expires_at
+        });
+      }
 
       await pool.query(`
         UPDATE access_tokens
         SET
           activated = TRUE,
-          device_fingerprint = $2,
-          first_ip = $3,
-          first_user_agent = $4,
-          last_access = NOW()
+          device_fingerprint = $2
         WHERE token = $1
-      `, [
-        tokenHash,
-        currentFingerprint,
-        currentIP,
-        currentAgent
-      ]);
+      `, [tokenHash, deviceId]);
 
       return res.json({
         valid: true,
@@ -2607,20 +2611,24 @@ app.post("/api/validate-token", async (req, res) => {
     }
 
     /* =====================================================
-    7. SI YA FUE ACTIVADO, DEBE SER EL MISMO DISPOSITIVO
+    6. YA ESTABA ACTIVADO, DEBE SER EL MISMO DISPOSITIVO
     ===================================================== */
 
     if (!access.device_fingerprint) {
       return res.status(403).json({
         valid: false,
-        error: "Token activado sin huella registrada"
+        error: "Este token fue activado sin un dispositivo registrado"
       });
     }
 
-    if (
-      access.device_fingerprint !== currentFingerprint ||
-      access.first_ip !== currentIP
-    ) {
+    if (!deviceId) {
+      return res.status(403).json({
+        valid: false,
+        error: "Falta identificación del dispositivo"
+      });
+    }
+
+    if (access.device_fingerprint !== deviceId) {
       return res.status(403).json({
         valid: false,
         error: "Este token ya fue activado en otro dispositivo"
@@ -2628,7 +2636,7 @@ app.post("/api/validate-token", async (req, res) => {
     }
 
     /* =====================================================
-    8. ACTUALIZAR ÚLTIMO ACCESO
+    7. ACTUALIZAR ÚLTIMO ACCESO
     ===================================================== */
 
     await pool.query(`
@@ -2638,7 +2646,7 @@ app.post("/api/validate-token", async (req, res) => {
     `, [tokenHash]);
 
     /* =====================================================
-    9. ACCESO CORRECTO
+    8. RESPUESTA FINAL
     ===================================================== */
 
     return res.json({
@@ -2660,7 +2668,6 @@ app.post("/api/validate-token", async (req, res) => {
     });
   }
 });
-
     
 
 /* =========================================================
