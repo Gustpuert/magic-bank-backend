@@ -1297,35 +1297,6 @@ res.status(500).send("Error validando acceso");
 
 
 /* =========================================================
-TEMPORAL - AGREGAR CONTROL DE USO DE TOKEN
-========================================================= */
-
-app.get("/install-token-usage", async (req, res) => {
-
-try {
-
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS token_uses INTEGER DEFAULT 0;
-`);
-
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS max_uses INTEGER DEFAULT 3;
-`);
-
-res.send("Control de uso de token instalado correctamente");
-
-} catch (error) {
-
-console.error("ERROR INSTALANDO CONTROL TOKEN:", error);
-
-res.status(500).send("Error instalando control token");
-
-}
-
-});
-/* =========================================================
 13 - ONBOARDING ACADÉMICO
 Formulario inicial de inscripción
 ========================================================= */
@@ -2505,11 +2476,17 @@ res.json(logs.rows);
 
 app.post("/api/validate-token", async (req, res) => {
   try {
+
     const rawToken = req.body.token;
     const rawEmail = req.body.email;
 
-    const cleanToken = String(rawToken || "").replace(/\s+/g, "").trim();
-    const cleanEmail = String(rawEmail || "").trim().toLowerCase();
+    const cleanToken = String(rawToken || "")
+      .replace(/\s+/g, "")
+      .trim();
+
+    const cleanEmail = String(rawEmail || "")
+      .trim()
+      .toLowerCase();
 
     if (!cleanToken || !cleanEmail) {
       return res.status(400).json({
@@ -2559,16 +2536,21 @@ app.post("/api/validate-token", async (req, res) => {
       req.socket.remoteAddress ||
       "unknown";
 
-    const currentAgent = req.headers["user-agent"] || "unknown";
+    const currentAgent =
+      req.headers["user-agent"] || "unknown";
 
-    // Fase mínima: huella estable para pruebas reales
-    const fingerprintSource = `${cleanEmail}|${currentAgent}`;
+    // Huella mínima del dispositivo
     const currentFingerprint = crypto
       .createHash("sha256")
-      .update(fingerprintSource)
+      .update(`${cleanEmail}|${currentAgent}|${currentIP}`)
       .digest("hex");
 
+    /* =====================================================
+       PRIMER USO DEL TOKEN
+    ===================================================== */
+
     if (!access.activated) {
+
       await pool.query(`
         UPDATE access_tokens
         SET
@@ -2594,19 +2576,41 @@ app.post("/api/validate-token", async (req, res) => {
       });
     }
 
-    if (!access.device_fingerprint) {
+    /* =====================================================
+       SI YA FUE ACTIVADO, SOLO DEJA ENTRAR
+       AL MISMO DISPOSITIVO / MISMA IP
+    ===================================================== */
+
+    if (access.first_ip && access.first_ip !== currentIP) {
       return res.status(403).json({
         valid: false,
-        error: "Token activado sin huella registrada"
+        error: "Este token ya fue activado en otro dispositivo"
       });
     }
 
-    if (access.device_fingerprint !== currentFingerprint) {
+    if (
+      access.first_user_agent &&
+      access.first_user_agent !== currentAgent
+    ) {
       return res.status(403).json({
         valid: false,
-        error: "Token ya activado en otro dispositivo"
+        error: "Este token ya fue activado en otro navegador o dispositivo"
       });
     }
+
+    if (
+      access.device_fingerprint &&
+      access.device_fingerprint !== currentFingerprint
+    ) {
+      return res.status(403).json({
+        valid: false,
+        error: "Este token ya fue activado en otro dispositivo"
+      });
+    }
+
+    /* =====================================================
+       ACTUALIZA ÚLTIMO ACCESO
+    ===================================================== */
 
     await pool.query(`
       UPDATE access_tokens
@@ -2623,14 +2627,15 @@ app.post("/api/validate-token", async (req, res) => {
     });
 
   } catch (error) {
+
     console.error("ERROR VALIDATE TOKEN:", error);
+
     return res.status(500).json({
       valid: false,
       error: "Error validando token"
     });
   }
 });
-
 
 
     
