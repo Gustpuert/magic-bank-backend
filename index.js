@@ -2528,15 +2528,27 @@ app.post("/api/validate-token", async (req, res) => {
     const access = result.rows[0];
 
     const currentIP =
-      (req.headers["x-forwarded-for"] || "")
-        .toString()
-        .split(",")[0]
-        .trim() ||
-      req.socket.remoteAddress ||
-      "unknown";
+  (req.headers["x-forwarded-for"] || "")
+    .toString()
+    .split(",")[0]
+    .trim() ||
+  req.socket.remoteAddress ||
+  "unknown";
 
-    const currentAgent =
-      req.headers["user-agent"] || "unknown";
+const currentAgent = req.headers["user-agent"] || "unknown";
+
+// NUEVA HUELLA MÁS ESTRICTA
+const fingerprintSource =
+  cleanEmail +
+  "|" +
+  currentAgent +
+  "|" +
+  currentIP;
+
+const currentFingerprint = crypto
+  .createHash("sha256")
+  .update(fingerprintSource)
+  .digest("hex");
 
     /* =========================================
        PRIMER USO DEL TOKEN
