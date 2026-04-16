@@ -2503,135 +2503,105 @@ res.json(logs.rows);
 
 });
 
+
 app.post("/api/validate-token", async (req, res) => {
   try {
-    const rawToken = req.body.token;
-    const rawEmail = req.body.email;
+    const rawToken = String(req.body.token || "").trim();
 
-    const cleanToken = String(rawToken || "").replace(/\s+/g, "").trim();
-    const cleanEmail = String(rawEmail || "").trim().toLowerCase();
-
-    if (!cleanToken || !cleanEmail) {
+    if (!rawToken) {
       return res.status(400).json({
         valid: false,
-        error: "Token y email son requeridos"
+        error: "Token requerido"
       });
     }
 
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(cleanToken)
-      .digest("hex");
+    // Si el usuario pega un bloque completo tipo:
+    // Correo: ...
+    // Token: ...
+    // extraemos únicamente el token real
+    const tokenMatch = rawToken.match(/token\s*:\s*([a-zA-Z0-9]+)/i);
 
-    const result = await pool.query(`
-      SELECT
-        token,
-        email,
-        product_name,
-        area,
-        redirect_url,
-        expires_at,
-        activated,
-        device_fingerprint,
-        first_ip,
-        first_user_agent,
-        last_access
+    const token = tokenMatch
+      ? tokenMatch[1].trim()
+      : rawToken;
+
+    const result = await db.query(
+      `
+      SELECT *
       FROM access_tokens
-      WHERE token = $1
-      AND LOWER(email) = $2
-      AND expires_at > NOW()
-    `, [tokenHash, cleanEmail]);
+      WHERE token = ?
+      LIMIT 1
+      `,
+      [token]
+    );
 
-    if (!result.rowCount) {
-      return res.status(401).json({
+    const access = result[0]?.[0] || result[0];
+
+    if (!access) {
+      return res.status(403).json({
         valid: false,
-        error: "Token inválido o expirado"
+        error: "Your MagicBank access token is invalid or expired."
       });
     }
 
-    const access = result.rows[0];
+    // expiración opcional
+    if (access.expires_at && new Date(access.expires_at) < new Date()) {
+      return res.status(403).json({
+        valid: false,
+        error: "Your MagicBank access token is invalid or expired."
+      });
+    }
 
-    const currentIP =
-      (req.headers["x-forwarded-for"] || "")
-        .toString()
-        .split(",")[0]
-        .trim() ||
+    // obtener IP real
+    const currentIp = (
+      req.headers["x-forwarded-for"] ||
       req.socket.remoteAddress ||
-      "unknown";
+      ""
+    )
+      .toString()
+      .split(",")[0]
+      .trim();
 
-    const currentAgent = req.headers["user-agent"] || "unknown";
-
-    // Fase mínima: huella estable para pruebas reales
-    const fingerprintSource = `${cleanEmail}|${currentAgent}`;
-    const currentFingerprint = crypto
-      .createHash("sha256")
-      .update(fingerprintSource)
-      .digest("hex");
-
-    if (!access.activated) {
-      await pool.query(`
+    // primera vez que se usa el token
+    if (!access.first_ip) {
+      await db.query(
+        `
         UPDATE access_tokens
-        SET
-          activated = TRUE,
-          device_fingerprint = $2,
-          first_ip = $3,
-          first_user_agent = $4,
-          last_access = NOW()
-        WHERE token = $1
-      `, [
-        tokenHash,
-        currentFingerprint,
-        currentIP,
-        currentAgent
-      ]);
+        SET first_ip = ?, activated_at = NOW()
+        WHERE token = ?
+        `,
+        [currentIp, token]
+      );
 
       return res.json({
         valid: true,
-        email: access.email,
-        product: access.product_name,
-        area: access.area,
-        expires_at: access.expires_at
+        message: "Access validated. Your MagicBank tutor is now active."
       });
     }
 
-    if (!access.device_fingerprint) {
-      return res.status(403).json({
-        valid: false,
-        error: "Token activado sin huella registrada"
+    // mismo teléfono / misma conexión
+    if (access.first_ip === currentIp) {
+      return res.json({
+        valid: true,
+        message: "Access validated. Your MagicBank tutor is now active."
       });
     }
 
-    if (access.device_fingerprint !== currentFingerprint) {
-      return res.status(403).json({
-        valid: false,
-        error: "Token ya activado en otro dispositivo"
-      });
-    }
-
-    await pool.query(`
-      UPDATE access_tokens
-      SET last_access = NOW()
-      WHERE token = $1
-    `, [tokenHash]);
-
-    return res.json({
-      valid: true,
-      email: access.email,
-      product: access.product_name,
-      area: access.area,
-      expires_at: access.expires_at
+    // otro teléfono u otra red
+    return res.status(403).json({
+      valid: false,
+      error: "Este acceso ya fue activado en otro dispositivo"
     });
 
-  } catch (error) {
-    console.error("ERROR VALIDATE TOKEN:", error);
+  } catch (err) {
+    console.error("validate-token error:", err);
+
     return res.status(500).json({
       valid: false,
-      error: "Error validando token"
+      error: "Error interno validando el acceso"
     });
   }
 });
-
-
 
     
 
@@ -4503,6 +4473,26 @@ function copyAccess() {
   }
 
 });
+
+app.get("/create-first-ip-column", async (req, res) => {
+  try {
+    await db.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN first_ip VARCHAR(255) NULL,
+      ADD COLUMN activated_at DATETIME NULL
+    `);
+
+    res.send("Columna first_ip creada correctamente");
+  } catch (err) {
+    if (String(err.message).includes("Duplicate column")) {
+      return res.send("La columna ya existe");
+    }
+
+    console.error(err);
+    res.status(500).send(err.message);
+  }
+});
+
 
 /*=========================================================
 START
