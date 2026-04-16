@@ -4488,7 +4488,33 @@ function copyAccess() {
   }
 
 });
+app.get("/install-token-security", async (req, res) => {
+  try {
 
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS activated BOOLEAN DEFAULT FALSE;
+    `);
+
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS first_ip TEXT;
+    `);
+
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS first_user_agent TEXT;
+    `);
+
+    res.send("Seguridad de token instalada correctamente");
+
+  } catch (error) {
+
+    console.error("ERROR INSTALL TOKEN SECURITY:", error);
+
+    res.status(500).send("Error instalando seguridad de token");
+  }
+});
 /*=========================================================
 START
 ==========≈================================================*/
