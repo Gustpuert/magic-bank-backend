@@ -13,6 +13,8 @@ import pkg from "pg";
 import cors from "cors";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
+import fetch from "node-fetch";
+import OpenAI from "openai";
 
 const { Pool } = pkg;
 
@@ -127,7 +129,17 @@ const ventasPorDia = await pool.query(`
   GROUP BY DATE(created_at)
   ORDER BY fecha DESC
 `);
+const alerts = await pool.query(`
+  SELECT email, product_name
+  FROM student_feedback
+  LIMIT 20
+`);
 
+const optimization = await pool.query(`
+  SELECT product_name, AVG(rating) as rating
+  FROM student_feedback
+  GROUP BY product_name
+`);
 res.send(`
 <html>
 <head>
@@ -1296,35 +1308,7 @@ res.status(500).send("Error validando acceso");
 });
 
 
-/* =========================================================
-TEMPORAL - AGREGAR CONTROL DE USO DE TOKEN
-========================================================= */
 
-app.get("/install-token-usage", async (req, res) => {
-
-try {
-
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS token_uses INTEGER DEFAULT 0;
-`);
-
-await pool.query(`
-ALTER TABLE access_tokens
-ADD COLUMN IF NOT EXISTS max_uses INTEGER DEFAULT 3;
-`);
-
-res.send("Control de uso de token instalado correctamente");
-
-} catch (error) {
-
-console.error("ERROR INSTALANDO CONTROL TOKEN:", error);
-
-res.status(500).send("Error instalando control token");
-
-}
-
-});
 /* =========================================================
 13 - ONBOARDING ACADÉMICO
 Formulario inicial de inscripción
@@ -3023,9 +3007,6 @@ app.get("/api/catalogo-publico", (req, res) => {
 /* =========================================================
 API CHAT PRINCIPAL MAGICBANK + GRÁFICAS INTELIGENTES
 ========================================================= */
-
-import fetch from "node-fetch";
-import OpenAI from "openai";
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
