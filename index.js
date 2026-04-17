@@ -13,7 +13,7 @@ import pkg from "pg";
 import cors from "cors";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
-import fetch from "node-fetch";
+
 import OpenAI from "openai";
 
 const { Pool } = pkg;
