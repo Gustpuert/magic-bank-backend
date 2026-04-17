@@ -3228,144 +3228,197 @@ ENDPOINT /api/chat
 ========================================================= */
 
 app.post("/api/chat", async (req, res) => {
-  try {
-    const message = (req.body.message || "").toString().trim();
-    const lower = message.toLowerCase();
 
-    let reply = "No entendí bien tu pregunta. ¿Puedes explicarla de otra forma?";
+  try {
+
+    /* =========================================================
+    1 - MENSAJE DEL USUARIO
+    ========================================================= */
+
+    const message = String(req.body.message || "").trim();
+
+    if (!message) {
+      return res.status(400).json({
+        ok: false,
+        reply: "No recibí ningún mensaje.",
+        graphics: [],
+        visualQuery: null
+      });
+    }
+
+    /* =========================================================
+    2 - RESPUESTA DEL TUTOR
+    ========================================================= */
+
+    const completion = await openai.chat.completions.create({
+      model: "gpt-4.1-mini",
+
+      messages: [
+        {
+          role: "system",
+          content: `
+Eres un tutor experto de MagicBank.
+
+Explica de forma:
+- clara
+- profunda
+- elegante
+- pedagógica
+- muy visual
+
+Cuando enseñes:
+- usa ejemplos
+- explica paso a paso
+- divide por partes
+- menciona conceptos importantes
+- si el tema requiere apoyo visual, descríbelo claramente
+`
+        },
+        {
+          role: "user",
+          content: message
+        }
+      ],
+
+      temperature: 0.7,
+      max_tokens: 1200
+    });
+
+    /* =========================================================
+    3 - TEXTO FINAL DEL TUTOR
+    ========================================================= */
+
+    const reply =
+      completion.choices?.[0]?.message?.content ||
+      "No pude generar una respuesta.";
+
+    /* =========================================================
+    4 - DETECTAR QUÉ IMAGEN BUSCAR
+    IMPORTANTE: extractVisualQuery YA EXISTE ARRIBA
+    ========================================================= */
+
+    const visualQuery = extractVisualQuery(`${message} ${reply}`);
+
+    console.log("VisualQuery detectada:", visualQuery);
+
+    /* =========================================================
+    5 - BUSCAR IMÁGENES
+    ========================================================= */
+
     let graphics = [];
 
-    // =========================
-    // RESPUESTA DEL TUTOR
-    // =========================
-
-    if (lower.includes("hola") || lower.includes("buenas")) {
-      reply = "👋 Hola. Bienvenido a MagicBank IA. ¿Qué tema quieres aprender hoy?";
-    }
-
-    else if (
-      lower.includes("pollo") ||
-      lower.includes("cocina") ||
-      lower.includes("pechuga") ||
-      lower.includes("sellado")
-    ) {
-      reply = "Para sellar correctamente una pechuga de pollo debes secarla bien, usar una sartén muy caliente y no moverla durante los primeros minutos para lograr una costra dorada.";
-    }
-
-    else if (
-      lower.includes("nutrición") ||
-      lower.includes("alimentación") ||
-      lower.includes("comida saludable")
-    ) {
-      reply = "Una alimentación saludable combina proteínas, verduras, frutas, agua y carbohidratos en proporciones equilibradas.";
-    }
-
-    else if (
-      lower.includes("programación") ||
-      lower.includes("javascript") ||
-      lower.includes("codigo") ||
-      lower.includes("código")
-    ) {
-      reply = "Programar consiste en darle instrucciones a una computadora. JavaScript es uno de los lenguajes más usados en la web.";
-    }
-
-    else if (
-      lower.includes("piano") ||
-      lower.includes("música")
-    ) {
-      reply = "El piano es un instrumento que permite tocar melodía y armonía al mismo tiempo.";
-    }
-
-    else {
-      reply = `Estoy listo para ayudarte con: ${message}`;
-    }
-
-    // =========================
-    // BÚSQUEDA DE IMÁGENES
-    // Primero Pixabay
-    // Si no encuentra, usa Unsplash
-    // =========================
-
     try {
-      let query = message;
 
-      // Refinamos algunas búsquedas para obtener mejores imágenes
-      if (lower.includes("pollo") || lower.includes("pechuga")) {
-        query = "chicken breast cooking";
-      }
+      console.log("Buscando imágenes para:", visualQuery);
 
-      if (lower.includes("nutrición") || lower.includes("comida saludable")) {
-        query = "healthy food";
-      }
+      /* =========================
+      PIXABAY PRIMERO
+      ========================= */
 
-      if (lower.includes("piano")) {
-        query = "piano instrument";
-      }
+      if (visualQuery && process.env.PIXABAY_KEY) {
 
-      console.log("Buscando imágenes para:", query);
-
-      // =========================
-      // PIXABAY
-      // =========================
-      if (process.env.PIXABAY_KEY) {
-        const pixabayUrl = `https://pixabay.com/api/?key=${process.env.PIXABAY_KEY}&q=${encodeURIComponent(query)}&image_type=photo&per_page=6&safesearch=true`;
+        const pixabayUrl =
+          `https://pixabay.com/api/?key=${process.env.PIXABAY_KEY}` +
+          `&q=${encodeURIComponent(visualQuery)}` +
+          `&image_type=photo` +
+          `&per_page=6` +
+          `&safesearch=true`;
 
         const pixabayResponse = await axios.get(pixabayUrl);
 
         if (
           pixabayResponse.data &&
-          pixabayResponse.data.hits &&
+          Array.isArray(pixabayResponse.data.hits) &&
           pixabayResponse.data.hits.length > 0
         ) {
-          graphics = pixabayResponse.data.hits
-            .slice(0, 6)
-            .map(img => img.webformatURL);
 
-          console.log("Imágenes encontradas en Pixabay:", graphics.length);
+          graphics = pixabayResponse.data.hits
+            .map(img => img.webformatURL)
+            .filter(Boolean)
+            .slice(0, 6);
+
+          console.log(
+            "Imágenes encontradas en Pixabay:",
+            graphics.length
+          );
         }
       }
 
-      // =========================
-      // UNSPLASH SI PIXABAY FALLA
-      // =========================
-      if (graphics.length === 0 && process.env.UNSPLASH_KEY) {
+      /* =========================
+      SI PIXABAY NO TRAJO NADA
+      PROBAR UNSPLASH
+      ========================= */
 
-        const unsplashUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=6&client_id=${process.env.UNSPLASH_KEY}`;
+      if (
+        graphics.length === 0 &&
+        visualQuery &&
+        process.env.UNSPLASH_KEY
+      ) {
 
-        const unsplashResponse = await axios.get(unsplashUrl);
+        const unsplashUrl =
+          `https://api.unsplash.com/search/photos?query=${encodeURIComponent(visualQuery)}` +
+          `&per_page=6`;
+
+        const unsplashResponse = await axios.get(
+          unsplashUrl,
+          {
+            headers: {
+              Authorization: `Client-ID ${process.env.UNSPLASH_KEY}`
+            }
+          }
+        );
 
         if (
           unsplashResponse.data &&
-          unsplashResponse.data.results &&
+          Array.isArray(unsplashResponse.data.results) &&
           unsplashResponse.data.results.length > 0
         ) {
-          graphics = unsplashResponse.data.results
-            .slice(0, 6)
-            .map(img => img.urls.small);
 
-          console.log("Imágenes encontradas en Unsplash:", graphics.length);
+          graphics = unsplashResponse.data.results
+            .map(img => img.urls?.regular)
+            .filter(Boolean)
+            .slice(0, 6);
+
+          console.log(
+            "Imágenes encontradas en Unsplash:",
+            graphics.length
+          );
         }
       }
 
     } catch (imgError) {
-      console.error("Error buscando imágenes:", imgError.response?.data || imgError.message);
+
+      console.error(
+        "ERROR BUSCANDO IMÁGENES:",
+        imgError.response?.data || imgError.message
+      );
+
+      graphics = [];
     }
+
+    /* =========================================================
+    6 - RESPUESTA FINAL
+    ========================================================= */
 
     return res.json({
       ok: true,
       reply,
-      graphics
+      graphics,
+      visualQuery
     });
 
   } catch (error) {
+
     console.error("ERROR /api/chat:", error);
 
     return res.status(500).json({
       ok: false,
       reply: "Ocurrió un error interno en el tutor.",
-      graphics: []
+      graphics: [],
+      visualQuery: null
     });
   }
+
 });
 
 /* =========================================================
