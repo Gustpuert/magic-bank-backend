@@ -3229,127 +3229,129 @@ ENDPOINT /api/chat
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const message = (req.body.message || "").toString().trim().toLowerCase();
+    const message = (req.body.message || "").toString().trim();
+    const lower = message.toLowerCase();
 
     let reply = "No entendí bien tu pregunta. ¿Puedes explicarla de otra forma?";
     let graphics = [];
 
     // =========================
-    // RESPUESTAS DEL TUTOR
+    // RESPUESTA DEL TUTOR
     // =========================
 
-    if (
-      message.includes("hola") ||
-      message.includes("buenas") ||
-      message.includes("hey")
-    ) {
-      reply =
-        "👋 Hola. Bienvenido a MagicBank IA. Estoy listo para ayudarte a aprender cualquier tema.";
+    if (lower.includes("hola") || lower.includes("buenas")) {
+      reply = "👋 Hola. Bienvenido a MagicBank IA. ¿Qué tema quieres aprender hoy?";
     }
 
     else if (
-      message.includes("comida saludable") ||
-      message.includes("alimentación") ||
-      message.includes("nutrición")
+      lower.includes("pollo") ||
+      lower.includes("cocina") ||
+      lower.includes("pechuga") ||
+      lower.includes("sellado")
     ) {
-      reply =
-        "Una alimentación saludable combina proteínas, verduras, frutas, agua y carbohidratos en proporciones equilibradas.";
-
-      graphics = [
-        "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800",
-        "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800",
-        "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800"
-      ];
+      reply = "Para sellar correctamente una pechuga de pollo debes secarla bien, usar una sartén muy caliente y no moverla durante los primeros minutos para lograr una costra dorada.";
     }
 
     else if (
-      message.includes("corazón") ||
-      message.includes("heart")
+      lower.includes("nutrición") ||
+      lower.includes("alimentación") ||
+      lower.includes("comida saludable")
     ) {
-      reply =
-        "El corazón tiene cuatro cavidades: dos aurículas y dos ventrículos. Su función es bombear sangre por todo el cuerpo.";
-
-      graphics = [
-        "https://images.unsplash.com/photo-1530026186672-2cd00ffc50fe?w=800",
-        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800"
-      ];
+      reply = "Una alimentación saludable combina proteínas, verduras, frutas, agua y carbohidratos en proporciones equilibradas.";
     }
 
     else if (
-      message.includes("piano") ||
-      message.includes("música") ||
-      message.includes("instrumento")
+      lower.includes("programación") ||
+      lower.includes("javascript") ||
+      lower.includes("codigo") ||
+      lower.includes("código")
     ) {
-      reply =
-        "El piano es uno de los instrumentos más completos. Tiene teclado, cuerdas internas y permite interpretar melodía y armonía al mismo tiempo.";
-
-      graphics = [
-        "https://images.unsplash.com/photo-1514119412350-e174d90d280e?w=800",
-        "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800",
-        "https://images.unsplash.com/photo-1507838153414-b4b713384a76?w=800"
-      ];
+      reply = "Programar consiste en darle instrucciones a una computadora. JavaScript es uno de los lenguajes más usados en la web.";
     }
 
     else if (
-      message.includes("planeta") ||
-      message.includes("sistema solar")
+      lower.includes("piano") ||
+      lower.includes("música")
     ) {
-      reply =
-        "El sistema solar está formado por el Sol y ocho planetas principales que giran a su alrededor.";
-
-      graphics = [
-        "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800",
-        "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=800"
-      ];
-    }
-
-    else if (
-      message.includes("derecho") ||
-      message.includes("ley")
-    ) {
-      reply =
-        "El derecho es el conjunto de normas que regulan la convivencia en una sociedad. Puede dividirse en derecho civil, penal, laboral y otras ramas.";
-
-      graphics = [
-        "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800",
-        "https://images.unsplash.com/photo-1528747008803-4f3f9622e4c6?w=800"
-      ];
-    }
-
-    else if (
-      message.includes("programación") ||
-      message.includes("javascript") ||
-      message.includes("codigo") ||
-      message.includes("código")
-    ) {
-      reply =
-        "Programar consiste en escribir instrucciones para que una computadora realice tareas. JavaScript es uno de los lenguajes más usados en la web.";
-
-      graphics = [
-        "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=800",
-        "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800"
-      ];
-    }
-
-    else if (
-      message.includes("medicina") ||
-      message.includes("hospital")
-    ) {
-      reply =
-        "La medicina estudia la prevención, diagnóstico y tratamiento de enfermedades.";
-
-      graphics = [
-        "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800",
-        "https://images.unsplash.com/photo-1580281657527-47f249e8f4df?w=800"
-      ];
+      reply = "El piano es un instrumento que permite tocar melodía y armonía al mismo tiempo.";
     }
 
     else {
-      reply =
-        "Puedo ayudarte con temas de nutrición, música, derecho, medicina, programación, ciencia y muchos más. Escríbeme el tema específico que quieres aprender.";
+      reply = `Estoy listo para ayudarte con: ${message}`;
     }
 
-    res.json({
+    // =========================
+    // BÚSQUEDA DE IMÁGENES
+    // Primero Pixabay
+    // Si no encuentra, usa Unsplash
+    // =========================
+
+    try {
+      let query = message;
+
+      // Refinamos algunas búsquedas para obtener mejores imágenes
+      if (lower.includes("pollo") || lower.includes("pechuga")) {
+        query = "chicken breast cooking";
+      }
+
+      if (lower.includes("nutrición") || lower.includes("comida saludable")) {
+        query = "healthy food";
+      }
+
+      if (lower.includes("piano")) {
+        query = "piano instrument";
+      }
+
+      console.log("Buscando imágenes para:", query);
+
+      // =========================
+      // PIXABAY
+      // =========================
+      if (process.env.PIXABAY_KEY) {
+        const pixabayUrl = `https://pixabay.com/api/?key=${process.env.PIXABAY_KEY}&q=${encodeURIComponent(query)}&image_type=photo&per_page=6&safesearch=true`;
+
+        const pixabayResponse = await axios.get(pixabayUrl);
+
+        if (
+          pixabayResponse.data &&
+          pixabayResponse.data.hits &&
+          pixabayResponse.data.hits.length > 0
+        ) {
+          graphics = pixabayResponse.data.hits
+            .slice(0, 6)
+            .map(img => img.webformatURL);
+
+          console.log("Imágenes encontradas en Pixabay:", graphics.length);
+        }
+      }
+
+      // =========================
+      // UNSPLASH SI PIXABAY FALLA
+      // =========================
+      if (graphics.length === 0 && process.env.UNSPLASH_KEY) {
+
+        const unsplashUrl = `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=6&client_id=${process.env.UNSPLASH_KEY}`;
+
+        const unsplashResponse = await axios.get(unsplashUrl);
+
+        if (
+          unsplashResponse.data &&
+          unsplashResponse.data.results &&
+          unsplashResponse.data.results.length > 0
+        ) {
+          graphics = unsplashResponse.data.results
+            .slice(0, 6)
+            .map(img => img.urls.small);
+
+          console.log("Imágenes encontradas en Unsplash:", graphics.length);
+        }
+      }
+
+    } catch (imgError) {
+      console.error("Error buscando imágenes:", imgError.response?.data || imgError.message);
+    }
+
+    return res.json({
       ok: true,
       reply,
       graphics
@@ -3358,7 +3360,7 @@ app.post("/api/chat", async (req, res) => {
   } catch (error) {
     console.error("ERROR /api/chat:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       ok: false,
       reply: "Ocurrió un error interno en el tutor.",
       graphics: []
