@@ -3021,181 +3021,147 @@ app.get("/api/catalogo-publico", (req, res) => {
 
 
 
+/* ========================================================= BLOQUE 01 - IMPORTACIONES ========================================================= */
 
-/* =========================================================
-API CHAT — MAGICBANK (VERSIÓN ESTABLE ANTI-CRASH)
-========================================================= */
+import express from "express"; import fetch from "node-fetch"; import OpenAI from "openai";
+
+const app = express();
+
+app.use(express.json());
+
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+/* ========================================================= BLOQUE 02 - DETECTOR DE TEMAS VISUALES ========================================================= */
+
+function extractVisualQuery(reply){
+
+const text = (reply || "").toLowerCase();
+
+/* IDIOMAS */ if(text.includes("verb to be")) return "english grammar verb to be infographic"; if(text.includes("present simple")) return "present simple english chart"; if(text.includes("past simple")) return "past simple english timeline infographic"; if(text.includes("future tense")) return "future tense english grammar chart"; if(text.includes("phrasal verbs")) return "phrasal verbs infographic"; if(text.includes("pronombres")) return "english pronouns chart"; if(text.includes("frances")) return "french grammar infographic"; if(text.includes("aleman")) return "german grammar chart"; if(text.includes("italiano")) return "italian language infographic"; if(text.includes("portugues")) return "portuguese grammar infographic"; if(text.includes("chino")) return "chinese language infographic";
+
+/* DERECHO */ if(text.includes("derecho penal")) return "criminal law process diagram"; if(text.includes("derecho civil")) return "civil law infographic"; if(text.includes("derecho laboral")) return "labor law infographic"; if(text.includes("constitucion")) return "constitutional law chart"; if(text.includes("contrato")) return "contract law infographic"; if(text.includes("demanda")) return "lawsuit process diagram";
+
+/* CONTADURÍA */ if(text.includes("balance general")) return "balance sheet infographic"; if(text.includes("estado de resultados")) return "income statement chart"; if(text.includes("flujo de caja")) return "cash flow chart"; if(text.includes("activo") || text.includes("pasivo")) return "assets liabilities equity infographic";
+
+/* ADMINISTRACIÓN Y NEGOCIOS */ if(text.includes("modelo canvas")) return "business model canvas infographic"; if(text.includes("plan de negocios")) return "business plan infographic"; if(text.includes("punto de equilibrio")) return "break even point chart"; if(text.includes("liderazgo")) return "leadership styles infographic";
+
+/* MARKETING */ if(text.includes("marketing digital")) return "digital marketing infographic"; if(text.includes("4p")) return "4P marketing diagram"; if(text.includes("seo")) return "SEO strategy infographic"; if(text.includes("branding")) return "branding identity chart"; if(text.includes("embudo de ventas")) return "sales funnel infographic";
+
+/* SOFTWARE */ if(text.includes("algoritmo")) return "algorithm flowchart"; if(text.includes("base de datos")) return "database schema diagram"; if(text.includes("html")) return "HTML structure diagram"; if(text.includes("javascript")) return "javascript infographic"; if(text.includes("api")) return "API request response diagram"; if(text.includes("programacion") || text.includes("software")) return "software development workflow diagram";
+
+/* ACADEMY - COCINA */ if(text.includes("cocina italiana")) return "italian cuisine infographic"; if(text.includes("cocina francesa")) return "french cuisine techniques chart"; if(text.includes("cocina japonesa")) return "japanese cuisine infographic"; if(text.includes("corte juliana")) return "julienne cutting technique infographic"; if(text.includes("salsas madre")) return "mother sauces french cuisine chart"; if(text.includes("temperaturas de coccion")) return "cooking temperatures chart"; if(text.includes("panaderia")) return "bread making process infographic"; if(text.includes("reposteria")) return "pastry basics infographic";
+
+/* ACADEMY - NUTRICIÓN */ if(text.includes("macronutrientes")) return "macronutrients infographic"; if(text.includes("micronutrientes")) return "micronutrients chart"; if(text.includes("proteinas")) return "protein sources infographic"; if(text.includes("carbohidratos")) return "carbohydrates chart"; if(text.includes("grasas saludables")) return "healthy fats infographic"; if(text.includes("dieta mediterranea")) return "mediterranean diet infographic"; if(text.includes("indice glucemico")) return "glycemic index chart"; if(text.includes("piramide alimenticia") || text.includes("pirámide alimenticia")) return "food pyramid infographic";
+
+/* ACADEMY - CHATGPT E IA */ if(text.includes("chatgpt")) return "chatgpt workflow infographic"; if(text.includes("prompt")) return "prompt engineering infographic"; if(text.includes("inteligencia artificial")) return "artificial intelligence infographic"; if(text.includes("machine learning")) return "machine learning diagram"; if(text.includes("red neuronal")) return "neural network infographic"; if(text.includes("automatizacion")) return "automation workflow diagram";
+
+/* ACADEMY - DISEÑO DE INTERIORES */ if(text.includes("teoria del color")) return "interior design color theory chart"; if(text.includes("estilo minimalista")) return "minimalist interior design infographic"; if(text.includes("estilo nordico")) return "scandinavian interior design infographic"; if(text.includes("distribucion de espacios")) return "space planning interior design diagram"; if(text.includes("iluminacion")) return "interior lighting infographic";
+
+/* MÚSICA */ if(text.includes("piano")) return "piano chords infographic"; if(text.includes("guitarra")) return "guitar chords chart"; if(text.includes("armonía")) return "music harmony infographic"; if(text.includes("notas musicales")) return "music notes diagram";
+
+/* BACHILLERATO Y CIENCIAS */ if(text.includes("sistema solar")) return "solar system educational infographic"; if(text.includes("celula")) return "animal cell labeled diagram"; if(text.includes("fotosintesis")) return "photosynthesis process infographic"; if(text.includes("tabla periodica")) return "periodic table infographic"; if(text.includes("mitosis")) return "mitosis phases diagram"; if(text.includes("mapa")) return "world map educational infographic";
+
+/* FALLBACK GENERAL */ return ${text.split(" ").slice(0,12).join(" ")} educational infographic; }
+
+/* ========================================================= BLOQUE 03 - BUSCADOR DE GRÁFICAS ========================================================= */
+
+async function getGraphics(query){
+
+try{
+
+const results = [];
+
+/* PIXABAY */
+if(process.env.PIXABAY_KEY){
+
+  const pixabayResponse = await fetch(
+    `https://pixabay.com/api/?key=${process.env.PIXABAY_KEY}&q=${encodeURIComponent(query)}&image_type=photo&per_page=8&safesearch=true`
+  );
+
+  const pixabayData = await pixabayResponse.json();
+
+  (pixabayData.hits || []).forEach(img => {
+    if(img.webformatURL) results.push(img.webformatURL);
+  });
+}
+
+/* UNSPLASH */
+if(process.env.UNSPLASH_KEY){
+
+  const unsplashResponse = await fetch(
+    `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=8`,
+    {
+      headers: {
+        Authorization: `Client-ID ${process.env.UNSPLASH_KEY}`
+      }
+    }
+  );
+
+  const unsplashData = await unsplashResponse.json();
+
+  (unsplashData.results || []).forEach(img => {
+    if(img.urls?.regular) results.push(img.urls.regular);
+  });
+}
+
+return [...new Set(results)].slice(0,8);
+
+}catch(error){
+
+console.error("❌ Error buscando gráficas:", error);
+return [];
+
+} }
+
+/* ========================================================= BLOQUE 04 - API CHAT PRINCIPAL - GRÁFICAS INTELIGENTES RUTA: /api/chat ========================================================= */
 
 app.post("/api/chat", async (req, res) => {
 
-  try {
+try{
 
-    /* ===============================
-    1. INPUT SEGURO
-    =============================== */
+const message = req.body.message || "";
 
-    const token = String(req.body.token || "").trim();
-    const message = String(req.body.message || "").trim();
-
-    if (!token || !message) {
-      return res.status(400).json({
-        error: "Token y mensaje requeridos"
-      });
-    }
-
-    /* ===============================
-    2. HASH TOKEN (SEGURO)
-    =============================== */
-
-    const tokenHash = crypto
-      .createHash("sha256")
-      .update(token)
-      .digest("hex");
-
-    /* ===============================
-    3. VALIDACIÓN DB
-    =============================== */
-
-    const access = await pool.query(`
-      SELECT email, product_name, area
-      FROM access_tokens
-      WHERE token = $1
-      AND expires_at > NOW()
-    `, [tokenHash]);
-
-    if (!access || !access.rowCount) {
-      return res.status(403).json({
-        error: "Token inválido o expirado"
-      });
-    }
-
-    const { email, product_name, area } = access.rows[0];
-
-    /* ===============================
-    4. TRACKING (NO BLOQUEANTE)
-    =============================== */
-
-    try {
-      await pool.query(`
-        UPDATE access_tokens
-        SET last_access = NOW()
-        WHERE token = $1
-      `, [tokenHash]);
-    } catch (err) {
-      console.error("TRACKING ERROR:", err.message);
-    }
-
-    /* ===============================
-    5. CONTEXTO INTELIGENTE (UNA SOLA VEZ)
-    =============================== */
-
-    let context = "normal";
-
-    const text = message.toLowerCase();
-
-    if (text.includes("no entiendo") || text.includes("confuso")) {
-      context = "confusion";
-    } else if (text.includes("rápido")) {
-      context = "fast";
-    } else if (text.includes("lento") || text.includes("despacio")) {
-      context = "slow";
-    }
-
-  
-
-    /* ===============================
-6- RESPUESTA INTELIGENTE (SAFE + ADAPTATIVA)
-=============================== */
-
-let reply = "";
-
-/* 1. RESPUESTA LOCAL (SIEMPRE EXISTE) */
-const localResult = processChatMessage({
-  message,
-  context,
-  user: email
-});
-
-reply = localResult.reply;
-
-/* 2. INTENTO IA (NO BLOQUEANTE SEGURO) */
-try {
-
-  const aiReply = await generateAIReplySafe(message, context);
-
-  if (aiReply && aiReply.length > 5) {
-    reply = aiReply;
-  }
-
-} catch (err) {
-  console.error("AI INJECTION ERROR:", err.message);
+if(!message.trim()){
+  return res.status(400).json({
+    reply: "No recibí ningún mensaje.",
+    graphics: []
+  });
 }
 
-/* ===============================
-🧠 3. ADAPTACIÓN EN TIEMPO REAL (CLAVE)
-=============================== */
+const completion = await openai.chat.completions.create({
+  model: "gpt-4.1-mini",
+  messages: [
+    {
+      role: "system",
+      content: `Eres un tutor experto de MagicBank.
 
+Explica de forma clara, elegante, profunda y pedagógica. Menciona conceptos, procesos, nombres y estructuras importantes para que puedan encontrarse gráficas relevantes automáticamente.` }, { role: "user", content: message } ], temperature: 0.7, max_tokens: 1200 });
 
-try {
+const reply = completion.choices?.[0]?.message?.content || "No pude generar una respuesta.";
 
-  const [adaptiveConfigRaw, risk] = await Promise.all([
-    getAdaptiveConfigSafe({ email, product_name }),
-    detectUserRisk({ email, product_name })
-  ]);
+const visualQuery = extractVisualQuery(reply);
+const graphics = await getGraphics(visualQuery);
 
-  const adaptiveConfig = adaptiveConfigRaw || {};
-  adaptiveConfig.risk = risk;
-
-  reply = adaptReplyStyle(reply, adaptiveConfig);
-
-} catch (err) {
-  console.error("ADAPTATION ERROR:", err.message);
-}
-
-/* ===============================
-📊 4. FEEDBACK AUTOMÁTICO (NO BLOQUEANTE)
-=============================== */
-
-
-saveFeedbackSafe({
-  email,
-  product_name,
-  message
-}).catch(err => {
-  console.error("FEEDBACK ASYNC ERROR:", err.message);
+return res.json({
+  reply,
+  graphics,
+  visualQuery
 });
 
+}catch(error){
 
-const category = classifyUserFeedback(message);
+console.error("❌ Error en /api/chat:", error);
 
-await updateUserBehaviorSafe({
-  email,
-  category
+return res.status(500).json({
+  reply: "Ocurrió un error interno al generar la respuesta del tutor.",
+  graphics: []
 });
-    
-    /* ===============================
-    7. RESPUESTA FINAL SEGURA
-    =============================== */
 
-    return res.json({
-      message: reply,
-      context,
-      email,
-      product_name,
-      area
-    });
+} });
 
-  } catch (error) {
+/* ========================================================= BLOQUE 05 - EXPORTACIÓN ========================================================= */
 
-    console.error("CHAT ERROR:", error);
-
-    return res.status(500).json({
-      error: "Error interno del chat"
-    });
-
-  }
-
-});
+export default app;
 
 /* =========================================================
 BLOQUE 2 — MOTOR DE RESPUESTA AVANZADO (SAFE EXTENSION)
