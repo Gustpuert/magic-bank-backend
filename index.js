@@ -3177,63 +3177,224 @@ ENDPOINT /api/chat
 app.post("/api/chat", async (req, res) => {
   try {
     const message = String(req.body.message || "").trim();
+    const email = String(req.body.email || "").trim();
+    const product_name = String(req.body.product_name || "General").trim();
+    const context = String(req.body.context || "normal").trim();
 
     if (!message) {
       return res.status(400).json({
+        ok: false,
         reply: "No recibí ningún mensaje.",
         graphics: [],
-        visualQuery: null
+        visualQuery: null,
+        meta: {
+          mode: "empty"
+        }
       });
     }
 
+    /* =========================================
+    1. FALLBACK SI NO HAY OPENAI
+    ========================================= */
+
+    if (!process.env.OPENAI_API_KEY) {
+      const fallback = processChatMessage({
+        message,
+        context,
+        user: email
+      });
+
+      return res.json({
+        ok: true,
+        reply: fallback.reply,
+        graphics: [],
+        visualQuery: null,
+        meta: {
+          source: "fallback_local",
+          context
+        }
+      });
+    }
+
+    /* =========================================
+    2. CONFIGURACIÓN ADAPTATIVA
+    ========================================= */
+
+    const adaptiveConfig = await getAdaptiveConfigSafe({
+      email,
+      product_name
+    });
+
+    const userRisk = await detectUserRisk({
+      email,
+      product_name
+    });
+
+    /* =========================================
+    3. PROMPT DINÁMICO
+    ========================================= */
+
+    let tutorStyle = `
+Eres un tutor experto de MagicBank.
+
+Producto actual: ${product_name}
+Modo adaptativo: ${adaptiveConfig.mode}
+Ritmo: ${adaptiveConfig.pacing}/5
+Profundidad: ${adaptiveConfig.depth}/5
+Riesgo detectado: ${userRisk}
+
+Reglas:
+- explica con claridad
+- usa ejemplos
+- responde exactamente al tema
+- si el usuario está confundido, simplifica
+- si el usuario está impaciente, responde más directo
+- si el usuario está frustrado, tranquilízalo
+- nunca inventes información
+- no uses frases robóticas
+`;
+
+    if (adaptiveConfig.mode === "explanatory") {
+      tutorStyle += `\nExplica paso a paso, usa analogías y ejemplos sencillos.`;
+    }
+
+    if (adaptiveConfig.mode === "direct") {
+      tutorStyle += `\nResponde en máximo 3 bloques cortos y ve directo al punto.`;
+    }
+
+    if (adaptiveConfig.mode === "calm") {
+      tutorStyle += `\nVe despacio y divide la explicación en partes.`;
+    }
+
+    if (userRisk === "frustrated") {
+      tutorStyle += `\nEl usuario puede estar frustrado. Sé empático y calmado.`;
+    }
+
+    if (userRisk === "abandonment") {
+      tutorStyle += `\nHaz la respuesta más motivadora y fácil de seguir.`;
+    }
+
+    /* =========================================
+    4. LLAMADA OPENAI SEGURA
+    ========================================= */
+
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
+      temperature: adaptiveConfig.mode === "direct" ? 0.4 : 0.7,
+      max_tokens: adaptiveConfig.depth >= 4 ? 1200 : 700,
       messages: [
         {
           role: "system",
-          content: `
-Eres un tutor experto de MagicBank.
-
-Explica de forma clara, elegante, pedagógica y profunda.
-
-Cuando enseñes:
-- usa ejemplos
-- explica paso a paso
-- menciona conceptos importantes
-- utiliza lenguaje claro
-- adapta la explicación al tema solicitado
-`
+          content: tutorStyle
         },
         {
           role: "user",
           content: message
         }
-      ],
-      temperature: 0.7,
-      max_tokens: 1200
+      ]
     });
 
-    const reply =
-      completion.choices?.[0]?.message?.content ||
+    let reply = completion.choices?.[0]?.message?.content ||
       "No pude generar una respuesta.";
 
+    /* =========================================
+    5. ADAPTACIÓN FINAL DEL TEXTO
+    ========================================= */
+
+    reply = adaptReplyStyle(reply, {
+      ...adaptiveConfig,
+      risk: userRisk
+    });
+
+    /* =========================================
+    6. DETECCIÓN DE IMAGEN / INFOGRAFÍA
+    ========================================= */
+
     const visualQuery = extractVisualQuery(reply);
-    const graphics = await getGraphics(visualQuery);
+
+    let graphics = [];
+
+    try {
+      graphics = await getGraphics(visualQuery);
+    } catch (err) {
+      console.error("GRAPHICS SAFE ERROR:", err.message);
+      graphics = [];
+    }
+
+    /* =========================================
+    7. GUARDAR FEEDBACK AUTOMÁTICO
+    ========================================= */
+
+    try {
+      await saveFeedbackSafe({
+        email,
+        product_name,
+        message
+      });
+
+      const category = classifyUserFeedback(message);
+
+      await updateUserBehaviorSafe({
+        email,
+        category
+      });
+
+    } catch (err) {
+      console.error("POST CHAT SAFE ERROR:", err.message);
+    }
+
+    /* =========================================
+    8. RESPUESTA FINAL
+    ========================================= */
 
     return res.json({
+      ok: true,
       reply,
       graphics,
-      visualQuery
+      visualQuery,
+      meta: {
+        source: "openai",
+        adaptive_mode: adaptiveConfig.mode,
+        pacing: adaptiveConfig.pacing,
+        depth: adaptiveConfig.depth,
+        risk: userRisk,
+        product_name
+      }
     });
 
   } catch (error) {
+
     console.error("API CHAT ERROR:", error);
 
-    return res.status(500).json({
-      reply: "Ocurrió un error interno al generar la respuesta del tutor.",
-      graphics: [],
-      visualQuery: null
-    });
+    /* =========================================
+    FALLBACK ABSOLUTO
+    ========================================= */
+
+    try {
+      const fallback = processChatMessage({
+        message: req.body.message,
+        context: req.body.context || "normal"
+      });
+
+      return res.json({
+        ok: true,
+        reply: fallback.reply,
+        graphics: [],
+        visualQuery: null,
+        meta: {
+          source: "emergency_fallback"
+        }
+      });
+
+    } catch (err) {
+
+      return res.status(500).json({
+        ok: false,
+        reply: "Ocurrió un error interno generando la respuesta.",
+        graphics: [],
+        visualQuery: null
+      });
+    }
   }
 });
 
