@@ -3163,6 +3163,124 @@ return res.status(500).json({
 
 export default app;
 
+// ========================================= // BLOQUE 12 — FUNCIÓN GLOBAL DE GRÁFICAS // CONECTA PIXABAY_KEY + UNSPLASH_KEY DE RAILWAY // =========================================
+
+async function getGraphics(topic) { try { const query = encodeURIComponent(topic || "education");
+
+const pixabayKey = process.env.PIXABAY_KEY;
+const unsplashKey = process.env.UNSPLASH_KEY;
+
+let graphics = [];
+
+// PIXABAY
+if (pixabayKey) {
+  const pxResponse = await fetch(
+    `https://pixabay.com/api/?key=${pixabayKey}&q=${query}&image_type=photo&per_page=6&safesearch=true`
+  );
+
+  const pxData = await pxResponse.json();
+
+  if (pxData.hits && pxData.hits.length) {
+    graphics.push(
+      ...pxData.hits.map(img => img.webformatURL)
+    );
+  }
+}
+
+// UNSPLASH
+if (unsplashKey) {
+  const usResponse = await fetch(
+    `https://api.unsplash.com/search/photos?query=${query}&per_page=6`,
+    {
+      headers: {
+        Authorization: `Client-ID ${unsplashKey}`
+      }
+    }
+  );
+
+  const usData = await usResponse.json();
+
+  if (usData.results && usData.results.length) {
+    graphics.push(
+      ...usData.results.map(img => img.urls.regular)
+    );
+  }
+}
+
+// LIMPIAR DUPLICADOS Y LIMITAR
+graphics = [...new Set(graphics)].slice(0, 8);
+
+return graphics;
+
+} catch (error) { console.error("GRAPHICS ERROR:", error.message); return []; } }
+
+// ========================================= // BLOQUE 13 — USO DENTRO DE /api/chat // =========================================
+
+// Antes del return res.json(...) const graphics = await getGraphics(message);
+
+return res.json({ reply, graphics, context, email, product_name, area });
+
+// ========================================= // BLOQUE 12 — FUNCIÓN GLOBAL DE GRÁFICAS // =========================================
+
+async function getGraphics(topic) { try {
+
+const query = encodeURIComponent(topic);
+
+const pixabayKey = process.env.PIXABAY_KEY;
+const unsplashKey = process.env.UNSPLASH_KEY;
+
+let results = [];
+
+// Pixabay
+if (pixabayKey) {
+  const px = await fetch(
+    `https://pixabay.com/api/?key=${pixabayKey}&q=${query}&image_type=photo&per_page=8&safesearch=true`
+  );
+
+  const pxData = await px.json();
+
+  if (pxData.hits) {
+    results.push(
+      ...pxData.hits.map(img => img.webformatURL)
+    );
+  }
+}
+
+// Unsplash
+if (unsplashKey) {
+  const us = await fetch(
+    `https://api.unsplash.com/search/photos?query=${query}&per_page=8`,
+    {
+      headers: {
+        Authorization: `Client-ID ${unsplashKey}`
+      }
+    }
+  );
+
+  const usData = await us.json();
+
+  if (usData.results) {
+    results.push(
+      ...usData.results.map(img => img.urls.regular)
+    );
+  }
+}
+
+// Eliminar duplicados y limitar
+results = [...new Set(results)].slice(0, 8);
+
+return results;
+
+} catch (err) { console.error("ERROR getGraphics:", err); return []; } }
+
+// ========================================= // BLOQUE 13 — USO DENTRO DE /api/chat // =========================================
+
+// Después de construir la respuesta del tutor: // const reply = ...
+
+const graphics = await getGraphics(userMessage);
+
+return res.json({ reply, graphics });
+
 /* =========================================================
 BLOQUE 2 — MOTOR DE RESPUESTA AVANZADO (SAFE EXTENSION)
 NO INTERFIERE CON /api/chat
