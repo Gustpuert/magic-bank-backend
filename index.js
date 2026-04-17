@@ -3229,228 +3229,142 @@ ENDPOINT /api/chat
 
 app.post("/api/chat", async (req, res) => {
   try {
-    const message = String(req.body.message || "").trim();
-    const email = String(req.body.email || "").trim();
-    const product_name = String(req.body.product_name || "General").trim();
-    const context = String(req.body.context || "normal").trim();
+    const message = (req.body.message || "").toString().trim().toLowerCase();
 
-    if (!message) {
-      return res.status(400).json({
-        ok: false,
-        reply: "No recibí ningún mensaje.",
-        graphics: [],
-        visualQuery: null,
-        meta: {
-          mode: "empty"
-        }
-      });
-    }
-
-    /* =========================================
-    1. FALLBACK SI NO HAY OPENAI
-    ========================================= */
-
-    if (!process.env.OPENAI_API_KEY) {
-      const fallback = processChatMessage({
-        message,
-        context,
-        user: email
-      });
-
-      return res.json({
-        ok: true,
-        reply: fallback.reply,
-        graphics: [],
-        visualQuery: null,
-        meta: {
-          source: "fallback_local",
-          context
-        }
-      });
-    }
-
-    /* =========================================
-    2. CONFIGURACIÓN ADAPTATIVA
-    ========================================= */
-
-    const adaptiveConfig = await getAdaptiveConfigSafe({
-      email,
-      product_name
-    });
-
-    const userRisk = await detectUserRisk({
-      email,
-      product_name
-    });
-
-    /* =========================================
-    3. PROMPT DINÁMICO
-    ========================================= */
-
-    let tutorStyle = `
-Eres un tutor experto de MagicBank.
-
-Producto actual: ${product_name}
-Modo adaptativo: ${adaptiveConfig.mode}
-Ritmo: ${adaptiveConfig.pacing}/5
-Profundidad: ${adaptiveConfig.depth}/5
-Riesgo detectado: ${userRisk}
-
-Reglas:
-- explica con claridad
-- usa ejemplos
-- responde exactamente al tema
-- si el usuario está confundido, simplifica
-- si el usuario está impaciente, responde más directo
-- si el usuario está frustrado, tranquilízalo
-- nunca inventes información
-- no uses frases robóticas
-`;
-
-    if (adaptiveConfig.mode === "explanatory") {
-      tutorStyle += `\nExplica paso a paso, usa analogías y ejemplos sencillos.`;
-    }
-
-    if (adaptiveConfig.mode === "direct") {
-      tutorStyle += `\nResponde en máximo 3 bloques cortos y ve directo al punto.`;
-    }
-
-    if (adaptiveConfig.mode === "calm") {
-      tutorStyle += `\nVe despacio y divide la explicación en partes.`;
-    }
-
-    if (userRisk === "frustrated") {
-      tutorStyle += `\nEl usuario puede estar frustrado. Sé empático y calmado.`;
-    }
-
-    if (userRisk === "abandonment") {
-      tutorStyle += `\nHaz la respuesta más motivadora y fácil de seguir.`;
-    }
-
-    /* =========================================
-    4. LLAMADA OPENAI SEGURA
-    ========================================= */
-
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4.1-mini",
-      temperature: adaptiveConfig.mode === "direct" ? 0.4 : 0.7,
-      max_tokens: adaptiveConfig.depth >= 4 ? 1200 : 700,
-      messages: [
-        {
-          role: "system",
-          content: tutorStyle
-        },
-        {
-          role: "user",
-          content: message
-        }
-      ]
-    });
-
-    let reply = completion.choices?.[0]?.message?.content ||
-      "No pude generar una respuesta.";
-
-    /* =========================================
-    5. ADAPTACIÓN FINAL DEL TEXTO
-    ========================================= */
-
-    reply = adaptReplyStyle(reply, {
-      ...adaptiveConfig,
-      risk: userRisk
-    });
-
-    /* =========================================
-    6. DETECCIÓN DE IMAGEN / INFOGRAFÍA
-    ========================================= */
-
-    const visualQuery = extractVisualQuery(reply);
-
+    let reply = "No entendí bien tu pregunta. ¿Puedes explicarla de otra forma?";
     let graphics = [];
 
-    try {
-      graphics = await getGraphics(visualQuery);
-    } catch (err) {
-      console.error("GRAPHICS SAFE ERROR:", err.message);
-      graphics = [];
+    // =========================
+    // RESPUESTAS DEL TUTOR
+    // =========================
+
+    if (
+      message.includes("hola") ||
+      message.includes("buenas") ||
+      message.includes("hey")
+    ) {
+      reply =
+        "👋 Hola. Bienvenido a MagicBank IA. Estoy listo para ayudarte a aprender cualquier tema.";
     }
 
-    /* =========================================
-    7. GUARDAR FEEDBACK AUTOMÁTICO
-    ========================================= */
+    else if (
+      message.includes("comida saludable") ||
+      message.includes("alimentación") ||
+      message.includes("nutrición")
+    ) {
+      reply =
+        "Una alimentación saludable combina proteínas, verduras, frutas, agua y carbohidratos en proporciones equilibradas.";
 
-    try {
-      await saveFeedbackSafe({
-        email,
-        product_name,
-        message
-      });
-
-      const category = classifyUserFeedback(message);
-
-      await updateUserBehaviorSafe({
-        email,
-        category
-      });
-
-    } catch (err) {
-      console.error("POST CHAT SAFE ERROR:", err.message);
+      graphics = [
+        "https://images.unsplash.com/photo-1490645935967-10de6ba17061?w=800",
+        "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=800",
+        "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800"
+      ];
     }
 
-    /* =========================================
-    8. RESPUESTA FINAL
-    ========================================= */
+    else if (
+      message.includes("corazón") ||
+      message.includes("heart")
+    ) {
+      reply =
+        "El corazón tiene cuatro cavidades: dos aurículas y dos ventrículos. Su función es bombear sangre por todo el cuerpo.";
 
-    return res.json({
+      graphics = [
+        "https://images.unsplash.com/photo-1530026186672-2cd00ffc50fe?w=800",
+        "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800"
+      ];
+    }
+
+    else if (
+      message.includes("piano") ||
+      message.includes("música") ||
+      message.includes("instrumento")
+    ) {
+      reply =
+        "El piano es uno de los instrumentos más completos. Tiene teclado, cuerdas internas y permite interpretar melodía y armonía al mismo tiempo.";
+
+      graphics = [
+        "https://images.unsplash.com/photo-1514119412350-e174d90d280e?w=800",
+        "https://images.unsplash.com/photo-1493225457124-a3eb161ffa5f?w=800",
+        "https://images.unsplash.com/photo-1507838153414-b4b713384a76?w=800"
+      ];
+    }
+
+    else if (
+      message.includes("planeta") ||
+      message.includes("sistema solar")
+    ) {
+      reply =
+        "El sistema solar está formado por el Sol y ocho planetas principales que giran a su alrededor.";
+
+      graphics = [
+        "https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=800",
+        "https://images.unsplash.com/photo-1462331940025-496dfbfc7564?w=800"
+      ];
+    }
+
+    else if (
+      message.includes("derecho") ||
+      message.includes("ley")
+    ) {
+      reply =
+        "El derecho es el conjunto de normas que regulan la convivencia en una sociedad. Puede dividirse en derecho civil, penal, laboral y otras ramas.";
+
+      graphics = [
+        "https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=800",
+        "https://images.unsplash.com/photo-1528747008803-4f3f9622e4c6?w=800"
+      ];
+    }
+
+    else if (
+      message.includes("programación") ||
+      message.includes("javascript") ||
+      message.includes("codigo") ||
+      message.includes("código")
+    ) {
+      reply =
+        "Programar consiste en escribir instrucciones para que una computadora realice tareas. JavaScript es uno de los lenguajes más usados en la web.";
+
+      graphics = [
+        "https://images.unsplash.com/photo-1515879218367-8466d910aaa4?w=800",
+        "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=800"
+      ];
+    }
+
+    else if (
+      message.includes("medicina") ||
+      message.includes("hospital")
+    ) {
+      reply =
+        "La medicina estudia la prevención, diagnóstico y tratamiento de enfermedades.";
+
+      graphics = [
+        "https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=800",
+        "https://images.unsplash.com/photo-1580281657527-47f249e8f4df?w=800"
+      ];
+    }
+
+    else {
+      reply =
+        "Puedo ayudarte con temas de nutrición, música, derecho, medicina, programación, ciencia y muchos más. Escríbeme el tema específico que quieres aprender.";
+    }
+
+    res.json({
       ok: true,
       reply,
-      graphics,
-      visualQuery,
-      meta: {
-        source: "openai",
-        adaptive_mode: adaptiveConfig.mode,
-        pacing: adaptiveConfig.pacing,
-        depth: adaptiveConfig.depth,
-        risk: userRisk,
-        product_name
-      }
+      graphics
     });
 
   } catch (error) {
+    console.error("ERROR /api/chat:", error);
 
-    console.error("API CHAT ERROR:", error);
-
-    /* =========================================
-    FALLBACK ABSOLUTO
-    ========================================= */
-
-    try {
-      const fallback = processChatMessage({
-        message: req.body.message,
-        context: req.body.context || "normal"
-      });
-
-      return res.json({
-        ok: true,
-        reply: fallback.reply,
-        graphics: [],
-        visualQuery: null,
-        meta: {
-          source: "emergency_fallback"
-        }
-      });
-
-    } catch (err) {
-
-      return res.status(500).json({
-        ok: false,
-        reply: "Ocurrió un error interno generando la respuesta.",
-        graphics: [],
-        visualQuery: null
-      });
-    }
+    res.status(500).json({
+      ok: false,
+      reply: "Ocurrió un error interno en el tutor.",
+      graphics: []
+    });
   }
 });
-
 
 /* =========================================================
 BLOQUE 2 — MOTOR DE RESPUESTA AVANZADO (SAFE EXTENSION)
