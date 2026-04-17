@@ -3023,9 +3023,9 @@ app.get("/api/catalogo-publico", (req, res) => {
 
 /* ========================================================= BLOQUE 01 - IMPORTACIONES ========================================================= */
 
-import express from "express"; import fetch from "node-fetch"; import OpenAI from "openai";
+import fetch from "node-fetch"; import OpenAI from "openai";
 
-const app = express();
+
 
 app.use(express.json());
 
@@ -3061,57 +3061,10 @@ const text = (reply || "").toLowerCase();
 
 /* BACHILLERATO Y CIENCIAS */ if(text.includes("sistema solar")) return "solar system educational infographic"; if(text.includes("celula")) return "animal cell labeled diagram"; if(text.includes("fotosintesis")) return "photosynthesis process infographic"; if(text.includes("tabla periodica")) return "periodic table infographic"; if(text.includes("mitosis")) return "mitosis phases diagram"; if(text.includes("mapa")) return "world map educational infographic";
 
-/* FALLBACK GENERAL */ return ${text.split(" ").slice(0,12).join(" ")} educational infographic; }
+    /* FALLBACK GENERAL */
+return `${text.split(" ").slice(0,12).join(" ")} educational infographic`;    }
 
-/* ========================================================= BLOQUE 03 - BUSCADOR DE GRÁFICAS ========================================================= */
 
-async function getGraphics(query){
-
-try{
-
-const results = [];
-
-/* PIXABAY */
-if(process.env.PIXABAY_KEY){
-
-  const pixabayResponse = await fetch(
-    `https://pixabay.com/api/?key=${process.env.PIXABAY_KEY}&q=${encodeURIComponent(query)}&image_type=photo&per_page=8&safesearch=true`
-  );
-
-  const pixabayData = await pixabayResponse.json();
-
-  (pixabayData.hits || []).forEach(img => {
-    if(img.webformatURL) results.push(img.webformatURL);
-  });
-}
-
-/* UNSPLASH */
-if(process.env.UNSPLASH_KEY){
-
-  const unsplashResponse = await fetch(
-    `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=8`,
-    {
-      headers: {
-        Authorization: `Client-ID ${process.env.UNSPLASH_KEY}`
-      }
-    }
-  );
-
-  const unsplashData = await unsplashResponse.json();
-
-  (unsplashData.results || []).forEach(img => {
-    if(img.urls?.regular) results.push(img.urls.regular);
-  });
-}
-
-return [...new Set(results)].slice(0,8);
-
-}catch(error){
-
-console.error("❌ Error buscando gráficas:", error);
-return [];
-
-} }
 
 /* ========================================================= BLOQUE 04 - API CHAT PRINCIPAL - GRÁFICAS INTELIGENTES RUTA: /api/chat ========================================================= */
 
@@ -3159,44 +3112,9 @@ return res.status(500).json({
 
 } });
 
-/* ========================================================= BLOQUE 05 - EXPORTACIÓN ========================================================= */
 
-export default app;
 
-// ========================================= // BLOQUE 12 — FUNCIÓN GLOBAL DE GRÁFICAS // CONECTA PIXABAY_KEY + UNSPLASH_KEY DE RAILWAY // =========================================
 
-async function getGraphics(topic) { try { const query = encodeURIComponent(topic || "education");
-
-const pixabayKey = process.env.PIXABAY_KEY;
-const unsplashKey = process.env.UNSPLASH_KEY;
-
-let graphics = [];
-
-// PIXABAY
-if (pixabayKey) {
-  const pxResponse = await fetch(
-    `https://pixabay.com/api/?key=${pixabayKey}&q=${query}&image_type=photo&per_page=6&safesearch=true`
-  );
-
-  const pxData = await pxResponse.json();
-
-  if (pxData.hits && pxData.hits.length) {
-    graphics.push(
-      ...pxData.hits.map(img => img.webformatURL)
-    );
-  }
-}
-
-// UNSPLASH
-if (unsplashKey) {
-  const usResponse = await fetch(
-    `https://api.unsplash.com/search/photos?query=${query}&per_page=6`,
-    {
-      headers: {
-        Authorization: `Client-ID ${unsplashKey}`
-      }
-    }
-  );
 
   const usData = await usResponse.json();
 
@@ -3273,13 +3191,7 @@ return results;
 
 } catch (err) { console.error("ERROR getGraphics:", err); return []; } }
 
-// ========================================= // BLOQUE 13 — USO DENTRO DE /api/chat // =========================================
 
-// Después de construir la respuesta del tutor: // const reply = ...
-
-const graphics = await getGraphics(userMessage);
-
-return res.json({ reply, graphics });
 
 /* =========================================================
 BLOQUE 2 — MOTOR DE RESPUESTA AVANZADO (SAFE EXTENSION)
