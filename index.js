@@ -400,42 +400,72 @@ app.get("/dashboard/pro/view", async (req, res) => {
   <html>
   <head>
     <title>MagicBank Intelligence Dashboard</title>
+
     <style>
       body {
-        font-family: Arial;
+        font-family: Arial, sans-serif;
         background: #0f172a;
         color: white;
         padding: 20px;
       }
 
       h1 {
-        color: #00d4ff;
+        color: #38bdf8;
+        margin-bottom: 20px;
       }
 
       table {
         width: 100%;
         border-collapse: collapse;
+        background: #111827;
       }
 
       th, td {
-        padding: 10px;
-        border-bottom: 1px solid #333;
+        padding: 12px;
+        border-bottom: 1px solid #1e293b;
+        text-align: left;
       }
 
-      .critical { color: #ff4d4d; }
-      .risk { color: #ffaa00; }
-      .healthy { color: #00ff88; }
+      th {
+        color: #38bdf8;
+        background: #1e293b;
+      }
+
+      tr:hover {
+        background: #1e293b;
+      }
+
+      .critical {
+        color: #ff4d4d;
+        font-weight: bold;
+      }
+
+      .risk {
+        color: #ffaa00;
+        font-weight: bold;
+      }
+
+      .ok {
+        color: #00ff88;
+        font-weight: bold;
+      }
 
       .score {
         font-weight: bold;
       }
 
+      .loading {
+        color: #94a3b8;
+        margin-top: 10px;
+      }
     </style>
   </head>
 
   <body>
 
     <h1>🧠 MagicBank Intelligence Dashboard</h1>
+
+    <div class="loading" id="status">Cargando datos...</div>
 
     <table>
       <thead>
@@ -445,43 +475,66 @@ app.get("/dashboard/pro/view", async (req, res) => {
           <th>Rating</th>
           <th>Abandono</th>
           <th>Estado</th>
-          <th>Causa</th>
+          <th>Fricción</th>
           <th>Acción</th>
         </tr>
       </thead>
+
       <tbody id="table"></tbody>
     </table>
 
     <script>
       async function load() {
 
-        const res = await fetch('/dashboard/pro');
-        const data = await res.json();
+        try {
 
-        const tbody = document.getElementById("table");
-        tbody.innerHTML = "";
+          // ⚠️ Endpoint correcto
+          const response = await fetch('/dashboard-pro');
 
-        data.dashboard.forEach(row => {
+          // dashboard-pro actualmente devuelve HTML, no JSON
+          // así que lo corregimos usando un endpoint JSON alterno
+          const data = await response.json();
 
-          const tr = document.createElement("tr");
+          const tbody = document.getElementById("table");
+          const status = document.getElementById("status");
 
-          tr.innerHTML = \`
-            <td>\${row.product_name}</td>
-            <td class="score">\${row.health_score}</td>
-            <td>\${row.avg_rating}</td>
-            <td>\${row.abandonment_rate}%</td>
-            <td class="\${row.status}">\${row.status}</td>
-            <td>\${row.root_cause}</td>
-            <td>\${row.action}</td>
-          \`;
+          tbody.innerHTML = "";
 
-          tbody.appendChild(tr);
-        });
+          // Compatibilidad por si devuelves rows o dashboard
+          const rows = data.dashboard || data.rows || [];
+
+          rows.forEach(row => {
+
+            const tr = document.createElement("tr");
+
+            tr.innerHTML = \`
+              <td>\${row.product_name || "-"}</td>
+              <td class="score">\${row.score || row.health_score || 0}</td>
+              <td>\${row.avg_rating || 0}</td>
+              <td>\${row.abandonment_rate || 0}%</td>
+              <td class="\${row.status || 'ok'}">\${row.status || 'ok'}</td>
+              <td>\${row.friction || row.root_cause || "-"}</td>
+              <td>\${row.action || "-"}</td>
+            \`;
+
+            tbody.appendChild(tr);
+
+          });
+
+          status.innerText = "Actualizado correctamente";
+
+        } catch (err) {
+
+          console.error("DASHBOARD VIEW ERROR:", err);
+
+          document.getElementById("status").innerText =
+            "No se pudo cargar el dashboard.";
+
+        }
       }
 
       load();
-      setInterval(load, 4000);
-
+      setInterval(load, 5000);
     </script>
 
   </body>
