@@ -4748,6 +4748,52 @@ app.get("/create-first-ip-column", async (req, res) => {
   }
 });
 
+app.get("/test-images", async (req, res) => {
+  try {
+
+    const query = req.query.q || "photosynthesis process infographic";
+
+    const graphics = await getGraphics(query);
+
+    res.send(`
+      <html>
+      <body style="font-family:Arial;padding:20px;background:#111;color:white">
+
+        <h2>Visual Query</h2>
+        <p>${query}</p>
+
+        <h2>Resultados</h2>
+
+        ${
+          graphics.length
+            ? graphics.map(img => `
+                <img
+                  src="${img}"
+                  style="
+                    width:100%;
+                    max-width:500px;
+                    display:block;
+                    margin-bottom:16px;
+                    border-radius:14px;
+                  "
+                />
+              `).join("")
+            : "<p>No llegaron imágenes. Revisa PIXABAY_KEY y UNSPLASH_KEY.</p>"
+        }
+
+      </body>
+      </html>
+    `);
+
+  } catch (err) {
+
+    console.error(err);
+
+    res.send("Error cargando imágenes");
+
+  }
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
