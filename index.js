@@ -3065,111 +3065,460 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-/* =========================================================
-DETECTOR DE TEMAS VISUALES
-========================================================= */
+const VISUAL_GUIDE = {
 
-function extractVisualQuery(reply = "") {
-  const text = String(reply).toLowerCase();
+  idiomas: {
+    ingles: {
+      animales: [
+        "english animal flashcards for kids",
+        "animal vocabulary english picture dictionary",
+        "farm animals english visual chart",
+        "wild animals vocabulary illustrated"
+      ],
+      frutas: [
+        "fruit vocabulary english flashcards",
+        "fruit names picture dictionary english",
+        "fruits and colors educational chart"
+      ],
+      casa: [
+        "rooms of the house english vocabulary",
+        "house objects english flashcards",
+        "living room kitchen bedroom visual chart"
+      ],
+      verbos: [
+        "common verbs english illustrated chart",
+        "action verbs flashcards english",
+        "daily routines english visual learning"
+      ],
+      cuerpo_humano: [
+        "body parts english flashcards",
+        "human body vocabulary english for students"
+      ],
+      comida: [
+        "food vocabulary english picture dictionary",
+        "restaurant english vocabulary illustrated"
+      ]
+    }
+  },
 
-  /* ===== IDIOMAS ===== */
-  if (text.includes("verb to be")) return "english grammar verb to be infographic";
-  if (text.includes("present simple")) return "present simple english chart";
-  if (text.includes("past simple")) return "past simple english timeline infographic";
-  if (text.includes("future tense")) return "future tense english grammar chart";
-  if (text.includes("phrasal verbs")) return "phrasal verbs infographic";
-  if (text.includes("pronombres")) return "english pronouns chart";
-  if (text.includes("frances")) return "french grammar infographic";
-  if (text.includes("aleman")) return "german grammar chart";
-  if (text.includes("italiano")) return "italian language infographic";
-  if (text.includes("portugues")) return "portuguese grammar infographic";
-  if (text.includes("chino")) return "chinese language infographic";
+  cocina: {
+    pizzas: {
+      ingredientes: [
+        "pizza ingredients infographic",
+        "types of pizza ingredients visual chart",
+        "pizza toppings comparison"
+      ],
+      preparacion: [
+        "how to make pizza step by step infographic",
+        "pizza dough preparation visual guide",
+        "pizza baking process chart"
+      ]
+    },
+    postres: {
+      tortas: [
+        "cake decoration ideas professional",
+        "cake baking step by step infographic"
+      ],
+      helados: [
+        "ice cream making process infographic",
+        "types of ice cream visual chart"
+      ]
+    },
+    bebidas: {
+      frias: [
+        "cold drinks preparation infographic",
+        "smoothies and frappes visual recipes"
+      ],
+      calientes: [
+        "coffee drinks types illustrated",
+        "hot beverages preparation chart"
+      ],
+      cocteles: [
+        "international cocktails infographic",
+        "cocktail glass types chart",
+        "bartender techniques illustrated"
+      ]
+    }
+  },
 
-  /* ===== DERECHO ===== */
-  if (text.includes("derecho penal")) return "criminal law process diagram";
-  if (text.includes("derecho civil")) return "civil law infographic";
-  if (text.includes("derecho laboral")) return "labor law infographic";
-  if (text.includes("constitucion")) return "constitutional law chart";
-  if (text.includes("contrato")) return "contract law infographic";
-  if (text.includes("demanda")) return "lawsuit process diagram";
+  nutricion: {
+    proteinas: [
+      "high protein foods infographic",
+      "protein sources comparison chart",
+      "best protein foods illustrated"
+    ],
+    carbohidratos: [
+      "healthy carbohydrates infographic",
+      "simple vs complex carbohydrates chart"
+    ],
+    grasas: [
+      "healthy fats vs bad fats infographic",
+      "types of dietary fats chart"
+    ],
+    vitaminas: [
+      "vitamin chart infographic",
+      "foods rich in vitamins illustrated"
+    ],
+    dieta_equilibrada: [
+      "balanced diet plate infographic",
+      "healthy meal composition chart"
+    ]
+  },
 
-  /* ===== CONTADURÍA ===== */
-  if (text.includes("balance general")) return "balance sheet infographic";
-  if (text.includes("estado de resultados")) return "income statement chart";
-  if (text.includes("flujo de caja")) return "cash flow chart";
-  if (text.includes("activo") || text.includes("pasivo")) {
-    return "assets liabilities equity infographic";
+  interiores: {
+    salas: [
+      "modern living room interior design inspiration",
+      "living room styles comparison",
+      "luxury living room decoration ideas"
+    ],
+    habitaciones: [
+      "modern bedroom interior design",
+      "bedroom styles comparison chart"
+    ],
+    cocinas: [
+      "modern kitchen interior design",
+      "kitchen layout ideas visual"
+    ],
+    colores: [
+      "interior design color palette infographic",
+      "wall color combinations interior design"
+    ],
+    estilos: [
+      "minimalist vs classic interior design",
+      "industrial modern bohemian interior styles"
+    ]
+  },
+
+  derecho: {
+    tribunal: [
+      "courtroom judge lawyers trial infographic",
+      "tribunal structure courtroom diagram",
+      "criminal court process infographic"
+    ],
+    juzgado: [
+      "difference between court and tribunal diagram",
+      "judge office legal infographic"
+    ],
+    derecho_penal: [
+      "criminal law infographic",
+      "criminal justice system diagram",
+      "criminal procedure flowchart"
+    ],
+    derecho_civil: [
+      "civil law process infographic",
+      "civil lawsuit stages chart"
+    ],
+    contratos: [
+      "types of contracts infographic",
+      "contract structure legal diagram"
+    ]
+  },
+
+  contaduria: {
+    balance_general: [
+      "balance sheet infographic",
+      "assets liabilities equity visual chart"
+    ],
+    estado_resultados: [
+      "income statement infographic",
+      "profit and loss statement visual guide"
+    ],
+    flujo_caja: [
+      "cash flow infographic",
+      "cash flow statement explained visually"
+    ],
+    contabilidad_basica: [
+      "basic accounting concepts infographic",
+      "debit and credit visual chart"
+    ]
+  },
+
+  marketing: {
+    branding: [
+      "branding examples infographic",
+      "brand identity design comparison"
+    ],
+    logos: [
+      "famous logo styles comparison",
+      "types of logos infographic"
+    ],
+    embudo: [
+      "marketing funnel infographic",
+      "sales funnel explained visually"
+    ],
+    redes_sociales: [
+      "social media marketing strategy infographic",
+      "instagram facebook tiktok marketing chart"
+    ],
+    packaging: [
+      "product packaging design examples",
+      "packaging styles comparison"
+    ]
+  },
+
+  negocios: {
+    modelo_negocio: [
+      "business model canvas infographic",
+      "business model examples chart"
+    ],
+    liderazgo: [
+      "leadership styles infographic",
+      "team management visual chart"
+    ],
+    emprendimiento: [
+      "startup creation process infographic",
+      "entrepreneurship roadmap visual"
+    ],
+    organigrama: [
+      "company organizational chart",
+      "business hierarchy infographic"
+    ]
+  },
+
+  software: {
+    html: [
+      "html structure infographic",
+      "basic html tags visual chart"
+    ],
+    css: [
+      "css box model infographic",
+      "css layout visual guide"
+    ],
+    javascript: [
+      "javascript basics infographic",
+      "javascript variables functions chart"
+    ],
+    bases_de_datos: [
+      "database schema visual diagram",
+      "sql tables relationship infographic"
+    ],
+    arquitectura: [
+      "software architecture diagram",
+      "frontend backend database visual chart"
+    ]
+  },
+
+  bachillerato: {
+    primaria: {
+      primero: {
+        letras: [
+          "alphabet for children colorful chart",
+          "letters and sounds educational poster"
+        ],
+        numeros: [
+          "numbers 1 to 20 for children infographic",
+          "counting objects educational chart"
+        ],
+        animales: [
+          "farm animals for children flashcards",
+          "wild animals educational poster kids"
+        ]
+      },
+      segundo: {
+        sumas: [
+          "addition for kids visual chart",
+          "basic addition illustrated exercises"
+        ],
+        restas: [
+          "subtraction for children infographic",
+          "subtracting with objects educational chart"
+        ],
+        sistema_solar: [
+          "solar system for children colorful infographic",
+          "planets for kids educational poster"
+        ]
+      },
+      tercero: {
+        multiplicacion: [
+          "multiplication tables visual chart",
+          "times tables for kids infographic"
+        ],
+        plantas: [
+          "parts of a plant for children",
+          "plant life cycle infographic kids"
+        ],
+        mapas: [
+          "world map for children colorful",
+          "continents and countries kids chart"
+        ]
+      },
+      cuarto: {
+        fracciones: [
+          "fractions visual explanation for children",
+          "fractions with pizza infographic"
+        ],
+        ecosistemas: [
+          "ecosystems for children infographic",
+          "forest desert ocean ecosystem chart"
+        ],
+        historia_antigua: [
+          "ancient civilizations for students infographic",
+          "egypt greece rome educational chart"
+        ]
+      },
+      quinto: {
+        geometria: [
+          "geometry for elementary students",
+          "angles and polygons visual chart"
+        ],
+        aparato_digestivo: [
+          "digestive system for children diagram",
+          "human body organs educational poster"
+        ],
+        energia: [
+          "renewable energy for students infographic",
+          "types of energy educational chart"
+        ]
+      }
+    },
+
+    secundaria: {
+      sexto: {
+        algebra_basica: [
+          "basic algebra infographic for students",
+          "variables and equations visual guide"
+        ],
+        celula: [
+          "animal and plant cell labeled diagram",
+          "cell structure infographic students"
+        ],
+        edad_media: [
+          "middle ages timeline infographic",
+          "medieval society visual chart"
+        ]
+      },
+      septimo: {
+        ecuaciones: [
+          "linear equations explained visually",
+          "equation solving infographic"
+        ],
+        sistema_respiratorio: [
+          "respiratory system diagram students",
+          "lungs and breathing infographic"
+        ],
+        geografia_fisica: [
+          "mountains rivers plains infographic",
+          "physical geography world map"
+        ]
+      },
+      octavo: {
+        funciones: [
+          "functions and graphs infographic",
+          "cartesian plane explained visually"
+        ],
+        fotosintesis: [
+          "photosynthesis process infographic",
+          "photosynthesis explained visually"
+        ],
+        revolucion_francesa: [
+          "french revolution timeline infographic",
+          "french revolution illustrated chart"
+        ]
+      },
+      noveno: {
+        trigonometria: [
+          "trigonometry formulas infographic",
+          "sine cosine tangent visual chart"
+        ],
+        genetica: [
+          "basic genetics infographic",
+          "DNA genes chromosomes explained visually"
+        ],
+        independencia_latinoamerica: [
+          "latin america independence timeline",
+          "independence movements infographic"
+        ]
+      },
+      decimo: {
+        calculo: [
+          "introduction to calculus infographic",
+          "derivatives visual explanation"
+        ],
+        quimica: [
+          "periodic table infographic",
+          "chemical bonds explained visually"
+        ],
+        primera_guerra_mundial: [
+          "world war 1 timeline infographic",
+          "first world war explained visually"
+        ]
+      },
+      undecimo: {
+        estadistica: [
+          "statistics charts and graphs infographic",
+          "mean median mode visual guide"
+        ],
+        fisica: [
+          "newton laws infographic",
+          "motion and forces visual chart"
+        ],
+        filosofia: [
+          "history of philosophy timeline",
+          "major philosophers infographic"
+        ]
+      }
+    }
+  },
+
+  musica: {
+    piano: {
+      acordes: [
+        "piano chords chart",
+        "basic piano chords infographic"
+      ],
+      escalas: [
+        "piano scales visual chart",
+        "major minor scales piano"
+      ],
+      posicion_manos: [
+        "piano hand position diagram",
+        "correct piano posture infographic"
+      ]
+    },
+    guitarra: {
+      acordes: [
+        "guitar chord chart beginner",
+        "basic guitar chords infographic"
+      ],
+      escalas: [
+        "guitar pentatonic scale chart",
+        "guitar scales visual guide"
+      ]
+    },
+    teoria: {
+      notas: [
+        "music notes chart",
+        "musical notation basics infographic"
+      ],
+      armonia: [
+        "music harmony infographic",
+        "chord progression chart"
+      ],
+      instrumentos: [
+        "orchestra instruments chart",
+        "musical instruments families infographic"
+      ]
+    }
   }
+};
 
-  /* ===== ADMINISTRACIÓN ===== */
-  if (text.includes("modelo canvas")) return "business model canvas infographic";
-  if (text.includes("plan de negocios")) return "business plan infographic";
-  if (text.includes("punto de equilibrio")) return "break even point chart";
-  if (text.includes("liderazgo")) return "leadership styles infographic";
 
-  /* ===== MARKETING ===== */
-  if (text.includes("marketing digital")) return "digital marketing infographic";
-  if (text.includes("4p")) return "4P marketing diagram";
-  if (text.includes("seo")) return "SEO strategy infographic";
-  if (text.includes("branding")) return "branding identity chart";
-  if (text.includes("embudo de ventas")) return "sales funnel infographic";
+function detectVisualQueries(message){
+  const msg = message.toLowerCase();
 
-  /* ===== SOFTWARE ===== */
-  if (text.includes("algoritmo")) return "algorithm flowchart";
-  if (text.includes("base de datos")) return "database schema diagram";
-  if (text.includes("html")) return "HTML structure diagram";
-  if (text.includes("javascript")) return "javascript infographic";
-  if (text.includes("api")) return "API request response diagram";
-  if (text.includes("programacion") || text.includes("software")) {
-    return "software development workflow diagram";
-  }
+  if(msg.includes("tribunal")) return VISUAL_GUIDE.derecho.tribunal;
+  if(msg.includes("juzgado")) return VISUAL_GUIDE.derecho.juzgado;
+  if(msg.includes("derecho penal")) return VISUAL_GUIDE.derecho.derecho_penal;
 
-  /* ===== COCINA ===== */
-  if (text.includes("cocina italiana")) return "italian cuisine infographic";
-  if (text.includes("cocina francesa")) return "french cuisine techniques chart";
-  if (text.includes("cocina japonesa")) return "japanese cuisine infographic";
-  if (text.includes("corte juliana")) return "julienne cutting technique infographic";
-  if (text.includes("salsas madre")) return "mother sauces french cuisine chart";
-  if (text.includes("temperaturas de coccion")) return "cooking temperatures chart";
+  if(msg.includes("pizza")) return VISUAL_GUIDE.cocina.pizzas.preparacion;
+  if(msg.includes("coctel")) return VISUAL_GUIDE.cocina.bebidas.cocteles;
 
-  /* ===== NUTRICIÓN ===== */
-  if (text.includes("macronutrientes")) return "macronutrients infographic";
-  if (text.includes("micronutrientes")) return "micronutrients chart";
-  if (text.includes("proteinas")) return "protein sources infographic";
-  if (text.includes("carbohidratos")) return "carbohydrates chart";
-  if (text.includes("grasas saludables")) return "healthy fats infographic";
-  if (text.includes("piramide alimenticia") || text.includes("pirámide alimenticia")) {
-    return "food pyramid infographic";
-  }
+  if(msg.includes("fracciones")) return VISUAL_GUIDE.bachillerato.matematicas.fracciones;
+  if(msg.includes("fotosintesis")) return VISUAL_GUIDE.bachillerato.biologia.fotosintesis;
 
-  /* ===== IA ===== */
-  if (text.includes("chatgpt")) return "chatgpt workflow infographic";
-  if (text.includes("prompt")) return "prompt engineering infographic";
-  if (text.includes("inteligencia artificial")) return "artificial intelligence infographic";
-  if (text.includes("machine learning")) return "machine learning diagram";
-  if (text.includes("red neuronal")) return "neural network infographic";
+  if(msg.includes("piano")) return VISUAL_GUIDE.musica.piano.acordes;
 
-  /* ===== DISEÑO ===== */
-  if (text.includes("teoria del color")) return "interior design color theory chart";
-  if (text.includes("minimalista")) return "minimalist interior design infographic";
-  if (text.includes("nordico")) return "scandinavian interior design infographic";
-  if (text.includes("iluminacion")) return "interior lighting infographic";
-
-  /* ===== MÚSICA ===== */
-  if (text.includes("piano")) return "piano chords infographic";
-  if (text.includes("guitarra")) return "guitar chords chart";
-  if (text.includes("armonia")) return "music harmony infographic";
-  if (text.includes("notas musicales")) return "music notes diagram";
-
-  /* ===== BACHILLERATO ===== */
-  if (text.includes("sistema solar")) return "solar system educational infographic";
-  if (text.includes("celula")) return "animal cell labeled diagram";
-  if (text.includes("fotosintesis")) return "photosynthesis process infographic";
-  if (text.includes("tabla periodica")) return "periodic table infographic";
-  if (text.includes("mitosis")) return "mitosis phases diagram";
-
-  /* ===== FALLBACK ===== */
-  return `${text.split(" ").slice(0, 12).join(" ")} educational infographic`;
+  return [];
 }
 
 /* =========================================================
@@ -3291,7 +3640,16 @@ Cuando enseñes:
     const reply =
       completion.choices?.[0]?.message?.content ||
       "No pude generar una respuesta.";
+let graphics = [];
 
+const visualQueries = detectVisualQueries(message);
+
+for (const q of visualQueries) {
+  const imgs = await getGraphics(q);
+  graphics.push(...imgs);
+}
+
+graphics = [...new Set(graphics)].slice(0, 6);
     /* =========================================================
     4 - DETECTAR QUÉ IMAGEN BUSCAR
     IMPORTANTE: extractVisualQuery YA EXISTE ARRIBA
