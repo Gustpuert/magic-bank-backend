@@ -3026,7 +3026,6 @@ app.get("/api/catalogo-publico", (req, res) => {
 API CHAT — MAGICBANK (VERSIÓN ESTABLE ANTI-CRASH)
 ========================================================= */
 
-
 app.post("/api/chat", async (req, res) => {
 
   try {
