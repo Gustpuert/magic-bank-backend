@@ -3766,11 +3766,11 @@ return res.json({
     ========================================================= */
 
     return res.json({
-      ok: true,
-      reply,
-      graphics,
-      visualQuery
-    });
+  ok: true,
+  reply: reply,
+  graphics: graphics,
+  visualQuery: visualQuery
+});
 
   } catch (error) {
 
