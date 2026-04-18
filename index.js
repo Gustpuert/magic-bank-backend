@@ -3670,7 +3670,7 @@ return res.json({
     IMPORTANTE: extractVisualQuery YA EXISTE ARRIBA
     ========================================================= */
 
-    const visualQuery = extractVisualQuery(`${message} ${reply}`);
+    
 
     console.log("VisualQuery detectada:", visualQuery);
 
