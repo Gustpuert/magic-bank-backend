@@ -3654,7 +3654,7 @@ graphics = [...new Set(graphics)].slice(0, 6);
 const visualQuery = visualQueries.length
   ? visualQueries[0]
   : null;
-}
+
 
 graphics = [...new Set(graphics)].slice(0, 6);
     /* =========================================================
