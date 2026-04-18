@@ -3513,14 +3513,20 @@ function detectVisualQueries(message){
   if(msg.includes("pizza")) return VISUAL_GUIDE.cocina.pizzas.preparacion;
   if(msg.includes("coctel")) return VISUAL_GUIDE.cocina.bebidas.cocteles;
 
-  if(msg.includes("fracciones")) return VISUAL_GUIDE.bachillerato.matematicas.fracciones;
-  if(msg.includes("fotosintesis")) return VISUAL_GUIDE.bachillerato.biologia.fotosintesis;
+  // CORREGIDO
+  if(msg.includes("fracciones")) {
+    return VISUAL_GUIDE.bachillerato.primaria.cuarto.fracciones;
+  }
+
+  // CORREGIDO
+  if(msg.includes("fotosintesis")) {
+    return VISUAL_GUIDE.bachillerato.secundaria.octavo.fotosintesis;
+  }
 
   if(msg.includes("piano")) return VISUAL_GUIDE.musica.piano.acordes;
 
   return [];
 }
-
 /* =========================================================
 BUSCADOR DE GRÁFICAS
 ========================================================= */
@@ -3664,15 +3670,7 @@ return res.json({
 });
 
 
-    } catch (imgError) {
-
-      console.error(
-        "ERROR BUSCANDO IMÁGENES:",
-        imgError.response?.data || imgError.message
-      );
-
-      graphics = [];
-    }
+    
 
     /* =========================================================
     6 - RESPUESTA FINAL
