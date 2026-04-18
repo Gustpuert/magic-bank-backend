@@ -3650,6 +3650,13 @@ for (const q of visualQueries) {
 }
 
 graphics = [...new Set(graphics)].slice(0, 6);
+
+const visualQuery = visualQueries.length
+  ? visualQueries[0]
+  : null;
+}
+
+graphics = [...new Set(graphics)].slice(0, 6);
     /* =========================================================
     4 - DETECTAR QUÉ IMAGEN BUSCAR
     IMPORTANTE: extractVisualQuery YA EXISTE ARRIBA
@@ -3659,15 +3666,7 @@ graphics = [...new Set(graphics)].slice(0, 6);
 
     console.log("VisualQuery detectada:", visualQuery);
 
-    /* =========================================================
-    5 - BUSCAR IMÁGENES
-    ========================================================= */
-
-    let graphics = [];
-
-    try {
-
-      console.log("Buscando imágenes para:", visualQuery);
+    
 
       /* =========================
       PIXABAY PRIMERO
