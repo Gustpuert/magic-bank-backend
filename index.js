@@ -3651,12 +3651,20 @@ for (const q of visualQueries) {
 
 graphics = [...new Set(graphics)].slice(0, 6);
 
-const visualQuery = visualQueries.length
-  ? visualQueries[0]
-  : null;
+const visualQuery =
+  visualQueries.length > 0
+    ? visualQueries[0]
+    : null;
+
+return res.json({
+  ok: true,
+  reply,
+  graphics,
+  visualQuery
+});
 
 
-graphics = [...new Set(graphics)].slice(0, 6);
+
     /* =========================================================
     4 - DETECTAR QUÉ IMAGEN BUSCAR
     IMPORTANTE: extractVisualQuery YA EXISTE ARRIBA
