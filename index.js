@@ -2568,11 +2568,14 @@ app.post("/api/validate-token", async (req, res) => {
       .digest("hex");
 
     const result = await pool.query(`
-      SELECT
-        email,
-        first_ip,
-        expires_at
-      FROM access_tokens
+
+SELECT
+  email,
+  first_ip,
+  device_id,
+  expires_at
+FROM access_tokens
+      
       WHERE token = $1
       LIMIT 1
     `, [tokenHash]);
@@ -2628,12 +2631,20 @@ if (!access.first_ip) {
 }
 
     // Mismo dispositivo / misma red
-    if (access.first_ip === currentIp) {
-      return res.json({
-        valid: true,
-        email: access.email
-      });
-    }
+
+    const savedDeviceId = String(access.device_id || "").trim();
+const currentDeviceId = String(req.body.device_id || "").trim();
+
+if (
+  savedDeviceId &&
+  currentDeviceId &&
+  savedDeviceId === currentDeviceId
+) {
+  return res.json({
+    valid: true,
+    email: access.email
+  });
+}
 
     // Otro teléfono o red distinta
     return res.status(403).json({
