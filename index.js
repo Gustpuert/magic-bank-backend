@@ -1313,7 +1313,7 @@ app.get("/access/:token", async (req, res) => {
 
 try {
 
-const rawToken = req.params.token;
+  const rawToken = req.params.token.replace(/\s+/g, "").trim();
 
 const tokenHash = crypto
 .createHash("sha256")
