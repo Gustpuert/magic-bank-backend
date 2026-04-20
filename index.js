@@ -1335,6 +1335,7 @@ return res.status(403).send("Acceso inválido");
 }
 
 const tokenData = r.rows[0];
+  console.log("uses:", tokenData.token_uses, "max:", tokenData.max_uses);
 
 if (tokenData.token_uses >= tokenData.max_uses) {
 return res.status(403).send("Token excedió número máximo de usos");
