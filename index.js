@@ -5086,7 +5086,28 @@ function copyAccess() {
 });
 
 
+app.get("/temp/add-profile-columns", async (req, res) => {
+  try {
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS age TEXT,
+      ADD COLUMN IF NOT EXISTS country TEXT,
+      ADD COLUMN IF NOT EXISTS language TEXT,
+      ADD COLUMN IF NOT EXISTS grade_level TEXT;
+    `);
 
+    res.json({
+      ok: true,
+      message: "Columnas de perfil agregadas"
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});
 
 
 /*=========================================================
