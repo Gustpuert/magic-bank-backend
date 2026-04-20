@@ -2539,11 +2539,14 @@ LIMIT 100
 res.json(logs.rows);
 
 });
-
+/*≈=≈≈==========================================
+      api/validate-token
+=================================================*/
 
 app.post("/api/validate-token", async (req, res) => {
   try {
     const rawInput = String(req.body.token || "").trim();
+    const incomingName = String(req.body.full_name || "").trim().toLowerCase();
 
     if (!rawInput) {
       return res.status(400).json({
@@ -2554,28 +2557,27 @@ app.post("/api/validate-token", async (req, res) => {
 
     // Permite pegar:
     // Correo: ...
-    // Token: xxxxx
+    // Token: XXXXX
     const tokenMatch = rawInput.match(/token\s*:\s*([a-zA-Z0-9]+)/i);
 
     const rawToken = tokenMatch
       ? tokenMatch[1].trim()
       : rawInput;
 
-    // Tu sistema guarda el token hasheado
     const tokenHash = crypto
       .createHash("sha256")
       .update(rawToken)
       .digest("hex");
 
     const result = await pool.query(`
-
-SELECT
-  email,
-  first_ip,
-  device_id,
-  expires_at
-FROM access_tokens
-      
+      SELECT
+        email,
+        full_name,
+        device_fingerprint,
+        device_change_used,
+        expires_at,
+        blocked_until
+      FROM access_tokens
       WHERE token = $1
       LIMIT 1
     `, [tokenHash]);
@@ -2583,80 +2585,168 @@ FROM access_tokens
     if (!result.rowCount) {
       return res.status(403).json({
         valid: false,
-        error: "Your MagicBank access token is invalid or expired."
+        error: "Tu acceso MagicBank es inválido."
       });
     }
 
     const access = result.rows[0];
 
+    // Expirado
     if (access.expires_at && new Date(access.expires_at) < new Date()) {
       return res.status(403).json({
         valid: false,
-        error: "Your MagicBank access token is invalid or expired."
+        error: "Tu acceso MagicBank ha expirado."
       });
     }
 
-    const currentIp = (
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress ||
-      ""
-    )
-      .toString()
-      .split(",")[0]
-      .trim();
+    // Bloqueado temporalmente
+    if (
+      access.blocked_until &&
+      new Date(access.blocked_until) > new Date()
+    ) {
+      return res.status(403).json({
+        valid: false,
+        error: "Tu acceso está temporalmente bloqueado. Intenta más tarde."
+      });
+    }
 
-    // Primer uso del token
+    // Huella simple compatible con tu frontend actual
+    const currentFingerprint = crypto
+      .createHash("sha256")
+      .update(
+        [
+          req.headers["user-agent"] || "",
+          req.headers["accept-language"] || "",
+          (req.headers["x-forwarded-for"] || req.socket.remoteAddress || "")
+            .toString()
+            .split(",")[0]
+            .trim()
+        ].join("|")
+      )
+      .digest("hex");
 
-    const incomingDeviceId = String(req.body.device_id || "").trim();
+    // =========================================================
+    // PRIMER INGRESO
+    // Guarda nombre + dispositivo
+    // =========================================================
 
-if (!access.first_ip) {
+    if (!access.device_fingerprint) {
 
-  await pool.query(`
-    UPDATE access_tokens
-    SET
-      first_ip = $1,
-      device_id = $2,
-      activated_at = NOW()
-    WHERE token = $3
-  `, [
-    currentIp,
-    incomingDeviceId || currentIp,
-    tokenHash
-  ]);
+      if (!incomingName) {
+        return res.status(400).json({
+          valid: false,
+          require_name: true,
+          error: "Debes escribir tu nombre completo tal como aparecerá en tu certificado."
+        });
+      }
 
-  return res.json({
-    valid: true,
-    email: access.email
-  });
-}
+      await pool.query(`
+        UPDATE access_tokens
+        SET
+          full_name = $1,
+          device_fingerprint = $2,
+          first_login_at = NOW(),
+          last_login_at = NOW()
+        WHERE token = $3
+      `, [
+        incomingName,
+        currentFingerprint,
+        tokenHash
+      ]);
 
-    // Mismo dispositivo / misma red
+      return res.json({
+        valid: true,
+        email: access.email
+      });
+    }
 
-    const savedDeviceId = String(access.device_id || "").trim();
-const currentDeviceId = String(req.body.device_id || "").trim();
+    // =========================================================
+    // MISMO DISPOSITIVO
+    // =========================================================
 
-if (
-  savedDeviceId &&
-  currentDeviceId &&
-  savedDeviceId === currentDeviceId
-) {
-  return res.json({
-    valid: true,
-    email: access.email
-  });
-}
+    if (access.device_fingerprint === currentFingerprint) {
 
-    // Otro teléfono o red distinta
+      await pool.query(`
+        UPDATE access_tokens
+        SET last_login_at = NOW()
+        WHERE token = $1
+      `, [tokenHash]);
+
+      return res.json({
+        valid: true,
+        email: access.email
+      });
+    }
+
+    // =========================================================
+    // CAMBIO DE DISPOSITIVO (SOLO 1 VEZ)
+    // Debe coincidir el nombre guardado
+    // =========================================================
+
+    if (!access.device_change_used) {
+
+      if (!incomingName) {
+        return res.status(403).json({
+          valid: false,
+          require_name: true,
+          error: "Para cambiar de dispositivo debes escribir tu nombre completo."
+        });
+      }
+
+      const savedName = String(access.full_name || "")
+        .trim()
+        .toLowerCase();
+
+      // Nombre diferente → bloqueo preventivo
+      if (!savedName || savedName !== incomingName) {
+
+        await pool.query(`
+          UPDATE access_tokens
+          SET blocked_until = NOW() + INTERVAL '12 hours'
+          WHERE token = $1
+        `, [tokenHash]);
+
+        return res.status(403).json({
+          valid: false,
+          error: "No pudimos verificar que seas el titular del acceso."
+        });
+      }
+
+      // Cambio autorizado una sola vez
+      await pool.query(`
+        UPDATE access_tokens
+        SET
+          device_fingerprint = $1,
+          device_change_used = TRUE,
+          last_login_at = NOW()
+        WHERE token = $2
+      `, [
+        currentFingerprint,
+        tokenHash
+      ]);
+
+      return res.json({
+        valid: true,
+        email: access.email,
+        device_changed: true
+      });
+    }
+
+    // =========================================================
+    // YA USÓ SU CAMBIO DE DISPOSITIVO
+    // =========================================================
+
     return res.status(403).json({
       valid: false,
-      error: "This MagicBank access was already activated on another device."
+      error: "Este acceso ya utilizó el único cambio de dispositivo permitido durante los 30 días."
     });
 
   } catch (err) {
     console.error("VALIDATE TOKEN ERROR:", err);
+
     return res.status(500).json({
       valid: false,
-      error: "Internal validation error"
+      error: "Error interno validando acceso"
     });
   }
 });
