@@ -5127,6 +5127,39 @@ app.get("/temp/check-device-history-table", async (req, res) => {
   }
 });
 
+app.get("/test-token/:token", async (req, res) => {
+  try {
+    const rawToken = req.params.token.trim()
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex")
+
+    const result = await pool.query(`
+      SELECT
+        token,
+        email,
+        expires_at
+      FROM access_tokens
+      WHERE token = $1 OR token = $2
+      LIMIT 1
+    `, [rawToken, tokenHash])
+
+    return res.json({
+      rawToken,
+      tokenHash,
+      found: result.rowCount > 0,
+      rows: result.rows
+    })
+
+  } catch (err) {
+    return res.status(500).json({
+      error: err.message
+    })
+  }
+});
+
 
 /*=========================================================
 START
