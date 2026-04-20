@@ -5156,6 +5156,22 @@ app.get("/temp/check-access-security-columns", async (req, res) => {
   }
 });
 
+app.get("/temp/check-device-history-table", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_name = 'device_history'
+    `);
+
+    res.json(result.rows);
+
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+
 /*=========================================================
 START
 ==========≈================================================*/
