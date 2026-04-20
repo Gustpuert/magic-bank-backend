@@ -5133,6 +5133,29 @@ app.get("/temp/create-device-history-table", async (req, res) => {
     res.status(500).send(err.message);
   }
 });
+app.get("/temp/check-access-security-columns", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_name = 'access_tokens'
+      AND column_name IN (
+        'device_id',
+        'first_ip',
+        'activated_at',
+        'blocked_until',
+        'last_access'
+      )
+      ORDER BY column_name
+    `);
+
+    res.json(result.rows);
+
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
