@@ -2537,6 +2537,14 @@ ORDER BY created_at DESC
 LIMIT 100
 `);
 
+res.json(logs.rows);
+
+});
+
+/*≈≈=============================================
+  36- api/validate
+  ==≈≈=========================================*/
+
 
     app.get("/api/validate", async (req, res) => {
   try {
