@@ -2603,20 +2603,29 @@ app.post("/api/validate-token", async (req, res) => {
       .trim();
 
     // Primer uso del token
-    if (!access.first_ip) {
-      await pool.query(`
-        UPDATE access_tokens
-        SET
-          first_ip = $1,
-          activated_at = NOW()
-        WHERE token = $2
-      `, [currentIp, tokenHash]);
 
-      return res.json({
-        valid: true,
-        email: access.email
-      });
-    }
+    const incomingDeviceId = String(req.body.device_id || "").trim();
+
+if (!access.first_ip) {
+
+  await pool.query(`
+    UPDATE access_tokens
+    SET
+      first_ip = $1,
+      device_id = $2,
+      activated_at = NOW()
+    WHERE token = $3
+  `, [
+    currentIp,
+    incomingDeviceId || currentIp,
+    tokenHash
+  ]);
+
+  return res.json({
+    valid: true,
+    email: access.email
+  });
+}
 
     // Mismo dispositivo / misma red
     if (access.first_ip === currentIp) {
