@@ -5084,7 +5084,23 @@ function copyAccess() {
 
 });
 
+app.get("/test-validate", async (req, res) => {
+  try {
 
+    const rawToken = String(req.query.token || "").trim();
+    const fullName = String(req.query.full_name || "").trim();
+    const deviceId = String(req.query.device_id || "").trim();
+
+    res.json({
+      token: rawToken,
+      full_name: fullName,
+      device_id: deviceId
+    });
+
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 /*=========================================================
 START
