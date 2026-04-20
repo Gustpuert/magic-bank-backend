@@ -5084,23 +5084,142 @@ function copyAccess() {
 
 });
 
+
 app.get("/test-validate", async (req, res) => {
   try {
 
     const rawToken = String(req.query.token || "").trim();
-    const fullName = String(req.query.full_name || "").trim();
-    const deviceId = String(req.query.device_id || "").trim();
+    const incomingName = String(req.query.full_name || "")
+      .trim()
+      .toLowerCase();
 
-    res.json({
-      token: rawToken,
-      full_name: fullName,
-      device_id: deviceId
+    const incomingDevice = String(req.query.device_id || "").trim();
+
+    if (!rawToken || !incomingName || !incomingDevice) {
+      return res.status(400).json({
+        valid: false,
+        error: "token, full_name y device_id son requeridos"
+      });
+    }
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    const result = await pool.query(`
+      SELECT
+        email,
+        full_name,
+        device_id,
+        device_change_used,
+        expires_at
+      FROM access_tokens
+      WHERE token = $1
+      LIMIT 1
+    `, [tokenHash]);
+
+    if (!result.rowCount) {
+      return res.status(403).json({
+        valid: false,
+        error: "Token inválido"
+      });
+    }
+
+    const access = result.rows[0];
+
+    if (new Date(access.expires_at) < new Date()) {
+      return res.status(403).json({
+        valid: false,
+        error: "Token expirado"
+      });
+    }
+
+    // Primer ingreso
+    if (!access.full_name) {
+
+      await pool.query(`
+        UPDATE access_tokens
+        SET
+          full_name = $1,
+          device_id = $2,
+          first_login_at = NOW(),
+          last_login_at = NOW()
+        WHERE token = $3
+      `, [
+        incomingName,
+        incomingDevice,
+        tokenHash
+      ]);
+
+      return res.json({
+        valid: true,
+        status: "first_login",
+        email: access.email
+      });
+    }
+
+    // Nombre distinto = bloquear
+    if (access.full_name !== incomingName) {
+      return res.status(403).json({
+        valid: false,
+        error: "El nombre no coincide con el propietario de la suscripción"
+      });
+    }
+
+    // Mismo dispositivo = OK
+    if (access.device_id === incomingDevice) {
+
+      await pool.query(`
+        UPDATE access_tokens
+        SET last_login_at = NOW()
+        WHERE token = $1
+      `, [tokenHash]);
+
+      return res.json({
+        valid: true,
+        status: "same_device",
+        email: access.email
+      });
+    }
+
+    // Permitir un único cambio de dispositivo
+    if (!access.device_change_used) {
+
+      await pool.query(`
+        UPDATE access_tokens
+        SET
+          device_id = $1,
+          device_change_used = TRUE,
+          last_login_at = NOW()
+        WHERE token = $2
+      `, [
+        incomingDevice,
+        tokenHash
+      ]);
+
+      return res.json({
+        valid: true,
+        status: "device_changed_once",
+        email: access.email
+      });
+    }
+
+    return res.status(403).json({
+      valid: false,
+      error: "Ya utilizaste el único cambio de dispositivo permitido este mes"
     });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error(err);
+
+    return res.status(500).json({
+      valid: false,
+      error: err.message
+    });
   }
 });
+
 
 /*=========================================================
 START
