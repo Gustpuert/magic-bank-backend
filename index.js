@@ -2537,224 +2537,156 @@ ORDER BY created_at DESC
 LIMIT 100
 `);
 
-res.json(logs.rows);
 
-});
-/*≈=≈≈==========================================
-      api/validate-token
-=================================================*/
-
-
-
-app.post("/api/validate-token", async (req, res) => {
+    app.get("/api/validate", async (req, res) => {
   try {
+    const rawToken = (req.query.token || "").trim()
+    const deviceId = (req.query.device_id || "").trim()
 
-    const rawInput = String(req.body.token || "").trim();
-    const deviceId = String(req.body.device_id || "").trim();
-
-    if (!rawInput) {
+    if (!rawToken || !deviceId) {
       return res.status(400).json({
         valid: false,
-        error: "Token requerido"
-      });
+        error: "Falta token o device_id"
+      })
     }
-
-    if (!deviceId) {
-      return res.status(400).json({
-        valid: false,
-        error: "Dispositivo requerido"
-      });
-    }
-
-    // Permite pegar:
-    // Correo: ...
-    // Token: XXXXX
-
-    const tokenMatch = rawInput.match(/token\s*:\s*([a-zA-Z0-9]+)/i);
-
-    const rawToken = tokenMatch
-      ? tokenMatch[1].trim()
-      : rawInput;
 
     const tokenHash = crypto
       .createHash("sha256")
       .update(rawToken)
-      .digest("hex");
+      .digest("hex")
 
     const result = await pool.query(`
       SELECT
         email,
-        expires_at,
         device_id,
-        first_ip,
-        activated_at,
-        blocked_until
+        expires_at,
+        blocked_until,
+        last_access
       FROM access_tokens
       WHERE token = $1
       LIMIT 1
-    `, [tokenHash]);
+    `, [tokenHash])
 
     if (!result.rowCount) {
       return res.status(403).json({
         valid: false,
         error: "Token inválido"
-      });
+      })
     }
 
-    const access = result.rows[0];
+    const tokenData = result.rows[0]
 
-    // Expirado
+    /* vencido */
+    if (new Date(tokenData.expires_at) < new Date()) {
+      return res.status(403).json({
+        valid: false,
+        error: "Tu membresía de 30 días ya expiró"
+      })
+    }
+
+    /* bloqueado temporalmente */
     if (
-      access.expires_at &&
-      new Date(access.expires_at) < new Date()
+      tokenData.blocked_until &&
+      new Date(tokenData.blocked_until) > new Date()
     ) {
       return res.status(403).json({
         valid: false,
-        error: "Tu acceso de MagicBank ya expiró"
-      });
+        error: "Acceso temporalmente bloqueado"
+      })
     }
 
-    // Bloqueado por actividad sospechosa
-    if (
-      access.blocked_until &&
-      new Date(access.blocked_until) > new Date()
-    ) {
-      return res.status(403).json({
-        valid: false,
-        error: "Tu acceso fue bloqueado temporalmente por seguridad"
-      });
-    }
-
-    const currentIp = (
-      req.headers["x-forwarded-for"] ||
-      req.socket.remoteAddress ||
-      ""
-    )
-      .toString()
-      .split(",")[0]
-      .trim();
-
-    /* =====================================================
-       1. PRIMER DISPOSITIVO
-    ===================================================== */
-
-    if (!access.device_id) {
-
+    /* primer uso del token */
+    if (!tokenData.device_id) {
       await pool.query(`
         UPDATE access_tokens
         SET
           device_id = $1,
-          first_ip = $2,
-          activated_at = NOW()
-        WHERE token = $3
-      `, [
-        deviceId,
-        currentIp,
-        tokenHash
-      ]);
+          activated_at = NOW(),
+          last_access = NOW()
+        WHERE token = $2
+      `, [deviceId, tokenHash])
 
       return res.json({
         valid: true,
-        email: access.email,
-        status: "first_device_registered"
-      });
+        status: "first_device",
+        email: tokenData.email
+      })
     }
 
-    /* =====================================================
-       2. MISMO DISPOSITIVO = ACCESO NORMAL
-    ===================================================== */
-
-    if (access.device_id === deviceId) {
-
+    /* mismo dispositivo */
+    if (tokenData.device_id === deviceId) {
       await pool.query(`
         UPDATE access_tokens
         SET last_access = NOW()
         WHERE token = $1
-      `, [tokenHash]);
+      `, [tokenHash])
 
       return res.json({
         valid: true,
-        email: access.email,
-        status: "same_device"
-      });
+        status: "same_device",
+        email: tokenData.email
+      })
     }
 
-    /* =====================================================
-       3. NUEVO DISPOSITIVO = REEMPLAZA AL ANTERIOR
-    ===================================================== */
-
-    // Guardar historial para detectar abuso
+    /* dispositivo diferente:
+       anulamos el anterior y autorizamos el nuevo */
     await pool.query(`
-      INSERT INTO device_history
-      (
-        token_hash,
-        previous_device_id,
+      INSERT INTO device_history (
+        token,
+        old_device_id,
         new_device_id,
-        ip_address,
         changed_at
       )
-      VALUES ($1,$2,$3,$4,NOW())
-    `, [
-      tokenHash,
-      access.device_id,
-      deviceId,
-      currentIp
-    ]);
+      VALUES ($1, $2, $3, NOW())
+    `, [tokenHash, tokenData.device_id, deviceId])
 
-    // Contar cuántos cambios lleva este token en 30 días
+    /* detectar demasiados cambios */
     const history = await pool.query(`
-      SELECT COUNT(*) as total
+      SELECT COUNT(*)::int AS total
       FROM device_history
-      WHERE token_hash = $1
-      AND changed_at > NOW() - INTERVAL '30 days'
-    `, [tokenHash]);
+      WHERE token = $1
+      AND changed_at > NOW() - INTERVAL '24 hours'
+    `, [tokenHash])
 
-    const totalChanges = Number(history.rows[0].total || 0);
+    const changesToday = history.rows[0].total
 
-    // Si hay demasiados cambios, se marca sospechoso
-    if (totalChanges >= 5) {
-
+    if (changesToday >= 5) {
       await pool.query(`
         UPDATE access_tokens
-        SET blocked_until = NOW() + INTERVAL '30 days'
+        SET blocked_until = NOW() + INTERVAL '24 hours'
         WHERE token = $1
-      `, [tokenHash]);
+      `, [tokenHash])
 
       return res.status(403).json({
         valid: false,
-        error: "Acceso bloqueado por actividad sospechosa"
-      });
+        error: "Demasiados cambios de dispositivo. Acceso bloqueado 24 horas."
+      })
     }
 
-    // Reemplazar dispositivo autorizado
+    /* reemplazar dispositivo anterior */
     await pool.query(`
       UPDATE access_tokens
       SET
         device_id = $1,
         last_access = NOW()
       WHERE token = $2
-    `, [
-      deviceId,
-      tokenHash
-    ]);
+    `, [deviceId, tokenHash])
 
     return res.json({
       valid: true,
-      email: access.email,
-      status: "device_replaced"
-    });
+      status: "device_replaced",
+      email: tokenData.email
+    })
 
   } catch (err) {
-
-    console.error("VALIDATE TOKEN ERROR:", err);
+    console.error("VALIDATE ERROR:", err)
 
     return res.status(500).json({
       valid: false,
-      error: "Error interno validando acceso"
-    });
+      error: "Error interno"
+    })
   }
-});
-    
+})
 
 /* =========================================================
 ENDPOINT — ANALYTICS BÁSICO DE REVIEWS
