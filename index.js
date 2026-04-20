@@ -2545,172 +2545,169 @@ res.json(logs.rows);
   36- api/validate
   ==≈≈=========================================*/
 
-app.post("/api/validate-token", async (req, res) => {
+
+app.get("/api/validate-token", async (req, res) => {
   try {
-
     const rawToken = String(req.query.token || "")
-  .replace(/\s+/g, "")
-  .trim();
-    const email = (req.body.email || "").trim().toLowerCase()
+      .replace(/%0A/gi, "")
+      .replace(/%0D/gi, "")
+      .replace(/\r/g, "")
+      .replace(/\n/g, "")
+      .replace(/\s+/g, "")
+      .replace(/[^a-f0-9]/gi, "")
+      .toLowerCase()
+      .trim();
 
-    /* puedes construir el device_id desde headers para no cambiar los 170 tutores */
-    const deviceId = (
-      req.headers["x-device-id"] ||
-      req.headers["x-forwarded-for"] ||
-      req.ip ||
-      "unknown-device"
-    ).toString()
+    const email = String(req.query.email || "")
+      .trim()
+      .toLowerCase();
 
-    if (!rawToken) {
-      return res.status(400).json({
-        valid: false
-      })
+    const deviceId = String(req.query.device_id || "")
+      .trim()
+      .toLowerCase();
+
+    if (!rawToken || !email || !deviceId) {
+      return res.json({
+        valid: false,
+        error: "missing_data"
+      });
     }
 
     const tokenHash = crypto
       .createHash("sha256")
       .update(rawToken)
-      .digest("hex")
+      .digest("hex");
 
-    const result = await pool.query(`
+    console.log("TOKEN RECIBIDO:", req.query.token);
+    console.log("TOKEN LIMPIO:", rawToken);
+    console.log("HASH:", tokenHash);
+
+    const result = await pool.query(
+      `
       SELECT
+        token,
         email,
-        product,
         expires_at,
         device_id,
+        redirect_url,
+        activated_at,
         blocked_until
       FROM access_tokens
       WHERE token = $1
+        AND email = $2
       LIMIT 1
-    `, [tokenHash])
+      `,
+      [tokenHash, email]
+    );
 
     if (!result.rowCount) {
-      return res.status(200).json({
-        valid: false
-      })
+      return res.json({
+        valid: false,
+        error: "invalid_token"
+      });
     }
 
-    const tokenData = result.rows[0]
+    const row = result.rows[0];
 
-    /* si el tutor envía email, validarlo */
-    if (
-      email &&
-      tokenData.email &&
-      tokenData.email.toLowerCase() !== email
-    ) {
-      return res.status(200).json({
-        valid: false
-      })
+    if (new Date(row.expires_at) < new Date()) {
+      return res.json({
+        valid: false,
+        error: "expired_token"
+      });
     }
 
-    /* expirado */
-    if (new Date(tokenData.expires_at) < new Date()) {
-      return res.status(200).json({
-        valid: false
-      })
-    }
+    /* primer uso del token */
 
-    /* bloqueado por actividad sospechosa */
-    if (
-      tokenData.blocked_until &&
-      new Date(tokenData.blocked_until) > new Date()
-    ) {
-      return res.status(200).json({
-        valid: false
-      })
-    }
-
-    /* primer dispositivo */
-    if (!tokenData.device_id) {
-      await pool.query(`
+    if (!row.device_id) {
+      await pool.query(
+        `
         UPDATE access_tokens
         SET
           device_id = $1,
           activated_at = NOW(),
           last_access = NOW()
         WHERE token = $2
-      `, [deviceId, tokenHash])
+        `,
+        [deviceId, tokenHash]
+      );
 
-      return res.status(200).json({
+      await pool.query(
+        `
+        INSERT INTO device_history(token, device_id, changed_at)
+        VALUES($1, $2, NOW())
+        `,
+        [tokenHash, deviceId]
+      );
+
+      return res.json({
         valid: true,
-        email: tokenData.email,
-        product: tokenData.product,
-        expires_at: tokenData.expires_at
-      })
+        status: "first_device",
+        email: row.email,
+        redirect_url: row.redirect_url,
+        expires_at: row.expires_at
+      });
     }
 
     /* mismo dispositivo */
-    if (tokenData.device_id === deviceId) {
-      await pool.query(`
+
+    if (row.device_id === deviceId) {
+      await pool.query(
+        `
         UPDATE access_tokens
         SET last_access = NOW()
         WHERE token = $1
-      `, [tokenHash])
+        `,
+        [tokenHash]
+      );
 
-      return res.status(200).json({
+      return res.json({
         valid: true,
-        email: tokenData.email,
-        product: tokenData.product,
-        expires_at: tokenData.expires_at
-      })
+        status: "same_device",
+        email: row.email,
+        redirect_url: row.redirect_url,
+        expires_at: row.expires_at
+      });
     }
 
-    /* dispositivo nuevo:
-       se reemplaza el anterior y se guarda historial */
-    await pool.query(`
-      INSERT INTO device_history (
-        token,
-        old_device_id,
-        new_device_id,
-        changed_at
-      )
-      VALUES ($1, $2, $3, NOW())
-    `, [tokenHash, tokenData.device_id, deviceId])
+    /* nuevo dispositivo: reemplaza el anterior */
 
-    /* demasiados cambios = sospechoso */
-    const history = await pool.query(`
-      SELECT COUNT(*)::int AS total
-      FROM device_history
-      WHERE token = $1
-      AND changed_at > NOW() - INTERVAL '24 hours'
-    `, [tokenHash])
-
-    const changes = history.rows[0].total
-
-    if (changes >= 5) {
-      await pool.query(`
-        UPDATE access_tokens
-        SET blocked_until = NOW() + INTERVAL '24 hours'
-        WHERE token = $1
-      `, [tokenHash])
-
-      return res.status(200).json({
-        valid: false
-      })
-    }
-
-    /* autorizar nuevo dispositivo y anular el anterior */
-    await pool.query(`
+    await pool.query(
+      `
       UPDATE access_tokens
       SET
         device_id = $1,
         last_access = NOW()
       WHERE token = $2
-    `, [deviceId, tokenHash])
+      `,
+      [deviceId, tokenHash]
+    );
 
-    return res.status(200).json({
+    await pool.query(
+      `
+      INSERT INTO device_history(token, device_id, changed_at)
+      VALUES($1, $2, NOW())
+      `,
+      [tokenHash, deviceId]
+    );
+
+    return res.json({
       valid: true,
-      email: tokenData.email,
-      product: tokenData.product,
-      expires_at: tokenData.expires_at
-    })
+      status: "device_changed",
+      warning:
+        "El acceso fue movido a este dispositivo y el anterior quedó desactivado.",
+      email: row.email,
+      redirect_url: row.redirect_url,
+      expires_at: row.expires_at
+    });
 
-  } catch (err) {
-    console.error("VALIDATE TOKEN ERROR:", err)
+  } catch (error) {
+    console.error("VALIDATE ERROR:", error);
 
-    return res.status(200).json({
-      valid: false
-    })
+    return res.status(500).json({
+      valid: false,
+      error: "server_error",
+      detail: error.message
+    });
   }
 });
     
