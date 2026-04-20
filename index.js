@@ -5039,6 +5039,24 @@ app.get("/test-images", async (req, res) => {
   }
 });
 
+app.get("/create-device-id-column", async (req, res) => {
+  try {
+
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS device_id TEXT;
+    `);
+
+    res.send("device_id creado correctamente");
+
+  } catch (err) {
+
+    console.error("CREATE DEVICE ID COLUMN ERROR:", err);
+
+    res.status(500).send(err.message);
+
+  }
+});
 /*=========================================================
 START
 ==========≈================================================*/
