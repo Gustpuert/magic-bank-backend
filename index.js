@@ -2545,16 +2545,22 @@ res.json(logs.rows);
   36- api/validate
   ==≈≈=========================================*/
 
-
-    app.get("/api/validate", async (req, res) => {
+app.post("/api/validate-token", async (req, res) => {
   try {
-    const rawToken = (req.query.token || "").trim()
-    const deviceId = (req.query.device_id || "").trim()
+    const rawToken = (req.body.token || "").trim()
+    const email = (req.body.email || "").trim().toLowerCase()
 
-    if (!rawToken || !deviceId) {
+    /* puedes construir el device_id desde headers para no cambiar los 170 tutores */
+    const deviceId = (
+      req.headers["x-device-id"] ||
+      req.headers["x-forwarded-for"] ||
+      req.ip ||
+      "unknown-device"
+    ).toString()
+
+    if (!rawToken) {
       return res.status(400).json({
-        valid: false,
-        error: "Falta token o device_id"
+        valid: false
       })
     }
 
@@ -2566,44 +2572,52 @@ res.json(logs.rows);
     const result = await pool.query(`
       SELECT
         email,
-        device_id,
+        product,
         expires_at,
-        blocked_until,
-        last_access
+        device_id,
+        blocked_until
       FROM access_tokens
       WHERE token = $1
       LIMIT 1
     `, [tokenHash])
 
     if (!result.rowCount) {
-      return res.status(403).json({
-        valid: false,
-        error: "Token inválido"
+      return res.status(200).json({
+        valid: false
       })
     }
 
     const tokenData = result.rows[0]
 
-    /* vencido */
-    if (new Date(tokenData.expires_at) < new Date()) {
-      return res.status(403).json({
-        valid: false,
-        error: "Tu membresía de 30 días ya expiró"
+    /* si el tutor envía email, validarlo */
+    if (
+      email &&
+      tokenData.email &&
+      tokenData.email.toLowerCase() !== email
+    ) {
+      return res.status(200).json({
+        valid: false
       })
     }
 
-    /* bloqueado temporalmente */
+    /* expirado */
+    if (new Date(tokenData.expires_at) < new Date()) {
+      return res.status(200).json({
+        valid: false
+      })
+    }
+
+    /* bloqueado por actividad sospechosa */
     if (
       tokenData.blocked_until &&
       new Date(tokenData.blocked_until) > new Date()
     ) {
-      return res.status(403).json({
-        valid: false,
-        error: "Acceso temporalmente bloqueado"
+      return res.status(200).json({
+        valid: false
       })
     }
 
-    /* primer uso del token */
+    /* primer dispositivo */
     if (!tokenData.device_id) {
       await pool.query(`
         UPDATE access_tokens
@@ -2614,10 +2628,11 @@ res.json(logs.rows);
         WHERE token = $2
       `, [deviceId, tokenHash])
 
-      return res.json({
+      return res.status(200).json({
         valid: true,
-        status: "first_device",
-        email: tokenData.email
+        email: tokenData.email,
+        product: tokenData.product,
+        expires_at: tokenData.expires_at
       })
     }
 
@@ -2629,15 +2644,16 @@ res.json(logs.rows);
         WHERE token = $1
       `, [tokenHash])
 
-      return res.json({
+      return res.status(200).json({
         valid: true,
-        status: "same_device",
-        email: tokenData.email
+        email: tokenData.email,
+        product: tokenData.product,
+        expires_at: tokenData.expires_at
       })
     }
 
-    /* dispositivo diferente:
-       anulamos el anterior y autorizamos el nuevo */
+    /* dispositivo nuevo:
+       se reemplaza el anterior y se guarda historial */
     await pool.query(`
       INSERT INTO device_history (
         token,
@@ -2648,7 +2664,7 @@ res.json(logs.rows);
       VALUES ($1, $2, $3, NOW())
     `, [tokenHash, tokenData.device_id, deviceId])
 
-    /* detectar demasiados cambios */
+    /* demasiados cambios = sospechoso */
     const history = await pool.query(`
       SELECT COUNT(*)::int AS total
       FROM device_history
@@ -2656,22 +2672,21 @@ res.json(logs.rows);
       AND changed_at > NOW() - INTERVAL '24 hours'
     `, [tokenHash])
 
-    const changesToday = history.rows[0].total
+    const changes = history.rows[0].total
 
-    if (changesToday >= 5) {
+    if (changes >= 5) {
       await pool.query(`
         UPDATE access_tokens
         SET blocked_until = NOW() + INTERVAL '24 hours'
         WHERE token = $1
       `, [tokenHash])
 
-      return res.status(403).json({
-        valid: false,
-        error: "Demasiados cambios de dispositivo. Acceso bloqueado 24 horas."
+      return res.status(200).json({
+        valid: false
       })
     }
 
-    /* reemplazar dispositivo anterior */
+    /* autorizar nuevo dispositivo y anular el anterior */
     await pool.query(`
       UPDATE access_tokens
       SET
@@ -2680,21 +2695,22 @@ res.json(logs.rows);
       WHERE token = $2
     `, [deviceId, tokenHash])
 
-    return res.json({
+    return res.status(200).json({
       valid: true,
-      status: "device_replaced",
-      email: tokenData.email
+      email: tokenData.email,
+      product: tokenData.product,
+      expires_at: tokenData.expires_at
     })
 
   } catch (err) {
-    console.error("VALIDATE ERROR:", err)
+    console.error("VALIDATE TOKEN ERROR:", err)
 
-    return res.status(500).json({
-      valid: false,
-      error: "Error interno"
+    return res.status(200).json({
+      valid: false
     })
   }
 });
+    
 
 /* =========================================================
 ENDPOINT — ANALYTICS BÁSICO DE REVIEWS
