@@ -2547,7 +2547,10 @@ res.json(logs.rows);
 
 app.post("/api/validate-token", async (req, res) => {
   try {
-    const rawToken = (req.body.token || "").trim()
+
+    const rawToken = String(req.query.token || "")
+  .replace(/\s+/g, "")
+  .trim();
     const email = (req.body.email || "").trim().toLowerCase()
 
     /* puedes construir el device_id desde headers para no cambiar los 170 tutores */
