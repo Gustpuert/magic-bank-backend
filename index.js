@@ -5097,7 +5097,32 @@ app.get("/test-device-id", async (req, res) => {
     res.status(500).send(err.message);
   }
 });
+app.get("/temp/add-device-security-columns", async (req, res) => {
+  try {
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS full_name TEXT,
+      ADD COLUMN IF NOT EXISTS device_fingerprint TEXT,
+      ADD COLUMN IF NOT EXISTS device_change_used BOOLEAN DEFAULT FALSE,
+      ADD COLUMN IF NOT EXISTS first_login_at TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS behavior_signature JSONB,
+      ADD COLUMN IF NOT EXISTS blocked_until TIMESTAMP;
+    `);
 
+    res.json({
+      ok: true,
+      message: "Columnas de seguridad agregadas correctamente"
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      ok: false,
+      error: err.message
+    });
+  }
+});
 
 /*=========================================================
 START
