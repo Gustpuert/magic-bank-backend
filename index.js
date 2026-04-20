@@ -5163,7 +5163,97 @@ app.get("/test-token/:token", async (req, res) => {
   }
 });
 
+app.get("/api/validate-token", async (req, res) => {
+  try {
+    const rawToken = String(req.query.token || "")
+      .replace(/\s+/g, "")
+      .trim();
 
+    const email = String(req.query.email || "").trim().toLowerCase();
+    const deviceId = String(req.query.device_id || "").trim();
+
+    const tokenHash = crypto
+      .createHash("sha256")
+      .update(rawToken)
+      .digest("hex");
+
+    const r = await pool.query(
+      `
+      SELECT token, email, expires_at, device_id
+      FROM access_tokens
+      WHERE token = $1
+      AND email = $2
+      AND expires_at > NOW()
+      `,
+      [tokenHash, email]
+    );
+
+    if (!r.rowCount) {
+      return res.json({ valid: false });
+    }
+
+    const row = r.rows[0];
+
+    if (!row.device_id) {
+      await pool.query(
+        `
+        UPDATE access_tokens
+        SET device_id = $1,
+            activated_at = NOW(),
+            last_access = NOW()
+        WHERE token = $2
+        `,
+        [deviceId, tokenHash]
+      );
+
+      return res.json({
+        valid: true,
+        status: "first_device",
+        email
+      });
+    }
+
+    if (row.device_id === deviceId) {
+      await pool.query(
+        `
+        UPDATE access_tokens
+        SET last_access = NOW()
+        WHERE token = $1
+        `,
+        [tokenHash]
+      );
+
+      return res.json({
+        valid: true,
+        status: "same_device",
+        email
+      });
+    }
+
+    await pool.query(
+      `
+      UPDATE access_tokens
+      SET device_id = $1,
+          last_access = NOW()
+      WHERE token = $2
+      `,
+      [deviceId, tokenHash]
+    );
+
+    return res.json({
+      valid: true,
+      status: "device_changed",
+      email
+    });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({
+      valid: false,
+      error: err.message
+    });
+  }
+});
 /*=========================================================
 START
 ==========≈================================================*/
