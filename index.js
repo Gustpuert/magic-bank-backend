@@ -5057,6 +5057,28 @@ app.get("/create-device-id-column", async (req, res) => {
 
   }
 });
+
+app.get("/test-device-id", async (req, res) => {
+  try {
+
+    const result = await pool.query(`
+      SELECT
+        column_name,
+        data_type
+      FROM information_schema.columns
+      WHERE table_name = 'access_tokens'
+      AND column_name = 'device_id'
+    `);
+
+    res.json(result.rows);
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).send(err.message);
+  }
+});
+
+
 /*=========================================================
 START
 ==========≈================================================*/
