@@ -2694,7 +2694,7 @@ res.json(logs.rows);
       error: "Error interno"
     })
   }
-})
+});
 
 /* =========================================================
 ENDPOINT — ANALYTICS BÁSICO DE REVIEWS
