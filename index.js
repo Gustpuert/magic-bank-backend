@@ -479,8 +479,8 @@ app.get("/dashboard-pro-data", async (req, res) => {
 
       let status = "ok";
 
-      if (score < 60) status = "risk";
-      if (score < 40) status = "critical";
+      if (score < =60) status = "risk";
+      if (score < =40) status = "critical";
 
       let action = "Mantener";
 
