@@ -381,7 +381,49 @@ app.get("/dashboard-pro", async (req, res) => {
   }
 
 });
-        
+
+
+app.get("/dashboard-pro-data", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        f.product_name,
+        COUNT(*) as total_feedbacks,
+        ROUND(AVG(f.rating),2) as avg_rating,
+        COUNT(*) FILTER (WHERE f.category = 'clarity') as clarity_issues,
+        COUNT(*) FILTER (WHERE f.category = 'speed') as speed_issues,
+        COUNT(*) FILTER (WHERE f.category = 'interaction') as interaction_issues,
+        COUNT(*) FILTER (WHERE f.category = 'difficulty') as difficulty_issues,
+        COALESCE(d.abandonment_rate, 0) as abandonment_rate
+      FROM student_feedback f
+      LEFT JOIN (
+        SELECT
+          product_name,
+          ROUND(
+            COUNT(*) FILTER (
+              WHERE last_access < NOW() - INTERVAL '3 days'
+            ) * 100.0 / NULLIF(COUNT(*),0)
+          ,2) as abandonment_rate
+        FROM access_tokens
+        GROUP BY product_name
+      ) d
+      ON d.product_name = f.product_name
+      GROUP BY f.product_name, d.abandonment_rate
+      ORDER BY avg_rating DESC NULLS LAST
+    `);
+
+    res.json({
+      dashboard: result.rows
+    });
+
+  } catch (error) {
+    console.error("DASHBOARD PRO DATA ERROR:", error);
+
+    res.status(500).json({
+      error: "No se pudo cargar dashboard-pro-data"
+    });
+  }
+});
 
 app.get("/dashboard/pro/view", async (req, res) => {
 
@@ -478,7 +520,7 @@ app.get("/dashboard/pro/view", async (req, res) => {
         try {
 
           // ⚠️ Endpoint correcto
-          const response = await fetch('/dashboard-pro');
+          const response = await fetch('/dashboard-pro-data');
 
           // dashboard-pro actualmente devuelve HTML, no JSON
           // así que lo corregimos usando un endpoint JSON alterno
