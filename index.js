@@ -5056,7 +5056,58 @@ function copyAccess() {
 
 });
 
+app.get("/temp/create-access-tokens-table", async (req, res) => {
+  try {
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS access_tokens (
+        id SERIAL PRIMARY KEY,
 
+        token TEXT NOT NULL,
+        email TEXT NOT NULL,
+
+        product_id BIGINT,
+        product_name TEXT,
+        area TEXT,
+        redirect_url TEXT,
+
+        expires_at TIMESTAMP NOT NULL,
+
+        created_at TIMESTAMP DEFAULT NOW(),
+
+        token_uses INTEGER DEFAULT 0,
+        max_uses INTEGER DEFAULT 999,
+
+        device_id TEXT,
+        activated_at TIMESTAMP,
+        last_access TIMESTAMP,
+        last_device_change TIMESTAMP
+      );
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_access_tokens_token
+      ON access_tokens(token);
+    `);
+
+    await pool.query(`
+      CREATE INDEX IF NOT EXISTS idx_access_tokens_email
+      ON access_tokens(email);
+    `);
+
+    res.json({
+      ok: true,
+      message: "Tabla access_tokens creada o verificada correctamente"
+    });
+
+  } catch (error) {
+    console.error("CREATE TABLE ERROR:", error);
+
+    res.status(500).json({
+      ok: false,
+      error: error.message
+    });
+  }
+});
 
 /*=========================================================
 START
