@@ -13,15 +13,11 @@ import pkg from "pg";
 import cors from "cors";
 import QRCode from "qrcode";
 import PDFDocument from "pdfkit";
-
 import OpenAI from "openai";
 
-const express = require("express");
-const crypto = require("crypto");
-const { Pool } = require("pg");
+const { Pool } = pkg;
 
 const app = express();
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
