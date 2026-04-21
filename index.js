@@ -477,11 +477,16 @@ app.get("/dashboard-pro-data", async (req, res) => {
         friction = "no_feedback_high_abandonment";
       }
 
+    
+
       let status = "ok";
 
-      if (score < =60) status = "risk";
-      if (score < =40) status = "critical";
+if (score <= 40) {
+  status = "critical";
+} else if (score <= 60) {
+  status = "risk";
 
+}
       let action = "Mantener";
 
       if (friction === "entry_barrier") {
