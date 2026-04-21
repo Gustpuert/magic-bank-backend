@@ -470,12 +470,23 @@ app.get("/dashboard-pro-data", async (req, res) => {
   }
 
   return {
-    ...r,
-    score: Math.round(score),
-    friction,
-    status,
-    action
-  };
+  product_name: r.product_name,
+
+  total_feedbacks: Number(r.total_feedbacks || 0),
+  avg_rating: Number(r.avg_rating || 0),
+
+  clarity_issues: Number(r.clarity_issues || 0),
+  speed_issues: Number(r.speed_issues || 0),
+  interaction_issues: Number(r.interaction_issues || 0),
+  difficulty_issues: Number(r.difficulty_issues || 0),
+
+  abandonment_rate: Number(r.abandonment_rate || 0),
+
+  score: Math.round(score),
+  friction,
+  status,
+  action
+};
 });
 
 res.json({
