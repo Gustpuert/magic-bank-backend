@@ -2592,10 +2592,16 @@ app.all("/api/validate-token", async (req, res) => {
       "";
 
     const deviceId =
-      req.body?.device_id ||
-      req.query?.device_id ||
-      req.headers["x-device-id"] ||
-      null;
+  req.body?.device_id ||
+  req.query?.device_id ||
+  req.headers["x-device-id"] ||
+  crypto
+    .createHash("sha256")
+    .update(
+      String(req.headers["user-agent"] || "") +
+      String(req.ip || "")
+    )
+    .digest("hex");
 
     // =====================================================
     // 2. EXTRAER EMAIL
