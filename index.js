@@ -2545,12 +2545,24 @@ res.json(logs.rows);
 });
 
 /*≈≈=============================================
-  36- api/validate
-  ==≈≈=========================================*/
+  36- api/validate 
+  ===========================================*/
+
 const express = require("express");
+const crypto = require("crypto");
+const { Pool } = require("pg");
+
 const app = express();
 
+// Conexión PostgreSQL
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
 
+// IMPORTANTE: esto debe ir antes de todas las rutas
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
