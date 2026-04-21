@@ -510,7 +510,6 @@ app.get("/dashboard-pro-data", async (req, res) => {
 });
 
 app.get("/dashboard/pro/view", async (req, res) => {
-
   res.send(`
   <html>
   <head>
@@ -550,40 +549,33 @@ app.get("/dashboard/pro/view", async (req, res) => {
         background: #1e293b;
       }
 
-      .critical {
-        color: #ff4d4d;
-        font-weight: bold;
-      }
-
-      
-
       .score {
         font-weight: bold;
       }
 
       .loading {
         color: #94a3b8;
-        margin-top: 10px;
+        margin-bottom: 12px;
       }
+
+      .ok {
+        color: #22c55e;
+        font-weight: bold;
+      }
+
       .risk {
-  color: #facc15;
-  font-weight: bold;
-}
+        color: #facc15;
+        font-weight: bold;
+      }
 
-.critical {
-  color: #ef4444;
-  font-weight: bold;
-}
-
-.ok {
-  color: #22c55e;
-  font-weight: bold;
-}
+      .critical {
+        color: #ef4444;
+        font-weight: bold;
+      }
     </style>
   </head>
 
   <body>
-
     <h1>🧠 MagicBank Intelligence Dashboard</h1>
 
     <div class="loading" id="status">Cargando datos...</div>
@@ -606,14 +598,11 @@ app.get("/dashboard/pro/view", async (req, res) => {
 
     <script>
       async function load() {
-
         try {
+          const response = await fetch(
+            "https://magic-bank-backend-production-713e.up.railway.app/dashboard-pro-data?v=2"
+          );
 
-          // ⚠️ Endpoint correcto
-          const response = await fetch('/dashboard-pro-data');
-
-          // dashboard-pro actualmente devuelve HTML, no JSON
-          // así que lo corregimos usando un endpoint JSON alterno
           const data = await response.json();
 
           const tbody = document.getElementById("table");
@@ -621,50 +610,40 @@ app.get("/dashboard/pro/view", async (req, res) => {
 
           tbody.innerHTML = "";
 
-          // Compatibilidad por si devuelves rows o dashboard
-          const rows = data.dashboard || data.rows || [];
+          const rows = data.dashboard || [];
 
           rows.forEach(row => {
-
             const tr = document.createElement("tr");
 
             tr.innerHTML = \`
               <td>\${row.product_name || "-"}</td>
-              <td class="score">\${row.score || row.health_score || 0}</td>
+              <td class="score">\${row.score || 0}</td>
               <td>\${row.avg_rating || 0}</td>
               <td>\${row.abandonment_rate || 0}%</td>
-              <td class="\${row.status || 'ok'}">\${row.status || 'ok'}</td>
-              <td>\${row.friction || row.root_cause || "-"}</td>
+              <td class="\${row.status || "ok"}">\${row.status || "ok"}</td>
+              <td>\${row.friction || "-"}</td>
               <td>\${row.action || "-"}</td>
             \`;
 
             tbody.appendChild(tr);
-
           });
 
           status.innerText = "Actualizado correctamente";
-
         } catch (err) {
-
           console.error("DASHBOARD VIEW ERROR:", err);
 
           document.getElementById("status").innerText =
             "No se pudo cargar el dashboard.";
-
         }
       }
 
       load();
-
-      setInterval(load, 300000);
+      setInterval(load, 30000);
     </script>
-
   </body>
   </html>
   `);
-
 });
-
 
 /* =========================================================
 07 - AUTENTICACIÓN TIENDANUBE (OAUTH)
