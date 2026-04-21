@@ -477,7 +477,10 @@ app.get("/dashboard-pro-data", async (req, res) => {
         friction = "no_feedback_high_abandonment";
       }
 
-    
+    if (total === 0 && abandonment === 0) {
+  score = 100;
+  friction = "no_data";
+    }
 
       let status = "ok";
 
