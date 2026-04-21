@@ -537,15 +537,7 @@ app.get("/dashboard/pro/view", async (req, res) => {
         font-weight: bold;
       }
 
-      .risk {
-        color: #ffaa00;
-        font-weight: bold;
-      }
-
-      .ok {
-        color: #00ff88;
-        font-weight: bold;
-      }
+      
 
       .score {
         font-weight: bold;
@@ -555,6 +547,20 @@ app.get("/dashboard/pro/view", async (req, res) => {
         color: #94a3b8;
         margin-top: 10px;
       }
+      .risk {
+  color: #facc15;
+  font-weight: bold;
+}
+
+.critical {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+.ok {
+  color: #22c55e;
+  font-weight: bold;
+}
     </style>
   </head>
 
