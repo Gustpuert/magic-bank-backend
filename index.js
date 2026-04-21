@@ -412,9 +412,75 @@ app.get("/dashboard-pro-data", async (req, res) => {
       ORDER BY avg_rating DESC NULLS LAST
     `);
 
-    res.json({
-      dashboard: result.rows
-    });
+    const rows = result.rows.map(r => {
+
+  const total = Number(r.total_feedbacks || 0);
+  const rating = Number(r.avg_rating || 0);
+  const abandonment = Number(r.abandonment_rate || 0);
+
+  const clarity = Number(r.clarity_issues || 0);
+  const speed = Number(r.speed_issues || 0);
+  const interaction = Number(r.interaction_issues || 0);
+  const difficulty = Number(r.difficulty_issues || 0);
+
+  let score = 100;
+
+  score -= abandonment * 0.6;
+  score -= (5 - rating) * 10;
+
+  let friction = "none";
+
+  if (abandonment > 50 && rating > 4) {
+    friction = "entry_barrier";
+  } else if (clarity > total * 0.3) {
+    friction = "confusion";
+  } else if (speed > total * 0.3) {
+    friction = "pacing_problem";
+  } else if (interaction > total * 0.4) {
+    friction = "too_many_questions";
+  } else if (difficulty > total * 0.3) {
+    friction = "too_hard";
+  }
+
+  let status = "ok";
+
+  if (score < 60) status = "risk";
+  if (score < 40) status = "critical";
+
+  let action = "Mantener";
+
+  if (friction === "entry_barrier") {
+    action = "Simplificar onboarding";
+  }
+
+  if (friction === "confusion") {
+    action = "Mejorar claridad del tutor";
+  }
+
+  if (friction === "pacing_problem") {
+    action = "Reducir velocidad";
+  }
+
+  if (friction === "too_many_questions") {
+    action = "Reducir preguntas";
+  }
+
+  if (friction === "too_hard") {
+    action = "Bajar dificultad";
+  }
+
+  return {
+    ...r,
+    score: Math.round(score),
+    friction,
+    status,
+    action
+  };
+});
+
+res.json({
+  dashboard: rows
+});
 
   } catch (error) {
     console.error("DASHBOARD PRO DATA ERROR:", error);
