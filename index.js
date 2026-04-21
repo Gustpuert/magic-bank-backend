@@ -388,111 +388,118 @@ app.get("/dashboard-pro-data", async (req, res) => {
     const result = await pool.query(`
       SELECT
         f.product_name,
-        COUNT(*) as total_feedbacks,
-        ROUND(AVG(f.rating),2) as avg_rating,
-        COUNT(*) FILTER (WHERE f.category = 'clarity') as clarity_issues,
-        COUNT(*) FILTER (WHERE f.category = 'speed') as speed_issues,
-        COUNT(*) FILTER (WHERE f.category = 'interaction') as interaction_issues,
-        COUNT(*) FILTER (WHERE f.category = 'difficulty') as difficulty_issues,
-        COALESCE(d.abandonment_rate, 0) as abandonment_rate
+        COUNT(*) AS total_feedbacks,
+        ROUND(AVG(f.rating), 2) AS avg_rating,
+
+        COUNT(*) FILTER (WHERE f.category = 'clarity') AS clarity_issues,
+        COUNT(*) FILTER (WHERE f.category = 'speed') AS speed_issues,
+        COUNT(*) FILTER (WHERE f.category = 'interaction') AS interaction_issues,
+        COUNT(*) FILTER (WHERE f.category = 'difficulty') AS difficulty_issues,
+
+        COALESCE(d.abandonment_rate, 0) AS abandonment_rate
+
       FROM student_feedback f
+
       LEFT JOIN (
         SELECT
           product_name,
           ROUND(
             COUNT(*) FILTER (
               WHERE last_access < NOW() - INTERVAL '3 days'
-            ) * 100.0 / NULLIF(COUNT(*),0)
-          ,2) as abandonment_rate
+            ) * 100.0 / NULLIF(COUNT(*), 0),
+            2
+          ) AS abandonment_rate
         FROM access_tokens
         GROUP BY product_name
       ) d
       ON d.product_name = f.product_name
-      GROUP BY f.product_name, d.abandonment_rate
+
+      GROUP BY
+        f.product_name,
+        d.abandonment_rate
+
       ORDER BY avg_rating DESC NULLS LAST
     `);
 
-    const rows = result.rows.map(r => {
+    const rows = result.rows.map((r) => {
+      const total = Number(r.total_feedbacks || 0);
+      const rating = Number(r.avg_rating || 0);
+      const abandonment = Number(r.abandonment_rate || 0);
 
-  const total = Number(r.total_feedbacks || 0);
-  const rating = Number(r.avg_rating || 0);
-  const abandonment = Number(r.abandonment_rate || 0);
+      const clarity = Number(r.clarity_issues || 0);
+      const speed = Number(r.speed_issues || 0);
+      const interaction = Number(r.interaction_issues || 0);
+      const difficulty = Number(r.difficulty_issues || 0);
 
-  const clarity = Number(r.clarity_issues || 0);
-  const speed = Number(r.speed_issues || 0);
-  const interaction = Number(r.interaction_issues || 0);
-  const difficulty = Number(r.difficulty_issues || 0);
+      let score = 100;
 
-  let score = 100;
+      score -= abandonment * 0.6;
+      score -= (5 - rating) * 10;
 
-  score -= abandonment * 0.6;
-  score -= (5 - rating) * 10;
+      let friction = "none";
 
-  let friction = "none";
+      if (abandonment > 50 && rating > 4) {
+        friction = "entry_barrier";
+      } else if (clarity > total * 0.3) {
+        friction = "confusion";
+      } else if (speed > total * 0.3) {
+        friction = "pacing_problem";
+      } else if (interaction > total * 0.4) {
+        friction = "too_many_questions";
+      } else if (difficulty > total * 0.3) {
+        friction = "too_hard";
+      }
 
-  if (abandonment > 50 && rating > 4) {
-    friction = "entry_barrier";
-  } else if (clarity > total * 0.3) {
-    friction = "confusion";
-  } else if (speed > total * 0.3) {
-    friction = "pacing_problem";
-  } else if (interaction > total * 0.4) {
-    friction = "too_many_questions";
-  } else if (difficulty > total * 0.3) {
-    friction = "too_hard";
-  }
+      let status = "ok";
 
-  let status = "ok";
+      if (score < 60) status = "risk";
+      if (score < 40) status = "critical";
 
-  if (score < 60) status = "risk";
-  if (score < 40) status = "critical";
+      let action = "Mantener";
 
-  let action = "Mantener";
+      if (friction === "entry_barrier") {
+        action = "Simplificar onboarding";
+      }
 
-  if (friction === "entry_barrier") {
-    action = "Simplificar onboarding";
-  }
+      if (friction === "confusion") {
+        action = "Mejorar claridad del tutor";
+      }
 
-  if (friction === "confusion") {
-    action = "Mejorar claridad del tutor";
-  }
+      if (friction === "pacing_problem") {
+        action = "Reducir velocidad";
+      }
 
-  if (friction === "pacing_problem") {
-    action = "Reducir velocidad";
-  }
+      if (friction === "too_many_questions") {
+        action = "Reducir preguntas";
+      }
 
-  if (friction === "too_many_questions") {
-    action = "Reducir preguntas";
-  }
+      if (friction === "too_hard") {
+        action = "Bajar dificultad";
+      }
 
-  if (friction === "too_hard") {
-    action = "Bajar dificultad";
-  }
+      return {
+        product_name: r.product_name,
 
-  return {
-  product_name: r.product_name,
+        total_feedbacks: total,
+        avg_rating: rating,
 
-  total_feedbacks: Number(r.total_feedbacks || 0),
-  avg_rating: Number(r.avg_rating || 0),
+        clarity_issues: clarity,
+        speed_issues: speed,
+        interaction_issues: interaction,
+        difficulty_issues: difficulty,
 
-  clarity_issues: Number(r.clarity_issues || 0),
-  speed_issues: Number(r.speed_issues || 0),
-  interaction_issues: Number(r.interaction_issues || 0),
-  difficulty_issues: Number(r.difficulty_issues || 0),
+        abandonment_rate: abandonment,
 
-  abandonment_rate: Number(r.abandonment_rate || 0),
+        score: Math.round(score),
+        friction,
+        status,
+        action
+      };
+    });
 
-  score: Math.round(score),
-  friction,
-  status,
-  action
-};
-});
-
-res.json({
-  dashboard: rows
-});
-
+    res.json({
+      dashboard: rows
+    });
   } catch (error) {
     console.error("DASHBOARD PRO DATA ERROR:", error);
 
