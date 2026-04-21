@@ -5306,6 +5306,31 @@ app.get("/api/validate-token", async (req, res) => {
     });
   }
 });
+
+app.get("/temp/create-access-columns", async (req, res) => {
+  try {
+    await pool.query(`
+      ALTER TABLE access_tokens
+      ADD COLUMN IF NOT EXISTS device_id TEXT,
+      ADD COLUMN IF NOT EXISTS activated_at TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS last_access TIMESTAMP,
+      ADD COLUMN IF NOT EXISTS last_device_change TIMESTAMP;
+    `);
+
+    return res.json({
+      success: true,
+      message: "Columnas de control de acceso creadas correctamente"
+    });
+  } catch (error) {
+    console.error(error);
+
+    return res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 /*=========================================================
 START
 ==========≈================================================*/
