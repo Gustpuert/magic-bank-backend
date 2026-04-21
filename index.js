@@ -2546,9 +2546,14 @@ res.json(logs.rows);
   ==≈≈=========================================*/
 
 
-app.get("/api/validate-token", async (req, res) => {
+// IMPORTANTE: esto debe estar antes de tus rutas
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+app.post("/api/validate-token", async (req, res) => {
   try {
-    const rawToken = String(req.query.token || "")
+    // 1. leer token y correo tal como los envían los 170 tutores
+    const rawToken = String(req.body.token || "")
       .replace(/%0A/gi, "")
       .replace(/%0D/gi, "")
       .replace(/\r/g, "")
@@ -2558,30 +2563,44 @@ app.get("/api/validate-token", async (req, res) => {
       .toLowerCase()
       .trim();
 
-    const email = String(req.query.email || "")
+    const email = String(req.body.email || "")
       .trim()
       .toLowerCase();
 
-    const deviceId = String(req.query.device_id || "")
-      .trim()
-      .toLowerCase();
+    // 2. crear una huella automática del dispositivo
+    // no requiere cambiar ninguno de los tutores
+    const deviceId = String(
+      req.body.device_id ||
+      req.headers["x-forwarded-for"] ||
+      req.ip ||
+      req.headers["user-agent"] ||
+      "unknown-device"
+    )
+      .toLowerCase()
+      .trim();
 
-    if (!rawToken || !email || !deviceId) {
+    // debug temporal
+    console.log("BODY:", req.body);
+    console.log("TOKEN LIMPIO:", rawToken);
+    console.log("EMAIL:", email);
+    console.log("DEVICE:", deviceId);
+
+    if (!rawToken || !email) {
       return res.json({
-        valid: false,
-        error: "missing_data"
+        valid: false
       });
     }
 
+    // 3. convertir el token recibido al mismo hash que guardas en la BD
     const tokenHash = crypto
       .createHash("sha256")
       .update(rawToken)
       .digest("hex");
 
-    console.log("TOKEN RECIBIDO:", req.query.token);
-    console.log("TOKEN LIMPIO:", rawToken);
+    // debug temporal
     console.log("HASH:", tokenHash);
 
+    // 4. buscar el token en la base
     const result = await pool.query(
       `
       SELECT
@@ -2589,35 +2608,32 @@ app.get("/api/validate-token", async (req, res) => {
         email,
         expires_at,
         device_id,
-        redirect_url,
-        activated_at,
-        blocked_until
+        redirect_url
       FROM access_tokens
       WHERE token = $1
-        AND email = $2
+        AND LOWER(email) = $2
       LIMIT 1
       `,
       [tokenHash, email]
     );
 
+    // token no existe
     if (!result.rowCount) {
       return res.json({
-        valid: false,
-        error: "invalid_token"
+        valid: false
       });
     }
 
     const row = result.rows[0];
 
+    // token vencido
     if (new Date(row.expires_at) < new Date()) {
       return res.json({
-        valid: false,
-        error: "expired_token"
+        valid: false
       });
     }
 
-    /* primer uso del token */
-
+    // 5. primer acceso: registrar dispositivo
     if (!row.device_id) {
       await pool.query(
         `
@@ -2641,16 +2657,15 @@ app.get("/api/validate-token", async (req, res) => {
 
       return res.json({
         valid: true,
-        status: "first_device",
         email: row.email,
-        redirect_url: row.redirect_url,
-        expires_at: row.expires_at
+        product: row.redirect_url,
+        expires_at: row.expires_at,
+        status: "first_device"
       });
     }
 
-    /* mismo dispositivo */
-
-    if (row.device_id === deviceId) {
+    // 6. mismo dispositivo: acceso normal durante los 30 días
+    if (String(row.device_id).toLowerCase().trim() === deviceId) {
       await pool.query(
         `
         UPDATE access_tokens
@@ -2662,15 +2677,15 @@ app.get("/api/validate-token", async (req, res) => {
 
       return res.json({
         valid: true,
-        status: "same_device",
         email: row.email,
-        redirect_url: row.redirect_url,
-        expires_at: row.expires_at
+        product: row.redirect_url,
+        expires_at: row.expires_at,
+        status: "same_device"
       });
     }
 
-    /* nuevo dispositivo: reemplaza el anterior */
-
+    // 7. si entra desde otro dispositivo:
+    // reemplaza el anterior y el viejo queda desactivado
     await pool.query(
       `
       UPDATE access_tokens
@@ -2692,21 +2707,17 @@ app.get("/api/validate-token", async (req, res) => {
 
     return res.json({
       valid: true,
-      status: "device_changed",
-      warning:
-        "El acceso fue movido a este dispositivo y el anterior quedó desactivado.",
       email: row.email,
-      redirect_url: row.redirect_url,
-      expires_at: row.expires_at
+      product: row.redirect_url,
+      expires_at: row.expires_at,
+      status: "device_changed"
     });
 
   } catch (error) {
-    console.error("VALIDATE ERROR:", error);
+    console.error("VALIDATE TOKEN ERROR:", error);
 
-    return res.status(500).json({
-      valid: false,
-      error: "server_error",
-      detail: error.message
+    return res.json({
+      valid: false
     });
   }
 });
