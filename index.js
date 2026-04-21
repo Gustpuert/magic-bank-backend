@@ -2628,24 +2628,29 @@ app.all("/api/validate-token", async (req, res) => {
     // 6. BUSCAR EN LA COLUMNA CORRECTA: token
     // =====================================================
 
-    const result = await pool.query(
-      `
-      SELECT
-        id,
-        token,
-        email,
-        expires_at,
-        device_id,
-        activated_at,
-        last_access
-      FROM access_tokens
-      WHERE token = $1
-        AND LOWER(email) = LOWER($2)
-        AND expires_at > NOW()
-      LIMIT 1
-      `,
-      [cleanToken, email]
-    );
+    const tokenHash = crypto
+  .createHash("sha256")
+  .update(cleanToken)
+  .digest("hex");
+
+const result = await pool.query(
+  `
+  SELECT
+    id,
+    token,
+    email,
+    expires_at,
+    device_id,
+    activated_at,
+    last_access
+  FROM access_tokens
+  WHERE token = $1
+    AND LOWER(email) = LOWER($2)
+    AND expires_at > NOW()
+  LIMIT 1
+  `,
+  [tokenHash, email]
+);
 
     if (!result.rowCount) {
       console.log("Token no encontrado o expirado", {
