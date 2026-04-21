@@ -2539,7 +2539,6 @@ res.json(logs.rows);
   ===========================================*/
 
 
-
 app.all("/api/validate-token", async (req, res) => {
   try {
     // =====================================================
@@ -2723,6 +2722,7 @@ app.all("/api/validate-token", async (req, res) => {
     return res.json({ valid: false });
   }
 });
+
 /* =========================================================
 ENDPOINT — ANALYTICS BÁSICO DE REVIEWS
 ========================================================= */
