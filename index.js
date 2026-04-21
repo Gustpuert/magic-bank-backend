@@ -16,31 +16,21 @@ import PDFDocument from "pdfkit";
 
 import OpenAI from "openai";
 
-const { Pool } = pkg;
+const express = require("express");
+const crypto = require("crypto");
+const { Pool } = require("pg");
 
 const app = express();
 
-/* =========================================================
-02 - MIDDLEWARE DEL SERVIDOR
-Configuración base Express
-========================================================= */
-
-app.use(cors());
-app.use(express.json());
-
-/* =========================================================
-03 - CONEXIÓN BASE DE DATOS
-PostgreSQL Railway
-Pool optimizado para alto tráfico
-========================================================= */
-
 const pool = new Pool({
-connectionString: process.env.DATABASE_URL,
-ssl: { rejectUnauthorized: false },
-max: 20,
-idleTimeoutMillis: 30000,
-connectionTimeoutMillis: 2000
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
+
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 /* =========================================================
 04 - HEALTHCHECK DEL BACKEND
@@ -2548,23 +2538,7 @@ res.json(logs.rows);
   36- api/validate 
   ===========================================*/
 
-const express = require("express");
-const crypto = require("crypto");
-const { Pool } = require("pg");
 
-const app = express();
-
-// Conexión PostgreSQL
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
-});
-
-// IMPORTANTE: esto debe ir antes de todas las rutas
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 app.all("/api/validate-token", async (req, res) => {
   try {
