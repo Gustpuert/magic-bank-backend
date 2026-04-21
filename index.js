@@ -386,21 +386,7 @@ app.get("/dashboard-pro", async (req, res) => {
 app.get("/dashboard-pro-data", async (req, res) => {
   try {
     const result = await pool.query(`
-      SELECT
-        f.product_name,
-        COUNT(*) AS total_feedbacks,
-        ROUND(AVG(f.rating), 2) AS avg_rating,
-
-        COUNT(*) FILTER (WHERE f.category = 'clarity') AS clarity_issues,
-        COUNT(*) FILTER (WHERE f.category = 'speed') AS speed_issues,
-        COUNT(*) FILTER (WHERE f.category = 'interaction') AS interaction_issues,
-        COUNT(*) FILTER (WHERE f.category = 'difficulty') AS difficulty_issues,
-
-        COALESCE(d.abandonment_rate, 0) AS abandonment_rate
-
-      FROM student_feedback f
-
-      LEFT JOIN (
+      WITH abandonment AS (
         SELECT
           product_name,
           ROUND(
@@ -411,14 +397,47 @@ app.get("/dashboard-pro-data", async (req, res) => {
           ) AS abandonment_rate
         FROM access_tokens
         GROUP BY product_name
-      ) d
-      ON d.product_name = f.product_name
+      )
+
+      SELECT
+        a.product_name,
+
+        COUNT(f.id) AS total_feedbacks,
+        ROUND(COALESCE(AVG(f.rating), 0), 2) AS avg_rating,
+
+        COUNT(*) FILTER (
+          WHERE f.category = 'clarity'
+        ) AS clarity_issues,
+
+        COUNT(*) FILTER (
+          WHERE f.category = 'speed'
+        ) AS speed_issues,
+
+        COUNT(*) FILTER (
+          WHERE f.category = 'interaction'
+        ) AS interaction_issues,
+
+        COUNT(*) FILTER (
+          WHERE f.category = 'difficulty'
+        ) AS difficulty_issues,
+
+        COALESCE(ab.abandonment_rate, 0) AS abandonment_rate
+
+      FROM access_tokens a
+
+      LEFT JOIN student_feedback f
+        ON f.product_name = a.product_name
+
+      LEFT JOIN abandonment ab
+        ON ab.product_name = a.product_name
 
       GROUP BY
-        f.product_name,
-        d.abandonment_rate
+        a.product_name,
+        ab.abandonment_rate
 
-      ORDER BY avg_rating DESC NULLS LAST
+      ORDER BY
+        COALESCE(ab.abandonment_rate, 0) DESC,
+        avg_rating ASC
     `);
 
     const rows = result.rows.map((r) => {
@@ -436,9 +455,15 @@ app.get("/dashboard-pro-data", async (req, res) => {
       score -= abandonment * 0.6;
       score -= (5 - rating) * 10;
 
+      if (total === 0) {
+        score -= 10;
+      }
+
+      if (score < 0) score = 0;
+
       let friction = "none";
 
-      if (abandonment > 50 && rating > 4) {
+      if (abandonment > 50 && rating >= 4) {
         friction = "entry_barrier";
       } else if (clarity > total * 0.3) {
         friction = "confusion";
@@ -448,6 +473,8 @@ app.get("/dashboard-pro-data", async (req, res) => {
         friction = "too_many_questions";
       } else if (difficulty > total * 0.3) {
         friction = "too_hard";
+      } else if (abandonment > 50 && total === 0) {
+        friction = "no_feedback_high_abandonment";
       }
 
       let status = "ok";
@@ -475,6 +502,10 @@ app.get("/dashboard-pro-data", async (req, res) => {
 
       if (friction === "too_hard") {
         action = "Bajar dificultad";
+      }
+
+      if (friction === "no_feedback_high_abandonment") {
+        action = "Revisar acceso y solicitar feedback";
       }
 
       return {
