@@ -648,7 +648,8 @@ app.get("/dashboard/pro/view", async (req, res) => {
       }
 
       load();
-      setInterval(load, 5000);
+
+      setInterval(load, 300000);
     </script>
 
   </body>
