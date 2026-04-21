@@ -2569,66 +2569,52 @@ app.use(express.urlencoded({ extended: true }));
 app.all("/api/validate-token", async (req, res) => {
   try {
     // =====================================================
-    // 1. RECIBIR DATOS DEL TUTOR
-    // Compatible con:
-    // - GET  ?token=...&email=...&device_id=...
-    // - POST JSON { token, email, device_id }
-    // - Texto completo pegado por el tutor:
-    //   Correo: usuario@email.com
-    //   Token:
-    //   abc123...
+    // 1. RECIBIR LO QUE ENVÍA EL TUTOR
     // =====================================================
 
-    const incomingRaw =
+    const incomingRaw = String(
       req.body?.token ||
       req.body?.message ||
       req.body?.text ||
       req.query?.token ||
-      "";
-
-    const explicitEmail =
-      req.body?.email ||
-      req.query?.email ||
-      "";
-
-    const deviceId =
-  req.body?.device_id ||
-  req.query?.device_id ||
-  req.headers["x-device-id"] ||
-  crypto
-    .createHash("sha256")
-    .update(
-      String(req.headers["user-agent"] || "") +
-      String(req.ip || "")
-    )
-    .digest("hex");
-
-    // =====================================================
-    // 2. EXTRAER EMAIL
-    // =====================================================
-
-    const emailMatch = String(incomingRaw).match(
-      /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i
+      ""
     );
 
-    const email = String(
-      explicitEmail || (emailMatch ? emailMatch[0] : "")
+    const explicitEmail = String(
+      req.body?.email ||
+      req.query?.email ||
+      ""
     )
       .trim()
       .toLowerCase();
 
     // =====================================================
-    // 3. LIMPIAR Y RECONSTRUIR TOKEN
-    // Reconstruye el token aunque venga partido
-    // en varias líneas o mezclado con texto.
+    // 2. EXTRAER EMAIL
     // =====================================================
 
-    const cleanToken = String(incomingRaw)
+    const emailMatch = incomingRaw.match(
+      /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i
+    );
+
+    const email = (
+      explicitEmail ||
+      (emailMatch ? emailMatch[0] : "")
+    )
+      .trim()
+      .toLowerCase();
+
+    // =====================================================
+    // 3. LIMPIAR TOKEN
+    // Reconstruye el token aunque venga partido en líneas
+    // =====================================================
+
+    let cleanToken = incomingRaw
       .replace(/correo\s*:[^\n\r]*/gi, "")
       .replace(/token\s*:/gi, "")
       .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "")
-      .replace(/[\r\n\s]/g, "")
-      .replace(/[^a-f0-9]/gi, "")
+      .replace(/%0A/gi, "")
+      .replace(/[\r\n\t ]+/g, "")
+      .replace(/[^a-fA-F0-9]/g, "")
       .toLowerCase()
       .trim();
 
@@ -2636,54 +2622,68 @@ app.all("/api/validate-token", async (req, res) => {
     // 4. VALIDACIÓN BÁSICA
     // =====================================================
 
-    if (!email || !cleanToken || !deviceId) {
-      console.log("Falta email, token o device_id");
+    if (!email || !cleanToken) {
+      console.log("Falta email o token", { email, cleanToken });
       return res.json({ valid: false });
     }
 
-    // Un token SHA256 válido tiene 64 caracteres
     if (cleanToken.length !== 64) {
-      console.log("Token inválido por longitud:", cleanToken.length);
+      console.log("Token inválido por longitud", cleanToken.length);
       return res.json({ valid: false });
     }
 
     // =====================================================
-    // 5. PREPARAR DOBLE BÚSQUEDA
-    // Algunos tokens están guardados directos
-    // y otros pueden estar hasheados una vez más.
+    // 5. GENERAR DEVICE_ID SI EL TUTOR NO LO ENVÍA
     // =====================================================
 
-    const doubleHash = crypto
-      .createHash("sha256")
-      .update(cleanToken)
-      .digest("hex");
+    let deviceId =
+      req.body?.device_id ||
+      req.query?.device_id ||
+      req.headers["x-device-id"] ||
+      null;
+
+    if (!deviceId) {
+      const ua = req.headers["user-agent"] || "unknown";
+      const ip =
+        req.headers["x-forwarded-for"] ||
+        req.socket?.remoteAddress ||
+        "unknown";
+
+      deviceId = crypto
+        .createHash("sha256")
+        .update(`${ua}|${ip}`)
+        .digest("hex");
+    }
 
     // =====================================================
-    // 6. BUSCAR TOKEN + EMAIL + VIGENCIA
+    // 6. BUSCAR EN LA COLUMNA CORRECTA: token
     // =====================================================
 
     const result = await pool.query(
       `
       SELECT
+        id,
         token,
         email,
         expires_at,
         device_id,
         activated_at,
-        last_access,
-        last_device_change
+        last_access
       FROM access_tokens
-      WHERE
-        (token = $1 OR token = $2)
-        AND LOWER(email) = LOWER($3)
+      WHERE token = $1
+        AND LOWER(email) = LOWER($2)
         AND expires_at > NOW()
       LIMIT 1
       `,
-      [cleanToken, doubleHash, email]
+      [cleanToken, email]
     );
 
     if (!result.rowCount) {
-      console.log("Token no encontrado, expirado o email incorrecto");
+      console.log("Token no encontrado o expirado", {
+        email,
+        token: cleanToken
+      });
+
       return res.json({ valid: false });
     }
 
@@ -2691,15 +2691,12 @@ app.all("/api/validate-token", async (req, res) => {
 
     // =====================================================
     // 7. CONTROL DE DISPOSITIVO
-    //
-    // - Primer uso: guarda el dispositivo
-    // - Mismo dispositivo: acceso válido
+    // - Primer acceso: guarda el dispositivo
+    // - Mismo dispositivo: acceso normal
     // - Otro dispositivo: reemplaza el anterior
-    //   y el anterior queda invalidado
     // =====================================================
 
     if (!access.device_id) {
-      // Primer dispositivo
       await pool.query(
         `
         UPDATE access_tokens
@@ -2707,38 +2704,34 @@ app.all("/api/validate-token", async (req, res) => {
           device_id = $1,
           activated_at = NOW(),
           last_access = NOW()
-        WHERE token = $2
+        WHERE id = $2
         `,
-        [deviceId, access.token]
+        [deviceId, access.id]
       );
 
       console.log("Primer dispositivo registrado:", deviceId);
     } else if (String(access.device_id) === String(deviceId)) {
-      // Mismo dispositivo
       await pool.query(
         `
         UPDATE access_tokens
-        SET
-          last_access = NOW()
-        WHERE token = $1
+        SET last_access = NOW()
+        WHERE id = $1
         `,
-        [access.token]
+        [access.id]
       );
 
-      console.log("Acceso válido desde el mismo dispositivo");
+      console.log("Acceso desde el mismo dispositivo");
     } else {
-      // Nuevo dispositivo: reemplaza el anterior
       await pool.query(
         `
         UPDATE access_tokens
         SET
           device_id = $1,
           last_device_change = NOW(),
-          last_access = NOW(),
-          activated_at = COALESCE(activated_at, NOW())
-        WHERE token = $2
+          last_access = NOW()
+        WHERE id = $2
         `,
-        [deviceId, access.token]
+        [deviceId, access.id]
       );
 
       console.log(
@@ -2747,19 +2740,15 @@ app.all("/api/validate-token", async (req, res) => {
     }
 
     // =====================================================
-    // 8. RESPUESTA EXACTA PARA LOS TUTORES MAGICBANK
-    // No agregar más campos porque los 170 tutores
-    // solo esperan: { valid: true }
+    // 8. RESPUESTA EXACTA QUE ESPERAN LOS 170 TUTORES
     // =====================================================
 
     return res.json({ valid: true });
   } catch (error) {
     console.error("Error en /api/validate-token:", error);
-
     return res.json({ valid: false });
   }
 });
-
 /* =========================================================
 ENDPOINT — ANALYTICS BÁSICO DE REVIEWS
 ========================================================= */
